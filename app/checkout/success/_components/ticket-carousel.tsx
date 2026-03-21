@@ -44,7 +44,6 @@ export default function TicketCarousel({ children }: { children: React.ReactNode
       onMouseUp={stopDrag}
       onMouseLeave={stopDrag}
       className="flex gap-6 overflow-x-auto snap-x snap-mandatory px-4 pb-4 scroll-smooth cursor-grab select-none"
-      style={{ scrollbarWidth: 'none' }}
     >
       {children}
     </div>
