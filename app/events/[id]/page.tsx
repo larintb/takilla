@@ -23,22 +23,17 @@ export default async function EventDetailPage({
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
-  const { data: event } = await supabase
-    .from('events')
-    .select('*, venues(name, city, address, capacity)')
-    .eq('id', id)
-    .eq('status', 'published')
-    .single()
+  const [
+    { data: event },
+    { data: tiers },
+    { data: { user } },
+  ] = await Promise.all([
+    supabase.from('events').select('*, venues(name, city, address, capacity)').eq('id', id).eq('status', 'published').single(),
+    supabase.from('ticket_tiers').select('*').eq('event_id', id).order('price'),
+    supabase.auth.getUser(),
+  ])
 
   if (!event) notFound()
-
-  const { data: tiers } = await supabase
-    .from('ticket_tiers')
-    .select('*')
-    .eq('event_id', id)
-    .order('price')
-
-  const { data: { user } } = await supabase.auth.getUser()
 
   const venue = (event.venues ?? null) as VenueInfo | null
   const imageUrl = resolveEventImageUrl(supabase, event.image_url)

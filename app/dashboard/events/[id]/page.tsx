@@ -25,29 +25,17 @@ export default async function EventDetailPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: event } = await supabase
-    .from('events')
-    .select('*, venues(name, city)')
-    .eq('id', id)
-    .single()
+  const [{ data: event }, { data: profile }, { data: tiers }] = await Promise.all([
+    supabase.from('events').select('*, venues(name, city)').eq('id', id).single(),
+    supabase.from('profiles').select('role').eq('id', user.id).single(),
+    supabase.from('ticket_tiers').select('*').eq('event_id', id).order('price'),
+  ])
 
   if (!event) notFound()
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
 
   const isOwner = event.organizer_id === user.id
   const isAdmin = profile?.role === 'admin'
   if (!isOwner && !isAdmin) redirect('/dashboard')
-
-  const { data: tiers } = await supabase
-    .from('ticket_tiers')
-    .select('*')
-    .eq('event_id', id)
-    .order('price')
 
   const venue = (event.venues ?? null) as VenueInfo | null
   const imageUrl = resolveEventImageUrl(supabase, event.image_url)

@@ -19,18 +19,14 @@ export default async function Home() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
-  const { data: { user } } = await supabase.auth.getUser()
-
-  const { data: events } = await supabase
-    .from('events')
-    .select(`
+  const [{ data: { user } }, { data: events }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.from('events').select(`
       id, title, event_date, image_url,
       venues(name, city),
       ticket_tiers(price)
-    `)
-    .eq('status', 'published')
-    .order('event_date', { ascending: true })
-    .limit(6)
+    `).eq('status', 'published').order('event_date', { ascending: true }).limit(6),
+  ])
 
   return (
     <div className="min-h-screen bg-white flex flex-col">

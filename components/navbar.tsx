@@ -1,9 +1,22 @@
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { Ticket } from 'lucide-react'
+import { cacheLife } from 'next/cache'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import NavbarUserMenu from './navbar-user-menu'
+
+async function getProfile(userId: string) {
+  'use cache'
+  cacheLife('minutes')
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('profiles')
+    .select('full_name, role')
+    .eq('id', userId)
+    .single()
+  return data
+}
 
 const menuByRole: Record<string, { label: string; href: string }[]> = {
   customer: [
@@ -60,13 +73,7 @@ export default async function Navbar() {
     )
   }
 
-  // Use admin client to bypass RLS for profile fetch
-  const admin = createAdminClient()
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('full_name, role')
-    .eq('id', user.id)
-    .single()
+  const profile = await getProfile(user.id)
 
   const role        = profile?.role ?? 'customer'
   const displayName = profile?.full_name || user.email || 'Usuario'
