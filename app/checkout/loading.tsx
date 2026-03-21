@@ -1,15 +1,6 @@
 export default function CheckoutLoading() {
   return (
-    <div className="min-h-screen bg-zinc-50 flex flex-col">
-      {/* Static navbar skeleton — avoids dynamic Supabase calls during prerender */}
-      <header className="bg-white border-b border-zinc-200 h-14">
-        <div className="max-w-6xl mx-auto px-4 h-full flex items-center justify-between">
-          <div className="h-4 w-20 bg-zinc-200 animate-pulse rounded" />
-          <div className="h-8 w-24 bg-zinc-200 animate-pulse rounded-lg" />
-        </div>
-      </header>
-
-      <main className="flex-1 flex items-start justify-center px-4 py-10">
+    <main className="flex-1 flex items-start justify-center px-4 py-10">
         <div className="w-full max-w-md space-y-4">
           <div className="h-4 w-28 bg-zinc-200 animate-pulse rounded" />
 
@@ -48,7 +39,6 @@ export default function CheckoutLoading() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+    </main>
   )
 }

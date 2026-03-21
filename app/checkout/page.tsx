@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { resolveEventImageUrl } from '@/utils/supabase/storage'
 import { ArrowLeft, CalendarDays, MapPin, Ticket } from 'lucide-react'
-import Navbar from '@/components/navbar'
 import { startStripeCheckout } from './actions'
 import SubmitButton from './_components/submit-button'
 
@@ -69,10 +68,7 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
   })
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex flex-col">
-      <Navbar />
-
-      <main className="flex-1 flex items-start justify-center px-4 py-10">
+    <main className="flex-1 flex items-start justify-center px-4 py-10">
         <div className="w-full max-w-md space-y-4">
 
           {/* Back */}
@@ -177,7 +173,6 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
 
           </div>
         </div>
-      </main>
-    </div>
+    </main>
   )
 }

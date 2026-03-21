@@ -40,6 +40,7 @@ export default async function CheckoutSuccessPage({
       : null
 
     return (
+      <main className="flex-1 px-4">
       <div className={`max-w-md mx-auto py-8 space-y-6 ${vt323.className}`}>
         <div className="text-center space-y-2">
           <p className="text-5xl tracking-widest text-red-700 uppercase">Boletos agotados</p>
@@ -73,11 +74,13 @@ export default async function CheckoutSuccessPage({
           </Link>
         </div>
       </div>
+      </main>
     )
   }
 
   if (result.status === 'error') {
     return (
+      <main className="flex-1 px-4">
       <div className={`max-w-md mx-auto py-8 space-y-6 ${vt323.className}`}>
         <div className="text-center">
           <p className="text-5xl tracking-widest text-zinc-700 uppercase">Algo salió mal</p>
@@ -102,6 +105,7 @@ export default async function CheckoutSuccessPage({
           </Link>
         </div>
       </div>
+      </main>
     )
   }
 
@@ -109,6 +113,7 @@ export default async function CheckoutSuccessPage({
   const { tickets } = result
 
   return (
+    <main className="flex-1 px-4">
     <div className="max-w-md mx-auto py-8 space-y-8">
       <div className={`text-center ${vt323.className}`}>
         <p className="text-6xl tracking-widest text-green-700 uppercase">¡Pago exitoso!</p>
@@ -136,6 +141,7 @@ export default async function CheckoutSuccessPage({
         </Link>
       </div>
     </div>
+    </main>
   )
 }
 

@@ -1,12 +1,13 @@
+import Navbar from '@/components/navbar'
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50">
-      <div className="w-full max-w-md px-4">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-zinc-900">Takilla</h1>
-          <p className="text-zinc-500 mt-1">Boletos para tu ciudad</p>
+    <div className="min-h-screen flex flex-col bg-zinc-50">
+      <Navbar />
+      <div className="flex-1 flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md">
+          {children}
         </div>
-        {children}
       </div>
     </div>
   )
