@@ -25,7 +25,7 @@ export default function RetroTicketWallet({ tickets }: { tickets: TicketData[] }
   return (
     <>
       {/* Ticket grid — wallet style */}
-      <div className={`grid gap-4 sm:grid-cols-2 ${vt323.className}`}>
+      <div className={`grid gap-4 ${tickets.length > 1 ? 'sm:grid-cols-2' : 'max-w-sm mx-auto'} ${vt323.className}`}>
         {tickets.map(ticket => (
           <button
             key={ticket.id}
