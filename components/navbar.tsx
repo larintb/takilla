@@ -1,6 +1,6 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { cookies } from 'next/headers'
-import { Ticket } from 'lucide-react'
 import { unstable_cache } from 'next/cache'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/utils/supabase/admin'
@@ -55,9 +55,11 @@ export default async function Navbar() {
     return (
       <header className="bg-white border-b border-zinc-200 relative z-40">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 font-bold text-zinc-900">
-            <Ticket size={18} />
-            Takilla
+          <Link href="/" className="flex items-center gap-2">
+            <Image src="/images/Artboard 1.png" alt="Takilla" width={28} height={28} className="rounded-md" />
+            <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 bg-clip-text text-transparent font-bold text-lg tracking-tight">
+              Takilla
+            </span>
           </Link>
           <div className="flex items-center gap-3 text-sm">
             <Link href="/login" className="text-zinc-600 hover:text-zinc-900 transition-colors">
@@ -65,7 +67,7 @@ export default async function Navbar() {
             </Link>
             <Link
               href="/signup"
-              className="px-4 py-1.5 rounded-lg bg-zinc-900 text-white font-medium hover:bg-zinc-700 transition-colors"
+              className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white font-medium hover:from-amber-500 hover:via-orange-600 hover:to-red-700 transition-all"
             >
               Registrarse
             </Link>

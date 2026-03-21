@@ -18,8 +18,8 @@ export default function SubmitButton({
         relative w-full py-3 rounded-xl text-white font-semibold
         overflow-hidden transition-all duration-300
         ${pending
-          ? 'bg-emerald-600 scale-[0.98]'
-          : 'bg-zinc-900 hover:bg-zinc-700 active:scale-[0.98]'
+          ? 'bg-gradient-to-r from-orange-500 to-red-600 scale-[0.98]'
+          : 'bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 hover:from-amber-500 hover:via-orange-600 hover:to-red-700 active:scale-[0.98]'
         }
       `}
     >

@@ -32,15 +32,15 @@ export default async function EventsPage() {
   return (
     <>
       {/* Banner */}
-      <section className="bg-zinc-900 text-white">
+      <section className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white">
         <div className="max-w-6xl mx-auto px-4 py-16 space-y-3">
-          <p className="text-zinc-400 text-sm font-medium uppercase tracking-widest">
+          <p className="text-white/70 text-sm font-medium uppercase tracking-widest">
             Plataforma de boletos regional
           </p>
           <h1 className="text-4xl font-bold leading-tight">
             Todos los eventos
           </h1>
-          <p className="text-zinc-400 text-lg max-w-xl">
+          <p className="text-white/80 text-lg max-w-xl">
             Conciertos, festivales y eventos en vivo cerca de ti.
           </p>
         </div>

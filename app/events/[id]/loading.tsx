@@ -2,7 +2,7 @@ export default function EventDetailLoading() {
   return (
     <>
       {/* Banner skeleton */}
-      <div className="w-full h-64 md:h-[420px] bg-zinc-800 animate-pulse relative">
+      <div className="w-full h-64 md:h-[420px] bg-gradient-to-r from-amber-300 via-orange-400 to-red-500 animate-pulse relative">
         <div className="absolute inset-x-0 bottom-0 px-4 pb-6">
           <div className="max-w-5xl mx-auto space-y-2">
             <div className="h-9 w-2/3 bg-zinc-700 animate-pulse rounded" />

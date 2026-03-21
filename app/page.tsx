@@ -35,33 +35,55 @@ export default async function Home() {
       <Navbar />
 
       {/* Hero */}
-      <section className="bg-zinc-900 text-white">
+      <section className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white">
         <div className="max-w-6xl mx-auto px-4 py-24 text-center space-y-6">
-          <p className="text-zinc-400 text-sm font-medium uppercase tracking-widest">
+          <p className="text-white/70 text-sm font-medium uppercase tracking-widest">
             Plataforma de boletos regional
           </p>
           <h1 className="text-5xl font-bold leading-tight max-w-2xl mx-auto">
             Boletos para lo que pasa en tu ciudad
           </h1>
-          <p className="text-zinc-400 text-lg max-w-xl mx-auto">
+          <p className="text-white/80 text-lg max-w-xl mx-auto">
             Compra boletos para conciertos, festivales y eventos locales. Validación instantánea con QR.
           </p>
           <div className="flex items-center justify-center gap-3 pt-2">
             <LinkButton
               href="/events"
-              className="px-6 py-3 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-100"
+              className="px-6 py-3 rounded-xl bg-white text-orange-600 font-semibold hover:bg-orange-50"
             >
               Ver eventos
             </LinkButton>
             {!user && (
               <LinkButton
                 href="/signup"
-                className="px-6 py-3 rounded-xl border border-zinc-700 text-white font-semibold hover:bg-zinc-800"
+                className="px-6 py-3 rounded-xl border border-white/40 text-white font-semibold hover:bg-white/10"
               >
                 Crear cuenta gratis
               </LinkButton>
             )}
           </div>
+        </div>
+      </section>
+
+      {/* Categories */}
+      <section className="max-w-6xl mx-auto px-4 pt-12 pb-4 w-full">
+        <h2 className="text-lg font-bold text-zinc-900 mb-5">Explora por categoría</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Música',        img: '/images/musica.2.png'        },
+            { label: 'Arte',          img: '/images/arte.2.png'          },
+            { label: 'Evento social', img: '/images/evento social.png'   },
+            { label: 'Vida nocturna', img: '/images/vida nocturna.2.png' },
+          ].map(cat => (
+            <Link
+              key={cat.label}
+              href="/events"
+              className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-zinc-100 hover:border-orange-200 hover:bg-orange-50/40 transition-all group"
+            >
+              <Image src={cat.img} alt={cat.label} width={64} height={64} className="group-hover:scale-105 transition-transform duration-200" />
+              <span className="text-sm font-medium text-zinc-700 group-hover:text-orange-600 transition-colors">{cat.label}</span>
+            </Link>
+          ))}
         </div>
       </section>
 
@@ -161,7 +183,7 @@ export default async function Home() {
               },
             ].map(f => (
               <div key={f.title} className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-3">
-                <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-700">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-red-600 flex items-center justify-center text-white">
                   {f.icon}
                 </div>
                 <p className="font-semibold text-zinc-900">{f.title}</p>
@@ -176,8 +198,9 @@ export default async function Home() {
       <footer className="border-t border-zinc-100 py-6">
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between text-sm text-zinc-400">
           <div className="flex items-center gap-1.5">
-            <Ticket size={14} />
-            <span>Takilla</span>
+            <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 bg-clip-text text-transparent font-semibold">
+              Takilla
+            </span>
           </div>
           <p>Boletos para tu ciudad</p>
         </div>

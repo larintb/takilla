@@ -2,7 +2,7 @@ export default function EventsLoading() {
   return (
     <>
       {/* Banner skeleton */}
-      <div className="bg-zinc-800 animate-pulse">
+      <div className="bg-gradient-to-r from-amber-300 via-orange-400 to-red-500 animate-pulse">
         <div className="max-w-6xl mx-auto px-4 py-16 space-y-3">
           <div className="h-3 w-40 bg-zinc-700 animate-pulse rounded" />
           <div className="h-10 w-56 bg-zinc-700 animate-pulse rounded" />

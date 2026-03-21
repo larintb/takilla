@@ -43,7 +43,7 @@ export default function NavbarUserMenu({ userName, roleLabel, menuItems }: Props
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-700 transition-colors"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white text-sm font-medium hover:from-amber-500 hover:via-orange-600 hover:to-red-700 transition-all"
       >
         Mi cuenta
         <ChevronDown

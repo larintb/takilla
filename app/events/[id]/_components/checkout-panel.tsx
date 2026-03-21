@@ -63,8 +63,8 @@ export default function CheckoutPanel({
           relative w-full py-2.5 rounded-xl text-sm font-semibold
           overflow-hidden transition-all duration-300
           ${confirmed
-            ? 'bg-emerald-600 text-white scale-[0.98]'
-            : 'bg-zinc-900 text-white hover:bg-zinc-700 active:scale-[0.98]'
+            ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white scale-[0.98]'
+            : 'bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white hover:from-amber-500 hover:via-orange-600 hover:to-red-700 active:scale-[0.98]'
           }
         `}
       >

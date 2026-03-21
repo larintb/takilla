@@ -78,8 +78,8 @@ export default async function EventDetailPage({
             />
           </>
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Ticket size={48} className="text-zinc-700" />
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-amber-400 via-orange-500 to-red-600">
+            <Ticket size={48} className="text-white/40" />
           </div>
         )}
 
@@ -204,7 +204,7 @@ export default async function EventDetailPage({
                         {/* Availability bar */}
                         <div className="h-1 bg-zinc-100 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-zinc-800 rounded-full transition-all"
+                            className="h-full bg-gradient-to-r from-orange-500 to-red-600 rounded-full transition-all"
                             style={{ width: `${pct}%` }}
                           />
                         </div>
