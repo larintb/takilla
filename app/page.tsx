@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/server'
 import { resolveEventImageUrl } from '@/utils/supabase/storage'
 import { Ticket, CalendarDays, MapPin, QrCode, ShieldCheck, Zap } from 'lucide-react'
 import Navbar from '@/components/navbar'
+import LinkButton from '@/components/link-button'
 
 type VenueInfo = {
   name?: string | null
@@ -46,19 +47,19 @@ export default async function Home() {
             Compra boletos para conciertos, festivales y eventos locales. Validación instantánea con QR.
           </p>
           <div className="flex items-center justify-center gap-3 pt-2">
-            <Link
+            <LinkButton
               href="/events"
-              className="px-6 py-3 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-100 transition-colors"
+              className="px-6 py-3 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-100"
             >
               Ver eventos
-            </Link>
+            </LinkButton>
             {!user && (
-              <Link
+              <LinkButton
                 href="/signup"
-                className="px-6 py-3 rounded-xl border border-zinc-700 text-white font-semibold hover:bg-zinc-800 transition-colors"
+                className="px-6 py-3 rounded-xl border border-zinc-700 text-white font-semibold hover:bg-zinc-800"
               >
                 Crear cuenta gratis
-              </Link>
+              </LinkButton>
             )}
           </div>
         </div>
