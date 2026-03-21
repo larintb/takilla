@@ -10,7 +10,8 @@
       "Bash(find C:UsersvlpizDesktoptakillatakillanode_modulesnextdistdocs -type f -name *.md -o -name *.txt)",
       "Bash(find C:UsersvlpizDesktoptakillatakillanode_modulesnextdistdocs -type f -name *streaming* -o -name *suspense* -o -name *performance*)",
       "Bash(grep:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)"
     ]
   }
 }

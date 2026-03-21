@@ -54,7 +54,7 @@ export default async function EventDetailPage({
   return (
     <>
       {/* Full-width banner with blur-edges effect */}
-      <div className="relative w-full h-64 md:h-[420px] overflow-hidden bg-zinc-900">
+      <div className="relative w-full h-64 md:h-[420px] overflow-hidden bg-zinc-900 animate-fade-in">
         {imageUrl ? (
           <>
             {/* Blurred background layer — same image scaled up, fills gaps */}
@@ -89,7 +89,7 @@ export default async function EventDetailPage({
         {/* Event title + chips overlaid at bottom */}
         <div className="absolute inset-x-0 bottom-0 px-4 pb-6">
           <div className="max-w-5xl mx-auto space-y-2">
-            <h1 className="text-white text-2xl md:text-4xl font-bold leading-tight drop-shadow-md">
+            <h1 className="font-display text-white text-4xl md:text-6xl leading-none drop-shadow-md">
               {event.title}
             </h1>
             <div className="flex flex-wrap gap-2">
@@ -120,14 +120,14 @@ export default async function EventDetailPage({
         {/* Back */}
         <Link
           href="/events"
-          className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 transition-colors animate-fade-in-up"
         >
           <ArrowLeft size={14} />
           Todos los eventos
         </Link>
 
         {/* Two-column layout: info + tickets */}
-        <div className="grid md:grid-cols-3 gap-8 items-start">
+        <div className="grid md:grid-cols-3 gap-8 items-start animate-fade-in-up" style={{ animationDelay: '80ms' }}>
 
           {/* Left — event details (2/3) */}
           <div className="md:col-span-2 space-y-6">

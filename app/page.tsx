@@ -35,18 +35,18 @@ export default async function Home() {
       <Navbar />
 
       {/* Hero */}
-      <section className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white">
+      <section className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white animate-fade-in">
         <div className="max-w-6xl mx-auto px-4 py-24 text-center space-y-6">
-          <p className="text-white/70 text-sm font-medium uppercase tracking-widest">
+          <p className="text-white/70 text-sm font-medium uppercase tracking-widest animate-fade-in-up" style={{ animationDelay: '80ms' }}>
             Plataforma de boletos regional
           </p>
-          <h1 className="text-5xl font-bold leading-tight max-w-2xl mx-auto">
+          <h1 className="font-display text-6xl md:text-7xl leading-none max-w-3xl mx-auto animate-fade-in-up" style={{ animationDelay: '160ms' }}>
             Boletos para lo que pasa en tu ciudad
           </h1>
-          <p className="text-white/80 text-lg max-w-xl mx-auto">
+          <p className="text-white/80 text-lg max-w-xl mx-auto animate-fade-in-up" style={{ animationDelay: '240ms' }}>
             Compra boletos para conciertos, festivales y eventos locales. Validación instantánea con QR.
           </p>
-          <div className="flex items-center justify-center gap-3 pt-2">
+          <div className="flex items-center justify-center gap-3 pt-2 animate-fade-in-up" style={{ animationDelay: '320ms' }}>
             <LinkButton
               href="/events"
               className="px-6 py-3 rounded-xl bg-white text-orange-600 font-semibold hover:bg-orange-50"
@@ -66,7 +66,7 @@ export default async function Home() {
       </section>
 
       {/* Categories */}
-      <section className="max-w-6xl mx-auto px-4 pt-12 pb-4 w-full">
+      <section className="max-w-6xl mx-auto px-4 pt-12 pb-4 w-full animate-fade-in-up" style={{ animationDelay: '100ms' }}>
         <h2 className="text-lg font-bold text-zinc-900 mb-5">Explora por categoría</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
@@ -89,7 +89,7 @@ export default async function Home() {
 
       {/* Upcoming events */}
       {events && events.length > 0 && (
-        <section className="max-w-6xl mx-auto px-4 py-16 space-y-8 w-full">
+        <section className="max-w-6xl mx-auto px-4 py-16 space-y-8 w-full animate-fade-in-up" style={{ animationDelay: '150ms' }}>
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-zinc-900">Próximos eventos</h2>
             <Link href="/events" className="text-sm font-medium text-zinc-500 hover:text-zinc-900 transition-colors">
@@ -98,7 +98,7 @@ export default async function Home() {
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {events.map(event => {
+            {events.map((event, i) => {
               const venue  = (event.venues ?? null) as VenueInfo | null
               const tiers  = (event.ticket_tiers ?? []) as TierPrice[]
               const prices = tiers?.map(t => Number(t.price)) ?? []
@@ -109,7 +109,8 @@ export default async function Home() {
                 <Link
                   key={event.id}
                   href={`/events/${event.id}`}
-                  className="group rounded-2xl border border-zinc-200 overflow-hidden hover:border-zinc-400 hover:shadow-sm transition-all"
+                  className="group rounded-2xl border border-zinc-200 overflow-hidden hover:border-zinc-400 hover:shadow-sm transition-all animate-fade-in-up"
+                  style={{ animationDelay: `${i * 80}ms` }}
                 >
                   <div className="relative h-44 bg-zinc-100 overflow-hidden">
                     {imageUrl ? (
@@ -161,7 +162,7 @@ export default async function Home() {
       {/* Features */}
       <section className="bg-zinc-50 border-t border-zinc-100 mt-auto">
         <div className="max-w-6xl mx-auto px-4 py-16">
-          <h2 className="text-2xl font-bold text-zinc-900 text-center mb-10">
+          <h2 className="font-display text-4xl text-zinc-900 text-center mb-10 animate-fade-in-up">
             Todo lo que necesitas en un solo lugar
           </h2>
           <div className="grid gap-6 sm:grid-cols-3">
@@ -170,19 +171,22 @@ export default async function Home() {
                 icon: <Zap size={22} />,
                 title: 'Compra en segundos',
                 desc: 'Selecciona tu tier, paga y recibe tu boleto digital al instante.',
+                delay: 0,
               },
               {
                 icon: <QrCode size={22} />,
                 title: 'Entrada con QR',
                 desc: 'El staff escanea tu QR desde el teléfono. Sin filas, sin papeles.',
+                delay: 100,
               },
               {
                 icon: <ShieldCheck size={22} />,
                 title: 'Validación segura',
                 desc: 'Cada boleto es único e irrepetible. Imposible usar el mismo dos veces.',
+                delay: 200,
               },
             ].map(f => (
-              <div key={f.title} className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-3">
+              <div key={f.title} className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-3 animate-fade-in-up" style={{ animationDelay: `${f.delay}ms` }}>
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-red-600 flex items-center justify-center text-white">
                   {f.icon}
                 </div>

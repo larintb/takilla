@@ -32,15 +32,15 @@ export default async function EventsPage() {
   return (
     <>
       {/* Banner */}
-      <section className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white">
+      <section className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white animate-fade-in">
         <div className="max-w-6xl mx-auto px-4 py-16 space-y-3">
-          <p className="text-white/70 text-sm font-medium uppercase tracking-widest">
+          <p className="text-white/70 text-sm font-medium uppercase tracking-widest animate-fade-in-up" style={{ animationDelay: '60ms' }}>
             Plataforma de boletos regional
           </p>
-          <h1 className="text-4xl font-bold leading-tight">
+          <h1 className="font-display text-6xl leading-none animate-fade-in-up" style={{ animationDelay: '120ms' }}>
             Todos los eventos
           </h1>
-          <p className="text-white/80 text-lg max-w-xl">
+          <p className="text-white/80 text-lg max-w-xl animate-fade-in-up" style={{ animationDelay: '180ms' }}>
             Conciertos, festivales y eventos en vivo cerca de ti.
           </p>
         </div>
@@ -55,7 +55,7 @@ export default async function EventsPage() {
         </div>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {events.map(event => {
+          {events.map((event, i) => {
             const venue  = (event.venues ?? null) as VenueInfo | null
             const tiers  = (event.ticket_tiers ?? []) as TierPrice[]
             const prices = tiers?.map(t => Number(t.price)) ?? []
@@ -66,7 +66,8 @@ export default async function EventsPage() {
               <Link
                 key={event.id}
                 href={`/events/${event.id}`}
-                className="group bg-white rounded-2xl border border-zinc-200 overflow-hidden hover:border-zinc-400 hover:shadow-sm transition-all"
+                className="group bg-white rounded-2xl border border-zinc-200 overflow-hidden hover:border-zinc-400 hover:shadow-sm transition-all animate-fade-in-up"
+                style={{ animationDelay: `${i * 60}ms` }}
               >
                 {/* Image */}
                 <div className="relative h-44 bg-zinc-100 overflow-hidden">
