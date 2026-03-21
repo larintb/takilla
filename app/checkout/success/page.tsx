@@ -113,26 +113,27 @@ export default async function CheckoutSuccessPage({
   const { tickets } = result
 
   return (
-    <main className="flex-1 px-4">
-    <div className="max-w-md mx-auto py-8 space-y-8">
-      <div className={`text-center ${vt323.className}`}>
+    <main className="flex-1 py-8 space-y-8 overflow-hidden">
+      <div className={`text-center px-4 ${vt323.className}`}>
         <p className="text-6xl tracking-widest text-green-700 uppercase">¡Pago exitoso!</p>
         <p className="text-zinc-500 text-xl mt-1 tracking-wide">
           {tickets.length > 0
-            ? 'Aquí están tus boletos'
+            ? `${tickets.length === 1 ? 'Aquí está tu boleto' : `Aquí están tus ${tickets.length} boletos`}`
             : 'Tus boletos estarán listos en un momento.'}
         </p>
       </div>
 
       {tickets.length > 0 && (
-        <div className="space-y-8">
+        <div className="flex gap-6 overflow-x-auto snap-x snap-mandatory px-4 pb-4 scroll-smooth">
           {tickets.map((ticket, i) => (
-            <RetroTicket key={ticket.id} ticket={ticket} index={i} />
+            <div key={ticket.id} className="snap-center shrink-0 w-[min(100%,380px)]">
+              <RetroTicket ticket={ticket} index={i} />
+            </div>
           ))}
         </div>
       )}
 
-      <div className={`text-center ${vt323.className}`}>
+      <div className={`text-center px-4 ${vt323.className}`}>
         <Link
           href="/tickets"
           className="inline-block px-6 py-2 border-2 border-black bg-black text-amber-50 text-2xl tracking-widest uppercase hover:bg-zinc-800 transition-colors"
@@ -140,7 +141,6 @@ export default async function CheckoutSuccessPage({
           {'>'} Ir a mis boletos
         </Link>
       </div>
-    </div>
     </main>
   )
 }
