@@ -145,13 +145,15 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
       </div>
 
       {/* ── Wallet overlay — always fits screen, no scroll ── */}
-      {selected && ticket && (
+      {selected && ticket && (() => {
+        const isExpired = new Date(selected.eventDate) < new Date()
+        return (
         <div className="fixed inset-0 z-50 bg-black/90 flex flex-col" style={{ height: '100dvh' }}>
 
           {/* Top bar: title (left) + close (right) */}
           <div className="shrink-0 flex items-center justify-between px-4 pt-4 pb-2">
             <span className={`text-sm text-white/50 tracking-widest uppercase ${vt323.className}`}>
-              ★ TAKILLA ★
+              {isExpired ? 'Evento terminado' : '★ TAKILLA ★'}
             </span>
             <button
               onClick={closeWallet}
@@ -163,13 +165,20 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
 
           {/* Ticket card — fills remaining space, vertically centered */}
           <div className="flex-1 min-h-0 flex items-center justify-center px-4">
-            <div className={`w-full max-w-xs border-4 border-black bg-amber-50 shadow-[6px_6px_0_0_#000] ${vt323.className}`}>
+            <div className={`w-full max-w-xs border-4 ${isExpired ? 'border-zinc-500' : 'border-black'} bg-amber-50 ${isExpired ? 'shadow-[6px_6px_0_0_#71717a]' : 'shadow-[6px_6px_0_0_#000]'} ${vt323.className}`}>
 
-              {/* Header — brand gradient */}
-              <div className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white px-4 py-2.5 flex items-center justify-between">
+              {/* Expired banner */}
+              {isExpired && (
+                <div className="bg-zinc-700 text-zinc-300 px-4 py-1.5 text-center text-sm tracking-[0.3em] uppercase">
+                  Este evento ya terminó
+                </div>
+              )}
+
+              {/* Header — brand gradient or muted if expired */}
+              <div className={`${isExpired ? 'bg-zinc-600' : 'bg-gradient-to-r from-amber-400 via-orange-500 to-red-600'} text-white px-4 py-2.5 flex items-center justify-between`}>
                 <span
                   className="text-xl tracking-[0.3em] uppercase"
-                  style={{ textShadow: '1px 1px 0 #c2410c, 2px 2px 0 #9a3412, 3px 3px 6px rgba(0,0,0,0.35)' }}
+                  style={isExpired ? undefined : { textShadow: '1px 1px 0 #c2410c, 2px 2px 0 #9a3412, 3px 3px 6px rgba(0,0,0,0.35)' }}
                 >
                   ★ TAKILLA ★
                 </span>
@@ -217,13 +226,13 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
               </div>
 
               {/* QR */}
-              <div className={`px-4 py-3 flex flex-col items-center gap-1.5 ${ticket.is_used ? 'opacity-40' : ''}`}>
+              <div className={`px-4 py-3 flex flex-col items-center gap-1.5 ${isExpired || ticket.is_used ? 'opacity-40' : ''}`}>
                 <p className="text-[10px] tracking-[0.3em] text-zinc-400 uppercase self-start">
                   Código de acceso
                 </p>
                 <TicketQr qrHash={ticket.qr_hash} size={170} />
-                <p className="text-sm text-orange-400 tracking-widest uppercase">
-                  {ticket.is_used ? 'Ya utilizado' : 'Muestra al staff en la entrada'}
+                <p className={`text-sm tracking-widest uppercase ${isExpired || ticket.is_used ? 'text-zinc-400' : 'text-orange-400'}`}>
+                  {isExpired ? 'Evento finalizado' : ticket.is_used ? 'Ya utilizado' : 'Muestra al staff en la entrada'}
                 </p>
               </div>
             </div>
@@ -257,7 +266,8 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
           {/* Safe area bottom */}
           <div className="shrink-0 h-4" />
         </div>
-      )}
+        )
+      })()}
     </>
   )
 }
