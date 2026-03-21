@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useTransition, useState } from 'react'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import { createEvent } from '../actions'
@@ -10,7 +10,8 @@ import { EVENT_IMAGES_BUCKET } from '@/utils/supabase/storage'
 type Venue = { id: string; name: string; city: string }
 
 export default function EventForm({ venues }: { venues: Venue[] }) {
-  const [state, action, isActionPending] = useActionState(createEvent, null)
+  const [state, action] = useActionState(createEvent, null)
+  const [isActionPending, startTransition] = useTransition()
   const [uploading, setUploading] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
 
@@ -61,7 +62,7 @@ export default function EventForm({ venues }: { venues: Venue[] }) {
       formData.set('image_path', path)
     }
 
-    action(formData)
+    startTransition(() => action(formData))
   }
 
   return (
