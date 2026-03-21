@@ -1,8 +1,11 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
-import { ArrowLeft } from 'lucide-react'
+import { resolveEventImageUrl } from '@/utils/supabase/storage'
+import { ArrowLeft, CalendarDays, MapPin, ShieldCheck, Ticket } from 'lucide-react'
+import Navbar from '@/components/navbar'
 import { startStripeCheckout } from './actions'
 
 type CheckoutPageProps = {
@@ -11,6 +14,15 @@ type CheckoutPageProps = {
     tierId?: string
     quantity?: string
   }>
+}
+
+type VenueInfo = { name?: string | null; city?: string | null }
+type EventInfo = {
+  title: string
+  status: string
+  event_date: string
+  image_url?: string | null
+  venues?: VenueInfo | VenueInfo[] | null
 }
 
 export default async function CheckoutPage({ searchParams }: CheckoutPageProps) {
@@ -30,78 +42,144 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
 
   const { data: tier } = await supabase
     .from('ticket_tiers')
-    .select('id, name, price, available_tickets, event_id, events(title, status, event_date)')
+    .select('id, name, price, available_tickets, event_id, events(title, status, event_date, image_url, venues(name, city))')
     .eq('id', tierId)
     .eq('event_id', eventId)
     .single()
 
   if (!tier) redirect(`/events/${eventId}`)
 
-  const event = Array.isArray(tier.events)
-    ? (tier.events[0] as { title: string; status: string; event_date: string } | undefined)
-    : (tier.events as { title: string; status: string; event_date: string } | null)
+  const event = (Array.isArray(tier.events) ? tier.events[0] : tier.events) as EventInfo | null
   if (!event || event.status !== 'published') redirect(`/events/${eventId}`)
 
   const cappedQuantity = Math.min(Math.max(quantity, 1), 10)
   const finalQuantity = Math.min(cappedQuantity, tier.available_tickets)
-
   if (finalQuantity < 1) redirect(`/events/${eventId}`)
 
   const price = Number(tier.price)
   const total = price * finalQuantity
+  const isFree = price === 0
+
+  const venue = (Array.isArray(event.venues) ? event.venues[0] : event.venues) as VenueInfo | null
+  const imageUrl = resolveEventImageUrl(supabase, event.image_url ?? null)
+  const dateFormatted = new Date(event.event_date).toLocaleDateString('es-MX', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <Link href={`/events/${eventId}`} className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 transition-colors">
-        <ArrowLeft size={14} />
-        Volver al evento
-      </Link>
+    <div className="min-h-screen bg-zinc-50 flex flex-col">
+      <Navbar />
 
-      <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-5">
-        <div>
-          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Checkout</p>
-          <h1 className="text-2xl font-bold text-zinc-900 mt-1">Confirma tu compra</h1>
-          <p className="text-zinc-500 mt-1">{event.title}</p>
-        </div>
+      <main className="flex-1 flex items-start justify-center px-4 py-10">
+        <div className="w-full max-w-md space-y-4">
 
-        <div className="rounded-xl border border-zinc-200 p-4 space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-zinc-500">Tier</span>
-            <span className="font-medium text-zinc-900">{tier.name}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-zinc-500">Cantidad</span>
-            <span className="font-medium text-zinc-900">{finalQuantity}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-zinc-500">Precio por boleto</span>
-            <span className="font-medium text-zinc-900">{price === 0 ? 'Gratis' : `$${price.toFixed(2)}`}</span>
-          </div>
-          <div className="pt-2 mt-2 border-t border-zinc-100 flex items-center justify-between">
-            <span className="text-sm font-semibold text-zinc-700">Total</span>
-            <span className="text-xl font-bold text-zinc-900">{total === 0 ? 'Gratis' : `$${total.toFixed(2)}`}</span>
-          </div>
-        </div>
-
-        <form action={startStripeCheckout} className="space-y-3">
-          <input type="hidden" name="eventId" value={eventId} />
-          <input type="hidden" name="tierId" value={tierId} />
-          <input type="hidden" name="quantity" value={String(finalQuantity)} />
-
-          <button
-            type="submit"
-            className="w-full py-3 rounded-xl bg-zinc-900 text-white font-semibold hover:bg-zinc-700 transition-colors"
+          {/* Back */}
+          <Link
+            href={`/events/${eventId}`}
+            className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 transition-colors"
           >
-            {total === 0 ? 'Confirmar boletos gratis' : 'Ir a Stripe Checkout'}
-          </button>
+            <ArrowLeft size={14} />
+            Volver al evento
+          </Link>
 
-          <p className="text-xs text-zinc-400 text-center">
-            {total === 0
-              ? 'Se crearán tus boletos al confirmar.'
-              : 'Serás redirigido a Stripe para completar tu pago.'}
-          </p>
-        </form>
-      </div>
+          {/* Main card */}
+          <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden">
+
+            {/* Event header */}
+            <div className="flex gap-4 p-5 border-b border-zinc-100">
+              <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-zinc-100 shrink-0">
+                {imageUrl ? (
+                  <Image
+                    src={imageUrl}
+                    alt={event.title}
+                    fill
+                    unoptimized
+                    sizes="64px"
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Ticket size={20} className="text-zinc-300" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-zinc-900 leading-snug line-clamp-2">
+                  {event.title}
+                </p>
+                <p className="text-xs text-zinc-500 mt-1 flex items-center gap-1">
+                  <CalendarDays size={11} />
+                  {dateFormatted}
+                </p>
+                {venue?.name && (
+                  <p className="text-xs text-zinc-400 mt-0.5 flex items-center gap-1">
+                    <MapPin size={11} />
+                    {venue.name}{venue.city ? `, ${venue.city}` : ''}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Order summary */}
+            <div className="p-5 space-y-3">
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                Resumen
+              </p>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-zinc-600">Tier</span>
+                  <span className="font-medium text-zinc-900">{tier.name}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-zinc-600">Precio unitario</span>
+                  <span className="font-medium text-zinc-900">
+                    {isFree ? 'Gratis' : `$${price.toFixed(2)}`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-zinc-600">Cantidad</span>
+                  <span className="font-medium text-zinc-900">
+                    {finalQuantity} {finalQuantity === 1 ? 'boleto' : 'boletos'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Total */}
+              <div className="flex items-center justify-between pt-3 border-t border-zinc-100">
+                <span className="font-semibold text-zinc-900">Total</span>
+                <span className="text-2xl font-bold text-zinc-900">
+                  {isFree ? 'Gratis' : `$${total.toFixed(2)}`}
+                </span>
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div className="px-5 pb-5 space-y-3">
+              <form action={startStripeCheckout}>
+                <input type="hidden" name="eventId" value={eventId} />
+                <input type="hidden" name="tierId" value={tierId} />
+                <input type="hidden" name="quantity" value={String(finalQuantity)} />
+
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-xl bg-zinc-900 text-white font-semibold hover:bg-zinc-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                >
+                  <ShieldCheck size={16} className="opacity-70" />
+                  {isFree ? 'Confirmar boletos gratis' : `Pagar $${total.toFixed(2)}`}
+                </button>
+              </form>
+
+              <p className="text-xs text-zinc-400 text-center leading-relaxed">
+                {isFree
+                  ? 'Tus boletos se generarán al confirmar.'
+                  : 'Pago seguro procesado por Stripe. Serás redirigido para completar tu compra.'}
+              </p>
+            </div>
+
+          </div>
+        </div>
+      </main>
     </div>
   )
 }
