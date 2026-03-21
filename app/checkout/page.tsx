@@ -4,9 +4,10 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { resolveEventImageUrl } from '@/utils/supabase/storage'
-import { ArrowLeft, CalendarDays, MapPin, ShieldCheck, Ticket } from 'lucide-react'
+import { ArrowLeft, CalendarDays, MapPin, Ticket } from 'lucide-react'
 import Navbar from '@/components/navbar'
 import { startStripeCheckout } from './actions'
+import SubmitButton from './_components/submit-button'
 
 type CheckoutPageProps = {
   searchParams: Promise<{
@@ -161,13 +162,9 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
                 <input type="hidden" name="tierId" value={tierId} />
                 <input type="hidden" name="quantity" value={String(finalQuantity)} />
 
-                <button
-                  type="submit"
-                  className="w-full py-3 rounded-xl bg-zinc-900 text-white font-semibold hover:bg-zinc-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                >
-                  <ShieldCheck size={16} className="opacity-70" />
-                  {isFree ? 'Confirmar boletos gratis' : `Pagar $${total.toFixed(2)}`}
-                </button>
+                <SubmitButton
+                  label={isFree ? 'Confirmar boletos gratis' : `Pagar $${total.toFixed(2)}`}
+                />
               </form>
 
               <p className="text-xs text-zinc-400 text-center leading-relaxed">
