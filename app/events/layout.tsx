@@ -4,9 +4,7 @@ export default async function EventsLayout({ children }: { children: React.React
   return (
     <div className="min-h-screen bg-zinc-50">
       <Navbar />
-      <main className="max-w-6xl mx-auto px-4 py-10">
-        {children}
-      </main>
+      {children}
     </div>
   )
 }

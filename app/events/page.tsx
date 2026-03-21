@@ -30,12 +30,23 @@ export default async function EventsPage() {
     .order('event_date', { ascending: true })
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-zinc-900">Eventos</h1>
-        <p className="text-zinc-500 mt-1">Descubre lo que está pasando en tu ciudad</p>
-      </div>
+    <>
+      {/* Banner */}
+      <section className="bg-zinc-900 text-white">
+        <div className="max-w-6xl mx-auto px-4 py-16 space-y-3">
+          <p className="text-zinc-400 text-sm font-medium uppercase tracking-widest">
+            Plataforma de boletos regional
+          </p>
+          <h1 className="text-4xl font-bold leading-tight">
+            Todos los eventos
+          </h1>
+          <p className="text-zinc-400 text-lg max-w-xl">
+            Conciertos, festivales y eventos en vivo cerca de ti.
+          </p>
+        </div>
+      </section>
 
+      <main className="max-w-6xl mx-auto px-4 py-10 space-y-8">
       {!events?.length ? (
         <div className="text-center py-24 text-zinc-400">
           <Ticket size={40} className="mx-auto mb-3 opacity-40" />
@@ -109,6 +120,7 @@ export default async function EventsPage() {
           })}
         </div>
       )}
-    </div>
+      </main>
+    </>
   )
 }
