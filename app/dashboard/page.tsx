@@ -412,8 +412,41 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-        <Loader2 size={24} className="animate-spin text-zinc-400" />
+      <div className="min-h-screen bg-zinc-50">
+        <header className="bg-white border-b border-zinc-200">
+          <div className="max-w-6xl mx-auto px-4 h-14 flex items-center">
+            <div className="flex items-center gap-2 font-bold text-zinc-900">
+              <Ticket size={18} />
+              Takilla
+            </div>
+          </div>
+        </header>
+        <div className="max-w-6xl mx-auto px-4 py-8 flex gap-8">
+          {/* Sidebar skeleton */}
+          <aside className="hidden md:block w-52 shrink-0 space-y-3">
+            <div className="h-4 bg-zinc-200 rounded-lg animate-pulse w-3/4" />
+            <div className="h-3 bg-zinc-100 rounded-lg animate-pulse w-1/2 mb-4" />
+            <div className="h-9 bg-zinc-200 rounded-xl animate-pulse" />
+            <div className="h-9 bg-zinc-100 rounded-xl animate-pulse" />
+          </aside>
+          {/* Content skeleton */}
+          <main className="flex-1 min-w-0 space-y-4">
+            <div className="h-7 bg-zinc-200 rounded-lg animate-pulse w-40" />
+            <div className="h-4 bg-zinc-100 rounded-lg animate-pulse w-24" />
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-zinc-100 p-5 space-y-3 animate-pulse">
+                  <div className="h-4 bg-zinc-100 rounded w-3/4" />
+                  <div className="h-3 bg-zinc-100 rounded w-1/2" />
+                  <div className="h-3 bg-zinc-100 rounded w-1/4" />
+                  <div className="pt-2 border-t border-zinc-50">
+                    <div className="h-3 bg-zinc-100 rounded w-1/3" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </main>
+        </div>
       </div>
     )
   }

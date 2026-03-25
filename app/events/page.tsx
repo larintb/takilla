@@ -257,7 +257,7 @@ export default function EventsPage() {
         .eq('status', 'published')
         .order('event_date', { ascending: true })
 
-      setEvents((data as Event[]) ?? [])
+      setEvents((data ?? []) as unknown as Event[])
       setLoading(false)
     }
     fetchEvents()
