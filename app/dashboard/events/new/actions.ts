@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
-import { EVENT_IMAGES_BUCKET } from '@/utils/supabase/storage'
 
 export async function createEvent(
   prevState: { error: string } | null,
@@ -24,40 +23,17 @@ export async function createEvent(
 
   if (profile?.role !== 'organizer') return { error: 'Solo organizadores pueden crear eventos' }
 
-  const title      = formData.get('title') as string
+  const title       = formData.get('title') as string
   const description = formData.get('description') as string
-  const event_date = formData.get('event_date') as string
-  const venue_id   = formData.get('venue_id') as string
-  const image_file = formData.get('image_file') as File | null
-  const status     = formData.get('status') as string
+  const event_date  = formData.get('event_date') as string
+  const venue_id    = formData.get('venue_id') as string
+  const image_path  = (formData.get('image_path') as string | null)?.trim() || null
+  const status      = formData.get('status') as string
 
   if (!title?.trim())  return { error: 'El título es requerido' }
   if (!event_date)     return { error: 'La fecha es requerida' }
 
-  let imagePath: string | null = null
-
-  if (image_file && image_file.size > 0) {
-    if (!image_file.type.startsWith('image/')) {
-      return { error: 'El archivo debe ser una imagen válida' }
-    }
-
-    const extension = image_file.name.includes('.')
-      ? image_file.name.split('.').pop()?.toLowerCase()
-      : undefined
-    const safeExtension = extension && /^[a-z0-9]+$/.test(extension) ? extension : 'jpg'
-    imagePath = `${user.id}/${crypto.randomUUID()}.${safeExtension}`
-
-    const { error: uploadError } = await supabase.storage
-      .from(EVENT_IMAGES_BUCKET)
-      .upload(imagePath, image_file, {
-        contentType: image_file.type,
-        upsert: false,
-      })
-
-    if (uploadError) {
-      return { error: `No se pudo subir la imagen: ${uploadError.message}` }
-    }
-  }
+  const imagePath = image_path
 
   const { data: event, error } = await supabase
     .from('events')

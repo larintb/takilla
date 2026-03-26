@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import {
   Ticket, Settings, CalendarDays, MapPin,
@@ -384,7 +385,9 @@ export default function DashboardPage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { window.location.href = '/login'; return }
+      
       setEmail(user.email ?? '')
+      
       const [{ data: prof }, { data: tix }] = await Promise.all([
         supabase.from('profiles').select('full_name, role').eq('id', user.id).single(),
         supabase
@@ -393,6 +396,17 @@ export default function DashboardPage() {
           .eq('owner_id', user.id)
           .order('id', { ascending: false }),
       ])
+      
+      // Redirección basada en rol (de master)
+      if (prof?.role === 'admin') {
+        redirect('/dashboard/admin')
+        return
+      }
+      if (prof?.role === 'organizer') {
+        redirect('/dashboard/events')
+        return
+      }
+      
       setProfile(prof ?? { full_name: '', role: 'customer' })
       setTickets((tix ?? []) as unknown as TicketRow[])
       setLoading(false)

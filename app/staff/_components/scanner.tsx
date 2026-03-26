@@ -1,22 +1,26 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { CheckCircle, XCircle, ScanLine, RefreshCw, CameraOff } from 'lucide-react'
+import { CheckCircle, XCircle, ScanLine, RefreshCw, CameraOff, Camera } from 'lucide-react'
 import { validateTicket, type ValidationResult } from '../actions'
 
-type ScanState = 'scanning' | 'loading' | 'result'
+type ScanState = 'idle' | 'scanning' | 'loading' | 'result'
+type QrScannerLike = {
+  pause: () => void
+  start: () => Promise<void>
+  destroy: () => void
+}
 
 export default function Scanner() {
   const videoRef    = useRef<HTMLVideoElement>(null)
-  const scannerRef  = useRef<any>(null)
+  const scannerRef  = useRef<QrScannerLike | null>(null)
   const lastHashRef = useRef('')
-  const stateRef    = useRef<ScanState>('scanning') // ref para evitar stale closure en el callback del scanner
+  const stateRef    = useRef<ScanState>('idle')
 
-  const [state, setStateRaw]  = useState<ScanState>('scanning')
-  const [result, setResult]   = useState<ValidationResult | null>(null)
+  const [state, setStateRaw]    = useState<ScanState>('idle')
+  const [result, setResult]     = useState<ValidationResult | null>(null)
   const [camError, setCamError] = useState<string | null>(null)
 
-  // Mantiene el ref sincronizado con el estado
   const setState = useCallback((s: ScanState) => {
     stateRef.current = s
     setStateRaw(s)
@@ -48,43 +52,85 @@ export default function Scanner() {
     return () => clearTimeout(t)
   }, [state, result, reset])
 
-  // Inicializa el scanner una sola vez
-  useEffect(() => {
+  // Inicializa y arranca la cámara — solo cuando el usuario pulsa el botón
+  const startCamera = useCallback(async () => {
     if (!videoRef.current) return
-    let mounted = true
+    setCamError(null)
 
-    import('qr-scanner').then(({ default: QrScanner }) => {
-      if (!mounted || !videoRef.current) return
-
-      QrScanner.WORKER_PATH = '/qr-scanner-worker.min.js'
-
-      const scanner = new QrScanner(
-        videoRef.current,
-        (result) => handleScan(result.data),
-        {
-          preferredCamera:          'environment',
-          highlightScanRegion:      true,
-          highlightCodeOutline:     true,
-          returnDetailedScanResult: true,
-        }
-      )
-
-      scannerRef.current = scanner
-      scanner.start().catch(() => {
-        if (mounted) setCamError('No se pudo acceder a la cámara. Verifica los permisos del navegador.')
-      })
-    })
-
-    return () => {
-      mounted = false
-      scannerRef.current?.destroy()
+    // Pide permiso explícito antes de crear el scanner (necesario en iOS Safari)
+    try {
+      await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    } catch {
+      setCamError('No se pudo acceder a la cámara. Verifica los permisos del navegador.')
+      return
     }
-  }, [handleScan])
+
+    const { default: QrScanner } = await import('qr-scanner')
+    if (!videoRef.current) return
+
+    QrScanner.WORKER_PATH = '/qr-scanner-worker.min.js'
+
+    const scanner = new QrScanner(
+      videoRef.current,
+      (r) => handleScan(r.data),
+      {
+        preferredCamera:          'environment',
+        highlightScanRegion:      true,
+        highlightCodeOutline:     true,
+        returnDetailedScanResult: true,
+      }
+    )
+
+    scannerRef.current = scanner
+    scanner.start().catch(() => {
+      setCamError('No se pudo acceder a la cámara. Verifica los permisos del navegador.')
+    })
+    setState('scanning')
+  }, [handleScan, setState])
+
+  // Limpia al desmontar
+  useEffect(() => {
+    return () => { scannerRef.current?.destroy() }
+  }, [])
 
   return (
     <div className="relative flex-1 flex flex-col items-center justify-center bg-zinc-950">
 
-      <div className="relative w-full max-w-sm aspect-[3/4] rounded-2xl overflow-hidden bg-zinc-900">
+      {/* Pantalla inicial — requiere gesto del usuario para iOS */}
+      {state === 'idle' && !camError && (
+        <div className="flex flex-col items-center gap-6 p-8 text-center">
+          <div className="w-24 h-24 rounded-full bg-zinc-800 flex items-center justify-center">
+            <Camera size={40} className="text-zinc-400" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-white font-semibold text-lg">Escanear boleto</p>
+            <p className="text-zinc-500 text-sm">Se necesita acceso a la cámara</p>
+          </div>
+          <button
+            type="button"
+            onClick={startCamera}
+            className="px-8 py-3 bg-white text-zinc-900 rounded-xl font-semibold text-sm active:scale-95 transition-transform"
+          >
+            Activar cámara
+          </button>
+        </div>
+      )}
+
+      {state === 'idle' && camError && (
+        <div className="flex flex-col items-center gap-4 p-8 text-center">
+          <CameraOff size={36} className="text-zinc-500" />
+          <p className="text-sm text-zinc-400">{camError}</p>
+          <button
+            type="button"
+            onClick={startCamera}
+            className="px-6 py-2.5 bg-white text-zinc-900 rounded-xl font-semibold text-sm"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+
+      <div className={`relative w-full max-w-sm aspect-[3/4] rounded-2xl overflow-hidden bg-zinc-900 ${state === 'idle' ? 'hidden' : ''}`}>
         <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
 
         {/* Visor de escaneo */}
@@ -97,14 +143,6 @@ export default function Scanner() {
               <span className="absolute bottom-0 right-0 w-8 h-8 border-b-[3px] border-r-[3px] border-white rounded-br-lg" />
               <ScanLine size={20} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/40 animate-pulse" />
             </div>
-          </div>
-        )}
-
-        {/* Error de cámara */}
-        {camError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-900/95 p-6 text-center">
-            <CameraOff size={36} className="text-zinc-500" />
-            <p className="text-sm text-zinc-400">{camError}</p>
           </div>
         )}
 

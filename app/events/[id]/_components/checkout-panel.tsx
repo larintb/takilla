@@ -1,6 +1,8 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Minus, Plus, Loader2 } from 'lucide-react'
 
 type CheckoutPanelProps = {
   eventId: string
@@ -13,40 +15,77 @@ export default function CheckoutPanel({
   tierId,
   availableTickets,
 }: CheckoutPanelProps) {
-  const maxSelectable = Math.max(1, Math.min(availableTickets, 10))
+  const max = Math.min(availableTickets, 10)
+  const [qty, setQty] = useState(1)
+  const [confirmed, setConfirmed] = useState(false)
+  const router = useRouter()
 
-  const quantities = useMemo(() => {
-    return Array.from({ length: maxSelectable }, (_, i) => i + 1)
-  }, [maxSelectable])
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (confirmed) return
+
+    setConfirmed(true)
+    setTimeout(() => {
+      router.push(`/checkout?eventId=${eventId}&tierId=${tierId}&quantity=${qty}`)
+    }, 650)
+  }
 
   return (
-    <form action="/checkout" method="GET" className="space-y-2">
-      <input type="hidden" name="eventId" value={eventId} />
-      <input type="hidden" name="tierId" value={tierId} />
-
-      <div className="flex items-center gap-2">
-        <label htmlFor={`qty-${tierId}`} className="text-sm text-zinc-500">
-          Cantidad
-        </label>
-        <select
-          id={`qty-${tierId}`}
-          name="quantity"
-          defaultValue="1"
-          className="rounded-lg border border-zinc-300 px-2 py-1.5 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900"
+    <form onSubmit={handleSubmit} className="space-y-3">
+      {/* Quantity stepper */}
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-zinc-500 mr-auto">Cantidad</span>
+        <button
+          type="button"
+          onClick={() => setQty(q => Math.max(1, q - 1))}
+          disabled={qty <= 1 || confirmed}
+          className="w-8 h-8 rounded-lg border border-zinc-200 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
-          {quantities.map(q => (
-            <option key={q} value={q}>
-              {q}
-            </option>
-          ))}
-        </select>
+          <Minus size={14} />
+        </button>
+        <span className="w-6 text-center font-semibold text-zinc-900 tabular-nums">
+          {qty}
+        </span>
+        <button
+          type="button"
+          onClick={() => setQty(q => Math.min(max, q + 1))}
+          disabled={qty >= max || confirmed}
+          className="w-8 h-8 rounded-lg border border-zinc-200 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >
+          <Plus size={14} />
+        </button>
       </div>
 
       <button
         type="submit"
-        className="w-full py-2.5 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-700 transition-colors"
+        disabled={confirmed}
+        className={`
+          relative w-full py-2.5 rounded-xl text-sm font-semibold
+          overflow-hidden transition-all duration-300
+          ${confirmed
+            ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white scale-[0.98]'
+            : 'bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white hover:from-amber-500 hover:via-orange-600 hover:to-red-700 active:scale-[0.98]'
+          }
+        `}
       >
-        Ir a checkout
+        {/* Label — slides out on confirm */}
+        <span
+          className={`flex items-center justify-center gap-1.5 transition-all duration-300 ${
+            confirmed ? 'opacity-0 -translate-y-4' : 'opacity-100 translate-y-0'
+          }`}
+        >
+          Comprar {qty > 1 ? `${qty} boletos` : 'boleto'}
+        </span>
+
+        {/* Checkmark — slides in on confirm */}
+        <span
+          aria-hidden
+          className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-300 ${
+            confirmed ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          }`}
+        >
+          <Loader2 size={18} className="animate-spin" />
+        </span>
       </button>
     </form>
   )

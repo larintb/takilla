@@ -3,9 +3,10 @@
 import { useActionState } from 'react'
 import { addTier } from '../actions'
 import { Plus } from 'lucide-react'
+import FormButton from '@/components/form-button'
 
 export default function TierForm({ eventId }: { eventId: string }) {
-  const [state, action, pending] = useActionState(addTier, null)
+  const [state, action] = useActionState(addTier, null)
 
   return (
     <form action={action} className="bg-white rounded-xl border border-zinc-200 p-4">
@@ -62,14 +63,10 @@ export default function TierForm({ eventId }: { eventId: string }) {
         <p className="text-sm text-red-600 mt-2">{state.error}</p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="mt-3 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
+      <FormButton className="mt-3 px-4 py-2 rounded-lg bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-700">
         <Plus size={14} />
-        {pending ? 'Agregando...' : 'Agregar tier'}
-      </button>
+        Agregar tier
+      </FormButton>
     </form>
   )
 }

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
 import { Ticket } from 'lucide-react'
 import { logout } from '@/app/actions/auth'
+import FormButton from '@/components/form-button'
 
 export default async function StaffLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies()
@@ -30,9 +31,9 @@ export default async function StaffLayout({ children }: { children: React.ReactN
         <div className="flex items-center gap-4 text-sm">
           <span className="text-zinc-400">{profile?.full_name}</span>
           <form action={logout}>
-            <button type="submit" className="text-zinc-500 hover:text-white transition-colors">
+            <FormButton className="text-zinc-500 hover:text-white">
               Salir
-            </button>
+            </FormButton>
           </form>
         </div>
       </header>

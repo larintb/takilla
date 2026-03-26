@@ -15,7 +15,9 @@
     "next": "16.2.0",
     "qr-scanner": "^1.4.2",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "react-qr-code": "^2.0.18",
+    "stripe": "^20.4.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

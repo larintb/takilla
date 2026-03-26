@@ -3,6 +3,7 @@
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
+import { stripe } from '@/utils/stripe/server'
 
 function getBaseUrl(headerStore: Awaited<ReturnType<typeof headers>>) {
   const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim()
@@ -31,7 +32,7 @@ export async function startStripeCheckout(formData: FormData) {
 
   const { data: tier } = await supabase
     .from('ticket_tiers')
-    .select('id, name, price, available_tickets, event_id, events(title, status)')
+    .select('id, name, price, available_tickets, event_id, events(title, status, event_date)')
     .eq('id', tierId)
     .eq('event_id', eventId)
     .single()
@@ -40,9 +41,10 @@ export async function startStripeCheckout(formData: FormData) {
   if (tier.available_tickets < quantity) throw new Error('No hay boletos suficientes')
 
   const event = Array.isArray(tier.events)
-    ? (tier.events[0] as { title: string; status: string } | undefined)
-    : null
+    ? (tier.events[0] as { title: string; status: string; event_date: string } | undefined)
+    : (tier.events as { title: string; status: string; event_date: string } | null)
   if (!event || event.status !== 'published') throw new Error('El evento no está disponible')
+  if (new Date(event.event_date) < new Date()) throw new Error('El evento ya pasó')
 
   const priceNumber = Number(tier.price)
 
@@ -53,49 +55,41 @@ export async function startStripeCheckout(formData: FormData) {
       })
       if (error) throw new Error(error.message)
     }
-    redirect('/dashboard/tickets')
+    redirect('/tickets')
   }
-
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY
-  if (!stripeSecretKey) throw new Error('Falta STRIPE_SECRET_KEY en variables de entorno')
 
   const baseUrl = getBaseUrl(headerStore)
-  const successUrl = `${baseUrl}/checkout/success`
+  const successUrl = `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
   const cancelUrl = `${baseUrl}/checkout?eventId=${eventId}&tierId=${tierId}&quantity=${quantity}`
 
-  const payload = new URLSearchParams()
-  payload.set('mode', 'payment')
-  payload.set('success_url', successUrl)
-  payload.set('cancel_url', cancelUrl)
-  payload.set('line_items[0][quantity]', String(quantity))
-  payload.set('line_items[0][price_data][currency]', 'mxn')
-  payload.set('line_items[0][price_data][unit_amount]', String(Math.round(priceNumber * 100)))
-  payload.set('line_items[0][price_data][product_data][name]', `${event.title} - ${tier.name}`)
-  payload.set('metadata[user_id]', user.id)
-  payload.set('metadata[event_id]', eventId)
-  payload.set('metadata[tier_id]', tierId)
-  payload.set('metadata[quantity]', String(quantity))
-
-  if (user.email) {
-    payload.set('customer_email', user.email)
-  }
-
-  const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${stripeSecretKey}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    customer_email: user.email ?? undefined,
+    line_items: [
+      {
+        quantity,
+        price_data: {
+          currency: 'mxn',
+          unit_amount: Math.round(priceNumber * 100),
+          product_data: {
+            name: `${event.title} - ${tier.name}`,
+          },
+        },
+      },
+    ],
+    metadata: {
+      user_id: user.id,
+      event_id: eventId,
+      tier_id: tierId,
+      quantity: String(quantity),
     },
-    body: payload,
-    cache: 'no-store',
   })
 
-  const data = await response.json()
-
-  if (!response.ok || !data?.url) {
-    const stripeMessage = data?.error?.message ?? 'No se pudo iniciar Stripe Checkout'
-    throw new Error(stripeMessage)
+  if (!session.url) {
+    throw new Error('No se pudo iniciar Stripe Checkout')
   }
 
-  redirect(data.url)
+  redirect(session.url)
 }

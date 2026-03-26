@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/utils/supabase/client'
 import { resolveEventImageUrl } from '@/utils/supabase/storage'
 import { CalendarDays, MapPin, Ticket, ChevronDown, Search, X } from 'lucide-react'
@@ -36,7 +37,6 @@ function getEventState(event: Event) {
   return event.venues?.state ?? ''
 }
 
-// Extract unique cities from events, grouped by state
 function buildCityList(events: Event[]): { city: string; state: string }[] {
   const seen = new Set<string>()
   const list: { city: string; state: string }[] = []
@@ -71,7 +71,6 @@ function CityModal({
     normalize(c.state).includes(normalize(search))
   )
 
-  // Group by state
   const grouped: Record<string, { city: string; state: string }[]> = {}
   for (const item of filtered) {
     const s = item.state || 'Sin estado'
@@ -84,13 +83,11 @@ function CityModal({
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm pt-[5vh] px-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[88vh]">
 
-        {/* Header */}
         <div className="px-5 pt-5 pb-4 border-b border-zinc-100">
           <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-1">Takilla</p>
           <h2 className="text-xl font-bold text-zinc-900">¿En qué ciudad estás?</h2>
           <p className="text-sm text-zinc-500 mt-0.5">Te mostramos los eventos más cercanos a ti.</p>
 
-          {/* Search */}
           <div className="relative mt-4">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
             <input
@@ -112,7 +109,6 @@ function CityModal({
           </div>
         </div>
 
-        {/* City list */}
         <div className="overflow-y-auto flex-1 px-3 py-3 space-y-4">
           {states.length === 0 ? (
             <p className="text-center text-sm text-zinc-400 py-8">No se encontraron ciudades</p>
@@ -130,10 +126,7 @@ function CityModal({
                         key={city}
                         onClick={() => onSelect(city, st)}
                         className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-between group
-                          ${isActive
-                            ? 'bg-zinc-900 text-white'
-                            : 'text-zinc-700 hover:bg-zinc-100'
-                          }`}
+                          ${isActive ? 'bg-zinc-900 text-white' : 'text-zinc-700 hover:bg-zinc-100'}`}
                       >
                         <span className="flex items-center gap-2">
                           <MapPin size={13} className={isActive ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-600'} />
@@ -153,7 +146,6 @@ function CityModal({
           )}
         </div>
 
-        {/* Footer */}
         <div className="px-5 py-4 border-t border-zinc-100">
           <button
             onClick={() => onSelect('', '')}
@@ -169,7 +161,11 @@ function CityModal({
 
 // ─── Event Card ───────────────────────────────────────────────────────────────
 
-function EventCard({ event, supabase }: { event: Event; supabase: ReturnType<typeof createClient> }) {
+function EventCard({ event, supabase, index }: {
+  event: Event
+  supabase: ReturnType<typeof createClient>
+  index: number
+}) {
   const venue = event.venues
   const tiers = event.ticket_tiers ?? []
   const prices = tiers.map(t => Number(t.price))
@@ -179,14 +175,19 @@ function EventCard({ event, supabase }: { event: Event; supabase: ReturnType<typ
   return (
     <Link
       href={`/events/${event.id}`}
-      className="group bg-white rounded-2xl border border-zinc-200 overflow-hidden hover:border-zinc-400 hover:shadow-sm transition-all"
+      className="group bg-white rounded-2xl border border-zinc-200 overflow-hidden hover:border-zinc-400 hover:shadow-sm transition-all animate-fade-in-up"
+      style={{ animationDelay: `${index * 60}ms` }}
     >
-      <div className="h-44 bg-zinc-100 overflow-hidden">
+      {/* Image — next/image de la master */}
+      <div className="relative h-44 bg-zinc-100 overflow-hidden">
         {imageUrl ? (
-          <img
+          <Image
             src={imageUrl}
             alt={event.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            fill
+            unoptimized
+            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -194,6 +195,7 @@ function EventCard({ event, supabase }: { event: Event; supabase: ReturnType<typ
           </div>
         )}
       </div>
+
       <div className="p-4 space-y-2">
         <p className="font-semibold text-zinc-900 leading-snug line-clamp-2 group-hover:text-zinc-700">
           {event.title}
@@ -227,8 +229,8 @@ function EventGrid({ events, supabase }: { events: Event[]; supabase: ReturnType
   if (!events.length) return null
   return (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-      {events.map(event => (
-        <EventCard key={event.id} event={event} supabase={supabase} />
+      {events.map((event, i) => (
+        <EventCard key={event.id} event={event} supabase={supabase} index={i} />
       ))}
     </div>
   )
@@ -244,18 +246,21 @@ export default function EventsPage() {
   const [selectedState, setSelectedState] = useState<string>('')
   const supabase = createClient()
 
-  // Load events
   useEffect(() => {
     async function fetchEvents() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('events')
         .select(`
           id, title, description, event_date, image_url,
           venues(name, city, state),
           ticket_tiers(price)
         `)
-        .eq('status', 'published')
+        // De la master: solo eventos futuros
+        .gt('event_date', new Date().toISOString())
         .order('event_date', { ascending: true })
+
+      console.log('eventos:', data)
+      console.log('error:', error)
 
       setEvents((data ?? []) as unknown as Event[])
       setLoading(false)
@@ -263,8 +268,6 @@ export default function EventsPage() {
     fetchEvents()
   }, [])
 
-  // Once events are loaded: check localStorage — if no city saved, show modal
-  // We wait for loading=false so the city list is populated when the modal opens
   useEffect(() => {
     if (loading) return
     const saved = localStorage.getItem(LOCATION_KEY)
@@ -288,10 +291,7 @@ export default function EventsPage() {
     setShowModal(false)
   }
 
-  // Build city list dynamically from real events
   const cityList = buildCityList(events)
-
-  // Split events
   const hasCity = !!selectedCity
 
   const localEvents = hasCity
@@ -312,15 +312,25 @@ export default function EventsPage() {
         />
       )}
 
-      <div className="space-y-10">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-3xl font-bold text-zinc-900">Eventos</h1>
-            <p className="text-zinc-500 mt-1">Descubre lo que está pasando en tu ciudad</p>
-          </div>
+      {/* Banner — de la master */}
+      <section className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white -mx-4 -mt-10 mb-10 px-4 py-16 animate-fade-in">
+        <div className="max-w-6xl mx-auto space-y-3">
+          <p className="text-white/70 text-sm font-medium uppercase tracking-widest animate-fade-in-up" style={{ animationDelay: '60ms' }}>
+            Plataforma de boletos regional
+          </p>
+          <h1 className="font-display text-5xl font-bold leading-none animate-fade-in-up" style={{ animationDelay: '120ms' }}>
+            Todos los eventos
+          </h1>
+          <p className="text-white/80 text-lg max-w-xl animate-fade-in-up" style={{ animationDelay: '180ms' }}>
+            Conciertos, festivales y eventos en vivo cerca de ti.
+          </p>
+        </div>
+      </section>
 
-          {/* City chip — always visible, always opens modal */}
+      <div className="space-y-10">
+
+        {/* City chip */}
+        <div className="flex justify-end">
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-full border border-zinc-200 bg-white text-sm font-medium text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 transition-all shadow-sm"
@@ -331,7 +341,7 @@ export default function EventsPage() {
           </button>
         </div>
 
-        {/* Skeleton loader */}
+        {/* Skeleton */}
         {loading ? (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {[...Array(6)].map((_, i) => (
@@ -348,7 +358,7 @@ export default function EventsPage() {
         ) : !events.length ? (
           <div className="text-center py-24 text-zinc-400">
             <Ticket size={40} className="mx-auto mb-3 opacity-40" />
-            <p className="font-medium">No hay eventos publicados por el momento</p>
+            <p className="font-medium">No hay eventos próximos por el momento</p>
             <p className="text-sm mt-1">Vuelve pronto</p>
           </div>
 
@@ -359,9 +369,7 @@ export default function EventsPage() {
               <section className="space-y-4">
                 <div className="flex items-center gap-2">
                   <MapPin size={15} className="text-zinc-900" />
-                  <h2 className="text-lg font-bold text-zinc-900">
-                    Eventos en {selectedCity}
-                  </h2>
+                  <h2 className="text-lg font-bold text-zinc-900">Eventos en {selectedCity}</h2>
                 </div>
                 {localEvents.length ? (
                   <EventGrid events={localEvents} supabase={supabase} />

@@ -16,6 +16,11 @@ const statusStyle: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-600',
 }
 
+type VenueInfo = {
+  name?: string | null
+  city?: string | null
+}
+
 export default async function EventsPage() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
@@ -89,10 +94,10 @@ export default async function EventsPage() {
                       day: 'numeric', month: 'short', year: 'numeric',
                     })}
                   </span>
-                  {(event.venues as any)?.name && (
+                  {((event.venues as VenueInfo | null)?.name) && (
                     <span className="flex items-center gap-1">
                       <MapPin size={13} />
-                      {(event.venues as any).name}, {(event.venues as any).city}
+                      {(event.venues as VenueInfo).name}, {(event.venues as VenueInfo).city}
                     </span>
                   )}
                 </div>

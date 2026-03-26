@@ -1,11 +1,17 @@
 import { notFound, redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
+import Image from 'next/image'
 import { createClient } from '@/utils/supabase/server'
 import { resolveEventImageUrl } from '@/utils/supabase/storage'
 import { CalendarDays, MapPin, Ticket, Globe, FileText } from 'lucide-react'
 import TierForm from './_components/tier-form'
 import TierList from './_components/tier-list'
 import StatusActions from './_components/status-actions'
+
+type VenueInfo = {
+  name?: string | null
+  city?: string | null
+}
 
 export default async function EventDetailPage({
   params,
@@ -19,31 +25,19 @@ export default async function EventDetailPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: event } = await supabase
-    .from('events')
-    .select('*, venues(name, city)')
-    .eq('id', id)
-    .single()
+  const [{ data: event }, { data: profile }, { data: tiers }] = await Promise.all([
+    supabase.from('events').select('*, venues(name, city)').eq('id', id).single(),
+    supabase.from('profiles').select('role').eq('id', user.id).single(),
+    supabase.from('ticket_tiers').select('*').eq('event_id', id).order('price'),
+  ])
 
   if (!event) notFound()
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
 
   const isOwner = event.organizer_id === user.id
   const isAdmin = profile?.role === 'admin'
   if (!isOwner && !isAdmin) redirect('/dashboard')
 
-  const { data: tiers } = await supabase
-    .from('ticket_tiers')
-    .select('*')
-    .eq('event_id', id)
-    .order('price')
-
-  const venue = event.venues as any
+  const venue = (event.venues ?? null) as VenueInfo | null
   const imageUrl = resolveEventImageUrl(supabase, event.image_url)
   const statusStyle: Record<string, string> = {
     draft:     'bg-zinc-100 text-zinc-600',
@@ -91,9 +85,12 @@ export default async function EventDetailPage({
           )}
         </div>
         {imageUrl && (
-          <img
+          <Image
             src={imageUrl}
             alt={event.title}
+            width={96}
+            height={96}
+            unoptimized
             className="w-24 h-24 rounded-xl object-cover shrink-0"
           />
         )}
