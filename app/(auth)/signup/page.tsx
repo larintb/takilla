@@ -65,9 +65,11 @@ export default function SignupPage() {
           </p>
         )}
 
-        <FormButton className="w-full rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:from-amber-500 hover:via-orange-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 justify-center">
-          Crear cuenta
-        </FormButton>
+        <div className="flex justify-center pt-2">
+          <FormButton className="rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 px-8 py-2 text-sm font-semibold text-white hover:from-amber-500 hover:via-orange-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
+            Crear cuenta
+          </FormButton>
+        </div>
       </form>
 
       <p className="mt-6 text-center text-sm text-zinc-500">

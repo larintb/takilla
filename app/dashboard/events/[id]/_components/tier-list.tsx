@@ -40,7 +40,7 @@ export default function TierList({ tiers, eventId }: { tiers: Tier[]; eventId: s
                 </div>
                 <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-zinc-900 rounded-full transition-all"
+                    className="h-full bg-gradient-to-r from-amber-400 to-red-500 rounded-full transition-all"
                     style={{ width: `${pct}%` }}
                   />
                 </div>

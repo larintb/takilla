@@ -1,9 +1,10 @@
 import { notFound, redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Image from 'next/image'
+import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
 import { resolveEventImageUrl } from '@/utils/supabase/storage'
-import { CalendarDays, MapPin, Ticket, Globe, FileText } from 'lucide-react'
+import { CalendarDays, MapPin, Ticket, Globe, FileText, ArrowLeft, TrendingUp, Users, DollarSign } from 'lucide-react'
 import TierForm from './_components/tier-form'
 import TierList from './_components/tier-list'
 import StatusActions from './_components/status-actions'
@@ -39,27 +40,51 @@ export default async function EventDetailPage({
 
   const venue = (event.venues ?? null) as VenueInfo | null
   const imageUrl = resolveEventImageUrl(supabase, event.image_url)
+  const isFinished = event.status === 'published' && new Date(event.event_date) < new Date()
+
+  // Sales summary
+  const totalCapacity  = tiers?.reduce((sum, t) => sum + t.total_capacity, 0) ?? 0
+  const totalSold      = tiers?.reduce((sum, t) => sum + (t.total_capacity - t.available_tickets), 0) ?? 0
+  const totalRevenue   = tiers?.reduce((sum, t) => sum + (t.total_capacity - t.available_tickets) * Number(t.price), 0) ?? 0
+  const soldPct        = totalCapacity > 0 ? Math.round((totalSold / totalCapacity) * 100) : 0
+
   const statusStyle: Record<string, string> = {
     draft:     'bg-zinc-100 text-zinc-600',
     published: 'bg-green-100 text-green-700',
     cancelled: 'bg-red-100 text-red-600',
+    finished:  'bg-orange-100 text-orange-700',
   }
   const statusLabel: Record<string, string> = {
     draft:     'Borrador',
     published: 'Publicado',
     cancelled: 'Cancelado',
+    finished:  'Finalizado',
   }
+
+  const displayStatus = isFinished ? 'finished' : event.status
 
   return (
     <div className="max-w-3xl space-y-8">
+
+      {/* Back button */}
+      <Link
+        href="/dashboard/events"
+        className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-orange-600 transition-colors"
+      >
+        <ArrowLeft size={14} />
+        Mis eventos
+      </Link>
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusStyle[event.status]}`}>
-              {statusLabel[event.status]}
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusStyle[displayStatus]}`}>
+              {statusLabel[displayStatus]}
             </span>
+            {isFinished && (
+              <span className="text-xs text-zinc-400">· Evento terminado</span>
+            )}
           </div>
           <h1 className="text-2xl font-bold text-zinc-900">{event.title}</h1>
           <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-zinc-500">
@@ -96,8 +121,47 @@ export default async function EventDetailPage({
         )}
       </div>
 
-      {/* Status actions */}
-      <StatusActions eventId={id} currentStatus={event.status} />
+      {/* Sales summary — visible siempre pero destacado si terminó */}
+      {totalCapacity > 0 && (
+        <section className={`rounded-2xl border p-5 space-y-4 ${isFinished ? 'bg-orange-50 border-orange-200' : 'bg-white border-zinc-200'}`}>
+          <div className="flex items-center gap-2">
+            <TrendingUp size={16} className={isFinished ? 'text-orange-500' : 'text-zinc-400'} />
+            <h2 className="text-sm font-semibold text-zinc-900">
+              {isFinished ? 'Resumen del evento' : 'Ventas en tiempo real'}
+            </h2>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 text-zinc-400 text-xs mb-1">
+                <Users size={12} /> Vendidos
+              </div>
+              <p className="text-2xl font-bold text-zinc-900">{totalSold}</p>
+              <p className="text-xs text-zinc-400">de {totalCapacity}</p>
+            </div>
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 text-zinc-400 text-xs mb-1">
+                <TrendingUp size={12} /> Ocupación
+              </div>
+              <p className="text-2xl font-bold text-zinc-900">{soldPct}%</p>
+              <div className="mt-1 h-1.5 bg-zinc-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-400 to-red-500 rounded-full"
+                  style={{ width: `${soldPct}%` }}
+                />
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 text-zinc-400 text-xs mb-1">
+                <DollarSign size={12} /> Recaudado
+              </div>
+              <p className="text-2xl font-bold text-zinc-900">${totalRevenue.toFixed(2)}</p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Status actions — ocultar si ya terminó */}
+      {!isFinished && <StatusActions eventId={id} currentStatus={event.status} />}
 
       {/* Ticket tiers */}
       <section className="space-y-4">
@@ -109,10 +173,12 @@ export default async function EventDetailPage({
 
         <TierList tiers={tiers ?? []} eventId={id} />
 
-        <div>
-          <h3 className="text-sm font-medium text-zinc-700 mb-3">Agregar tier</h3>
-          <TierForm eventId={id} />
-        </div>
+        {!isFinished && (
+          <div>
+            <h3 className="text-sm font-medium text-zinc-700 mb-3">Agregar tier</h3>
+            <TierForm eventId={id} />
+          </div>
+        )}
       </section>
 
       {/* Public link */}
@@ -122,7 +188,7 @@ export default async function EventDetailPage({
           <span>Evento público en</span>
           <a
             href={`/events/${id}`}
-            className="font-medium text-zinc-900 hover:underline"
+            className="font-medium text-orange-600 hover:underline"
             target="_blank"
           >
             /events/{id}

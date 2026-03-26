@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import {
@@ -46,7 +47,7 @@ function Fade({ children, id }: { children: React.ReactNode; id: string }) {
   )
 }
 
-// ─── Sidebar content (shared between desktop + mobile drawer) ────────────────
+// ─── Sidebar content ─────────────────────────────────────────────────────────
 
 function SidebarContent({
   profile,
@@ -65,30 +66,27 @@ function SidebarContent({
   ]
 
   return (
-    <>
-      {/* Nav */}
-      <nav className="flex flex-col gap-1">
-        {navItems.map(item => {
-          const isActive = section === item.id
-          return (
-            <button
-              key={item.id}
-              onClick={() => onSelect(item.id)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors text-left
-                ${isActive
-                  ? 'bg-zinc-900 text-white'
-                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
-                }`}
-            >
-              <span className={isActive ? 'text-white' : 'text-zinc-400'}>
-                {item.icon}
-              </span>
-              {item.label}
-            </button>
-          )
-        })}
-      </nav>
-    </>
+    <nav className="flex flex-col gap-1">
+      {navItems.map(item => {
+        const isActive = section === item.id
+        return (
+          <button
+            key={item.id}
+            onClick={() => onSelect(item.id)}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all text-left
+              ${isActive
+                ? 'bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white shadow-sm'
+                : 'text-zinc-600 hover:bg-orange-50 hover:text-orange-600'
+              }`}
+          >
+            <span className={isActive ? 'text-white' : 'text-zinc-400'}>
+              {item.icon}
+            </span>
+            {item.label}
+          </button>
+        )
+      })}
+    </nav>
   )
 }
 
@@ -112,7 +110,7 @@ function TicketsSection({ tickets }: { tickets: TicketRow[] }) {
             <p className="text-sm text-zinc-400 mt-1">Explora los eventos y compra tus boletos</p>
             <Link
               href="/events"
-              className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-700 transition-colors"
+              className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white text-sm font-semibold hover:from-amber-500 hover:via-orange-600 hover:to-red-700 transition-all"
             >
               <FileSearch size={15} />
               Ver eventos
@@ -134,7 +132,7 @@ function TicketsSection({ tickets }: { tickets: TicketRow[] }) {
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-semibold text-zinc-900 leading-tight">{event?.title}</p>
                     <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      ticket.is_used ? 'bg-zinc-100 text-zinc-400' : 'bg-green-100 text-green-700'
+                      ticket.is_used ? 'bg-zinc-100 text-zinc-400' : 'bg-orange-100 text-orange-700'
                     }`}>
                       {ticket.is_used ? 'Usado' : 'Válido'}
                     </span>
@@ -189,27 +187,26 @@ function SettingsSection({
 }) {
   const supabase = createClient()
 
-  // Name
   const [name, setName]             = useState(profile.full_name)
   const [nameSaved, setNameSaved]   = useState(false)
   const [nameError, setNameError]   = useState('')
   const [savingName, startNameSave] = useTransition()
 
-  // Email
   const [newEmail, setNewEmail]         = useState(email)
   const [emailSaved, setEmailSaved]     = useState(false)
   const [emailError, setEmailError]     = useState('')
   const [savingEmail, startEmailSave]   = useTransition()
 
-  // Password
   const [newPw, setNewPw]           = useState('')
   const [confirmPw, setConfirmPw]   = useState('')
   const [pwSaved, setPwSaved]       = useState(false)
   const [pwError, setPwError]       = useState('')
   const [savingPw, startPwSave]     = useTransition()
 
-  // Logout confirm
   const [confirmLogout, setConfirmLogout] = useState(false)
+
+  // Shared button style
+  const btnPrimary = "flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white text-sm font-semibold hover:from-amber-500 hover:via-orange-600 hover:to-red-700 disabled:opacity-50 transition-all"
 
   async function handleSaveName() {
     setNameError(''); setNameSaved(false)
@@ -250,6 +247,8 @@ function SettingsSection({
     })
   }
 
+  const inputClass = "w-full px-3 py-2 text-sm text-zinc-900 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400 transition"
+
   return (
     <Fade id="settings">
       <div className="space-y-6 max-w-lg">
@@ -261,18 +260,9 @@ function SettingsSection({
         {/* Name */}
         <div className="bg-white rounded-2xl border border-zinc-200 p-5 space-y-4">
           <h2 className="text-sm font-semibold text-zinc-900">Nombre</h2>
-          <input
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            className="w-full px-3 py-2 text-sm text-zinc-900 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 transition"
-          />
+          <input type="text" value={name} onChange={e => setName(e.target.value)} className={inputClass} />
           {nameError && <p className="text-xs text-red-500">{nameError}</p>}
-          <button
-            onClick={handleSaveName}
-            disabled={savingName}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-700 disabled:opacity-50 transition-colors"
-          >
+          <button onClick={handleSaveName} disabled={savingName} className={btnPrimary}>
             {savingName ? <Loader2 size={14} className="animate-spin" /> : nameSaved ? <Check size={14} /> : null}
             {nameSaved ? 'Guardado' : 'Guardar nombre'}
           </button>
@@ -281,19 +271,10 @@ function SettingsSection({
         {/* Email */}
         <div className="bg-white rounded-2xl border border-zinc-200 p-5 space-y-4">
           <h2 className="text-sm font-semibold text-zinc-900">Correo electrónico</h2>
-          <input
-            type="email"
-            value={newEmail}
-            onChange={e => setNewEmail(e.target.value)}
-            className="w-full px-3 py-2 text-sm text-zinc-900 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 transition"
-          />
+          <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} className={inputClass} />
           {emailError && <p className="text-xs text-red-500">{emailError}</p>}
           {emailSaved && <p className="text-xs text-green-600">Te enviamos un correo de confirmación.</p>}
-          <button
-            onClick={handleSaveEmail}
-            disabled={savingEmail}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-700 disabled:opacity-50 transition-colors"
-          >
+          <button onClick={handleSaveEmail} disabled={savingEmail} className={btnPrimary}>
             {savingEmail ? <Loader2 size={14} className="animate-spin" /> : emailSaved ? <Check size={14} /> : null}
             {emailSaved ? 'Correo enviado' : 'Actualizar correo'}
           </button>
@@ -303,28 +284,14 @@ function SettingsSection({
         <div className="bg-white rounded-2xl border border-zinc-200 p-5 space-y-4">
           <h2 className="text-sm font-semibold text-zinc-900">Contraseña</h2>
           <div className="space-y-2">
-            <input
-              type="password"
-              placeholder="Nueva contraseña"
-              value={newPw}
-              onChange={e => setNewPw(e.target.value)}
-              className="w-full px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 transition"
-            />
-            <input
-              type="password"
-              placeholder="Confirmar nueva contraseña"
-              value={confirmPw}
-              onChange={e => setConfirmPw(e.target.value)}
-              className="w-full px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 transition"
-            />
+            <input type="password" placeholder="Nueva contraseña" value={newPw} onChange={e => setNewPw(e.target.value)}
+              className={`${inputClass} placeholder:text-zinc-400`} />
+            <input type="password" placeholder="Confirmar nueva contraseña" value={confirmPw} onChange={e => setConfirmPw(e.target.value)}
+              className={`${inputClass} placeholder:text-zinc-400`} />
           </div>
           {pwError && <p className="text-xs text-red-500">{pwError}</p>}
           {pwSaved && <p className="text-xs text-green-600">Contraseña actualizada correctamente.</p>}
-          <button
-            onClick={handleSavePassword}
-            disabled={savingPw}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-700 disabled:opacity-50 transition-colors"
-          >
+          <button onClick={handleSavePassword} disabled={savingPw} className={btnPrimary}>
             {savingPw ? <Loader2 size={14} className="animate-spin" /> : pwSaved ? <Check size={14} /> : null}
             {pwSaved ? 'Guardado' : 'Cambiar contraseña'}
           </button>
@@ -334,7 +301,6 @@ function SettingsSection({
         <div className="bg-white rounded-2xl border border-zinc-200 p-5 space-y-4">
           <h2 className="text-sm font-semibold text-zinc-900">Sesión</h2>
           <p className="text-sm text-zinc-500">Cerrar sesión en este dispositivo.</p>
-
           {!confirmLogout ? (
             <button
               onClick={() => setConfirmLogout(true)}
@@ -347,23 +313,16 @@ function SettingsSection({
             <div className="space-y-3">
               <p className="text-sm font-medium text-zinc-800">¿Estás seguro que quieres cerrar sesión?</p>
               <div className="flex gap-2">
-                <button
-                  onClick={onLogout}
-                  className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"
-                >
+                <button onClick={onLogout} className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors">
                   Sí, cerrar sesión
                 </button>
-                <button
-                  onClick={() => setConfirmLogout(false)}
-                  className="px-4 py-2 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-semibold hover:bg-zinc-50 transition-colors"
-                >
+                <button onClick={() => setConfirmLogout(false)} className="px-4 py-2 rounded-xl border border-zinc-200 text-zinc-600 text-sm font-semibold hover:bg-zinc-50 transition-colors">
                   Cancelar
                 </button>
               </div>
             </div>
           )}
         </div>
-
       </div>
     </Fade>
   )
@@ -385,9 +344,7 @@ export default function DashboardPage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { window.location.href = '/login'; return }
-      
       setEmail(user.email ?? '')
-      
       const [{ data: prof }, { data: tix }] = await Promise.all([
         supabase.from('profiles').select('full_name, role').eq('id', user.id).single(),
         supabase
@@ -396,17 +353,8 @@ export default function DashboardPage() {
           .eq('owner_id', user.id)
           .order('id', { ascending: false }),
       ])
-      
-      // Redirección basada en rol (de master)
-      if (prof?.role === 'admin') {
-        redirect('/dashboard/admin')
-        return
-      }
-      if (prof?.role === 'organizer') {
-        redirect('/dashboard/events')
-        return
-      }
-      
+      if (prof?.role === 'admin') { redirect('/dashboard/admin'); return }
+      if (prof?.role === 'organizer') { redirect('/dashboard/events'); return }
       setProfile(prof ?? { full_name: '', role: 'customer' })
       setTickets((tix ?? []) as unknown as TicketRow[])
       setLoading(false)
@@ -429,21 +377,21 @@ export default function DashboardPage() {
       <div className="min-h-screen bg-zinc-50">
         <header className="bg-white border-b border-zinc-200">
           <div className="max-w-6xl mx-auto px-4 h-14 flex items-center">
-            <div className="flex items-center gap-2 font-bold text-zinc-900">
-              <Ticket size={18} />
-              Takilla
-            </div>
+            <Link href="/" className="flex items-center gap-2">
+              <Image src="/images/Artboard 1.png" alt="Takilla" width={28} height={28} className="rounded-md" />
+              <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 bg-clip-text text-transparent font-bold text-lg tracking-tight">
+                Takilla
+              </span>
+            </Link>
           </div>
         </header>
         <div className="max-w-6xl mx-auto px-4 py-8 flex gap-8">
-          {/* Sidebar skeleton */}
           <aside className="hidden md:block w-52 shrink-0 space-y-3">
             <div className="h-4 bg-zinc-200 rounded-lg animate-pulse w-3/4" />
             <div className="h-3 bg-zinc-100 rounded-lg animate-pulse w-1/2 mb-4" />
-            <div className="h-9 bg-zinc-200 rounded-xl animate-pulse" />
+            <div className="h-9 bg-orange-100 rounded-xl animate-pulse" />
             <div className="h-9 bg-zinc-100 rounded-xl animate-pulse" />
           </aside>
-          {/* Content skeleton */}
           <main className="flex-1 min-w-0 space-y-4">
             <div className="h-7 bg-zinc-200 rounded-lg animate-pulse w-40" />
             <div className="h-4 bg-zinc-100 rounded-lg animate-pulse w-24" />
@@ -472,7 +420,7 @@ export default function DashboardPage() {
       <header className="bg-white border-b border-zinc-200">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
 
-          {/* Mobile only: hamburger — left */}
+          {/* Mobile: hamburger */}
           <button
             className="md:hidden p-1 text-zinc-600 hover:text-zinc-900 transition-colors"
             onClick={() => setDrawerOpen(true)}
@@ -482,12 +430,13 @@ export default function DashboardPage() {
           </button>
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 font-bold text-zinc-900 absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0">
-            <Ticket size={18} />
-            Takilla
+          <Link href="/" className="flex items-center gap-2 absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0">
+            <Image src="/images/Artboard 1.png" alt="Takilla" width={28} height={28} className="rounded-md" />
+            <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 bg-clip-text text-transparent font-bold text-lg tracking-tight">
+              Takilla
+            </span>
           </Link>
 
-          {/* Spacer */}
           <div className="md:hidden w-7" />
 
         </div>
@@ -495,29 +444,25 @@ export default function DashboardPage() {
 
       {/* Mobile drawer overlay */}
       {drawerOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 md:hidden"
-          onClick={() => setDrawerOpen(false)}
-        />
+        <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setDrawerOpen(false)} />
       )}
 
       {/* Mobile drawer */}
-      <div
-        className={`fixed top-0 left-0 h-full w-64 bg-white z-50 shadow-xl transform transition-transform duration-300 ease-in-out md:hidden
-          ${drawerOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      <div className={`fixed top-0 left-0 h-full w-64 bg-white z-50 shadow-xl transform transition-transform duration-300 ease-in-out md:hidden
+        ${drawerOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        {/* Drawer header: user info + close button */}
-        <div className="flex items-center justify-between px-4 h-16 border-b border-zinc-100">
+        {/* Drawer header con gradiente */}
+        <div className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 px-4 h-16 flex items-center justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-zinc-900 truncate">
+            <p className="text-sm font-semibold text-white truncate">
               {profile?.full_name || email}
             </p>
-            <p className="text-xs text-zinc-400 truncate">{email}</p>
+            <p className="text-xs text-white/70 truncate">{email}</p>
           </div>
           <button
             type="button"
             onClick={() => setDrawerOpen(false)}
-            className="ml-3 shrink-0 p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
+            className="ml-3 shrink-0 p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/20 transition-colors"
           >
             <X size={18} />
           </button>
@@ -537,12 +482,16 @@ export default function DashboardPage() {
 
         {/* Desktop sidebar */}
         <aside className="hidden md:block w-52 shrink-0">
-          {/* User info */}
+          {/* User info con acento naranja */}
           <div className="mb-6 px-1">
             <p className="text-sm font-semibold text-zinc-900 truncate">
               {profile?.full_name || email}
             </p>
-            <p className="text-xs text-zinc-400 mt-0.5 truncate">{email}</p>
+            <p className="text-xs mt-0.5 truncate">
+              <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 bg-clip-text text-transparent font-medium">
+                {profile?.role === 'admin' ? 'Admin' : profile?.role === 'organizer' ? 'Organizador' : 'Cliente'}
+              </span>
+            </p>
           </div>
           <SidebarContent
             profile={profile}
@@ -554,9 +503,7 @@ export default function DashboardPage() {
 
         {/* Content */}
         <main className="flex-1 min-w-0">
-          {section === 'tickets' && (
-            <TicketsSection tickets={tickets} />
-          )}
+          {section === 'tickets' && <TicketsSection tickets={tickets} />}
           {section === 'settings' && profile && (
             <SettingsSection
               profile={profile}

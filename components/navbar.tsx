@@ -22,20 +22,20 @@ const getProfile = unstable_cache(
 
 const menuByRole: Record<string, { label: string; href: string }[]> = {
   customer: [
-    { label: 'Mis boletos',  href: '/tickets' },
-    { label: 'Ver eventos',  href: '/events'  },
+    { label: 'Mi cuenta',   href: '/dashboard'        },
+    { label: 'Ver eventos', href: '/events'            },
   ],
   organizer: [
-    { label: 'Mis eventos',  href: '/dashboard/events' },
-    { label: 'Staff App',    href: '/staff'            },
-    { label: 'Mis boletos',  href: '/tickets'          },
-    { label: 'Ver eventos',  href: '/events'           },
+    { label: 'Mi cuenta',   href: '/dashboard'         },
+    { label: 'Mis eventos', href: '/dashboard/events'  },
+    { label: 'Staff App',   href: '/staff'             },
+    { label: 'Ver eventos', href: '/events'            },
   ],
   admin: [
-    { label: 'Panel administrador', href: '/dashboard/admin'   },
-    { label: 'Eventos',             href: '/dashboard/events'  },
-    { label: 'Staff App',           href: '/staff'             },
-    { label: 'Mis boletos',         href: '/tickets'           },
+    { label: 'Mi cuenta',          href: '/dashboard'        },
+    { label: 'Panel administrador', href: '/dashboard/admin'  },
+    { label: 'Eventos',            href: '/dashboard/events'  },
+    { label: 'Staff App',          href: '/staff'             },
   ],
 }
 
@@ -87,11 +87,11 @@ export default async function Navbar() {
     <header className="bg-white border-b border-zinc-200 relative z-40">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-            <Image src="/images/Artboard 1.png" alt="Takilla" width={28} height={28} className="rounded-md" />
-            <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 bg-clip-text text-transparent font-bold text-lg tracking-tight">
-              Takilla
-            </span>
-          </Link>
+          <Image src="/images/Artboard 1.png" alt="Takilla" width={28} height={28} className="rounded-md" />
+          <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 bg-clip-text text-transparent font-bold text-lg tracking-tight">
+            Takilla
+          </span>
+        </Link>
         <NavbarUserMenu
           userName={displayName}
           roleLabel={roleLabels[role] ?? 'Cliente'}

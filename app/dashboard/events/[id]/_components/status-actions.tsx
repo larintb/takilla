@@ -15,7 +15,7 @@ export default function StatusActions({
     <div className="flex items-center gap-2 flex-wrap">
       {currentStatus === 'draft' && (
         <form action={updateEventStatus.bind(null, eventId, 'published')}>
-          <FormButton className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700">
+          <FormButton className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white text-sm font-medium hover:from-amber-500 hover:via-orange-600 hover:to-red-700 transition-all">
             <Globe size={14} />
             Publicar evento
           </FormButton>

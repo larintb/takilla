@@ -23,7 +23,7 @@ export default function TierForm({ eventId }: { eventId: string }) {
             type="text"
             required
             placeholder="General, VIP..."
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
           />
         </div>
 
@@ -37,15 +37,15 @@ export default function TierForm({ eventId }: { eventId: string }) {
             type="number"
             required
             min="0"
-            step="0.01"
-            placeholder="0.00"
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+            step="1"
+            placeholder="0"
+            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
           />
         </div>
 
         <div>
           <label htmlFor="tier-capacity" className="block text-xs font-medium text-zinc-600 mb-1">
-            Capacidad
+            Capacidad (máx. 999)
           </label>
           <input
             id="tier-capacity"
@@ -53,8 +53,9 @@ export default function TierForm({ eventId }: { eventId: string }) {
             type="number"
             required
             min="1"
+            max="999"
             placeholder="100"
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
           />
         </div>
       </div>
@@ -63,7 +64,7 @@ export default function TierForm({ eventId }: { eventId: string }) {
         <p className="text-sm text-red-600 mt-2">{state.error}</p>
       )}
 
-      <FormButton className="mt-3 px-4 py-2 rounded-lg bg-zinc-900 text-white text-sm font-medium hover:bg-zinc-700">
+      <FormButton className="mt-3 px-4 py-2 rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white text-sm font-medium hover:from-amber-500 hover:via-orange-600 hover:to-red-700 transition-all">
         <Plus size={14} />
         Agregar tier
       </FormButton>
