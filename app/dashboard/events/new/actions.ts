@@ -30,10 +30,8 @@ export async function createEvent(
   const image_path  = (formData.get('image_path') as string | null)?.trim() || null
   const status      = formData.get('status') as string
 
-  if (!title?.trim())  return { error: 'El título es requerido' }
-  if (!event_date)     return { error: 'La fecha es requerida' }
-
-  const imagePath = image_path
+  if (!title?.trim()) return { error: 'El título es requerido' }
+  if (!event_date)    return { error: 'La fecha es requerida' }
 
   const { data: event, error } = await supabase
     .from('events')
@@ -42,8 +40,8 @@ export async function createEvent(
       title:        title.trim(),
       description:  description?.trim() || null,
       event_date,
-      venue_id:     venue_id  || null,
-      image_url:    imagePath,
+      venue_id:     venue_id || null,
+      image_url:    image_path,
       status:       status || 'draft',
     })
     .select('id')

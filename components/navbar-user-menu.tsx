@@ -18,7 +18,6 @@ export default function NavbarUserMenu({ userName, roleLabel, menuItems }: Props
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  // Cierra con click fuera — sin pointerdown, sin touchstart, solo click
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent | TouchEvent) => {
@@ -26,7 +25,6 @@ export default function NavbarUserMenu({ userName, roleLabel, menuItems }: Props
         setOpen(false)
       }
     }
-    // pequeño delay para que no se cierre en el mismo click que lo abrió
     const id = setTimeout(() => {
       document.addEventListener('click', handler)
       document.addEventListener('touchend', handler)
@@ -38,17 +36,20 @@ export default function NavbarUserMenu({ userName, roleLabel, menuItems }: Props
     }
   }, [open])
 
+  // Truncar el nombre si es muy largo para que el botón no se desborde
+  const shortName = userName.split(' ')[0] ?? userName
+
   return (
     <div ref={ref} className="relative z-50">
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white text-sm font-medium hover:from-amber-500 hover:via-orange-600 hover:to-red-700 transition-all"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white text-sm font-medium hover:from-amber-500 hover:via-orange-600 hover:to-red-700 transition-all max-w-[180px]"
       >
-        Mi cuenta
+        <span className="truncate">{shortName}</span>
         <ChevronDown
           size={13}
-          className={`transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+          className={`shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
         />
       </button>
 
@@ -61,7 +62,7 @@ export default function NavbarUserMenu({ userName, roleLabel, menuItems }: Props
 
           {menuItems.map(item => (
             <Link
-              key={item.href}
+              key={item.label}
               href={item.href}
               onClick={() => setOpen(false)}
               className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"

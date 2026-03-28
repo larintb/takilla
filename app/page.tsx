@@ -70,14 +70,14 @@ export default async function Home() {
         <h2 className="text-lg font-bold text-zinc-900 mb-5">Explora por categoría</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Música',        img: '/images/musica.2.png'        },
-            { label: 'Arte',          img: '/images/arte.2.png'          },
-            { label: 'Evento social', img: '/images/evento social.png'   },
-            { label: 'Vida nocturna', img: '/images/vida nocturna.2.png' },
+            { label: 'Música',        img: '/images/musica.2.png',        value: 'musica'   },
+            { label: 'Arte',          img: '/images/arte.2.png',          value: 'arte'     },
+            { label: 'Evento social', img: '/images/evento social.png',   value: 'social'   },
+            { label: 'Vida nocturna', img: '/images/vida nocturna.2.png', value: 'nocturna' },
           ].map(cat => (
             <Link
               key={cat.label}
-              href="/events"
+              href={`/events?category=${cat.value}`}
               className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-zinc-100 hover:border-orange-200 hover:bg-orange-50/40 transition-all group"
             >
               <Image src={cat.img} alt={cat.label} width={64} height={64} className="group-hover:scale-105 transition-transform duration-200" />

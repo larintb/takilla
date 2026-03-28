@@ -19,8 +19,14 @@ type TicketData = {
   tierPrice: number | null
 }
 
-export default function RetroTicketWallet({ tickets }: { tickets: TicketData[] }) {
-  const [index, setIndex] = useState(0)
+export default function RetroTicketWallet({
+  tickets,
+  initialIndex = 0,
+}: {
+  tickets: TicketData[]
+  initialIndex?: number
+}) {
+  const [index, setIndex] = useState(initialIndex)
   const ticket = tickets[index]
   const total = tickets.length
 
@@ -81,7 +87,7 @@ export default function RetroTicketWallet({ tickets }: { tickets: TicketData[] }
           <div className="absolute -right-[18px] w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-red-600 border-4 border-black" />
         </div>
 
-        {/* QR — always visible, no tap needed */}
+        {/* QR */}
         <div className="px-5 py-5 flex flex-col items-center gap-3">
           <p className="text-xs tracking-[0.3em] text-zinc-400 uppercase self-start">
             Código de acceso
@@ -93,13 +99,13 @@ export default function RetroTicketWallet({ tickets }: { tickets: TicketData[] }
         </div>
       </div>
 
-      {/* Navigation — only shown with multiple tickets */}
+      {/* Navigation */}
       {total > 1 && (
         <div className={`flex items-center gap-4 ${vt323.className}`}>
           <button
             onClick={() => setIndex(i => i - 1)}
             disabled={index === 0}
-            className="w-10 h-10 border-2 border-black flex items-center justify-center disabled:opacity-30 hover:bg-black hover:text-amber-50 transition-colors"
+            className="w-10 h-10 border-2 border-white flex items-center justify-center disabled:opacity-30 hover:bg-white hover:text-zinc-900 text-white transition-colors"
           >
             <ChevronLeft size={20} />
           </button>
@@ -109,8 +115,8 @@ export default function RetroTicketWallet({ tickets }: { tickets: TicketData[] }
               <button
                 key={i}
                 onClick={() => setIndex(i)}
-                className={`w-2.5 h-2.5 rounded-full border-2 border-black transition-colors ${
-                  i === index ? 'bg-black' : 'bg-transparent'
+                className={`w-2.5 h-2.5 rounded-full border-2 transition-colors ${
+                  i === index ? 'bg-white border-white' : 'bg-transparent border-white/50'
                 }`}
               />
             ))}
@@ -119,7 +125,7 @@ export default function RetroTicketWallet({ tickets }: { tickets: TicketData[] }
           <button
             onClick={() => setIndex(i => i + 1)}
             disabled={index === total - 1}
-            className="w-10 h-10 border-2 border-black flex items-center justify-center disabled:opacity-30 hover:bg-black hover:text-amber-50 transition-colors"
+            className="w-10 h-10 border-2 border-white flex items-center justify-center disabled:opacity-30 hover:bg-white hover:text-zinc-900 text-white transition-colors"
           >
             <ChevronRight size={20} />
           </button>
@@ -127,7 +133,7 @@ export default function RetroTicketWallet({ tickets }: { tickets: TicketData[] }
       )}
 
       {total > 1 && (
-        <p className={`text-sm text-zinc-400 tracking-widest uppercase ${vt323.className}`}>
+        <p className={`text-sm text-white/60 tracking-widest uppercase ${vt323.className}`}>
           Boleto {index + 1} de {total}
         </p>
       )}

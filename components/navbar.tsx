@@ -22,20 +22,20 @@ const getProfile = unstable_cache(
 
 const menuByRole: Record<string, { label: string; href: string }[]> = {
   customer: [
-    { label: 'Mi cuenta',   href: '/dashboard'        },
-    { label: 'Ver eventos', href: '/events'            },
+    { label: 'Mi cuenta',   href: '/dashboard' },
+    { label: 'Ver eventos', href: '/events'    },
   ],
   organizer: [
-    { label: 'Mi cuenta',   href: '/dashboard'         },
-    { label: 'Mis eventos', href: '/dashboard/events'  },
-    { label: 'Staff App',   href: '/staff'             },
-    { label: 'Ver eventos', href: '/events'            },
+    { label: 'Mi cuenta',   href: '/dashboard' },
+    { label: 'Mis eventos', href: '/dashboard' },
+    { label: 'Staff App',   href: '/staff'     },
+    { label: 'Ver eventos', href: '/events'    },
   ],
   admin: [
-    { label: 'Mi cuenta',          href: '/dashboard'        },
-    { label: 'Panel administrador', href: '/dashboard/admin'  },
-    { label: 'Eventos',            href: '/dashboard/events'  },
-    { label: 'Staff App',          href: '/staff'             },
+    { label: 'Mi cuenta',           href: '/dashboard'       },
+    { label: 'Mis eventos',         href: '/dashboard'       },
+    { label: 'Panel administrador', href: '/dashboard/admin' },
+    { label: 'Staff App',           href: '/staff'           },
   ],
 }
 
