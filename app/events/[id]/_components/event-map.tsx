@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import type mapboxgl from 'mapbox-gl'
 import { MapPin, Navigation, X } from 'lucide-react'
 
 export default function EventMap({
@@ -13,7 +14,7 @@ export default function EventMap({
   locationName?: string | null
 }) {
   const mapRef         = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<any>(null)
+  const mapInstanceRef = useRef<mapboxgl.Map | null>(null)
   const [showPrompt, setShowPrompt] = useState(false)
 
   useEffect(() => {
@@ -21,9 +22,9 @@ export default function EventMap({
     if (!token || !mapRef.current) return
 
     async function initMap() {
-      const mapboxgl = (await import('mapbox-gl')).default
+      const mapboxgl = (await import('mapbox-gl')).default as typeof import('mapbox-gl').default
       await import('mapbox-gl/dist/mapbox-gl.css')
-      ;(mapboxgl as any).accessToken = token
+      ;mapboxgl.accessToken = token
 
       if (mapInstanceRef.current) return
 

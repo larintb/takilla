@@ -151,7 +151,7 @@ export default function EventsPage() {
       setLoading(false)
     }
     fetchEvents()
-  }, [activeCategory])
+  }, [activeCategory, supabase])
 
   const activeCatLabel = CATEGORIES.find(c => c.value === activeCategory)?.label ?? 'Eventos'
 

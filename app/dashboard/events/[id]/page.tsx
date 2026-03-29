@@ -15,7 +15,6 @@ import EventEditForm from './_components/event-edit-form'
 import { updateEvent } from './actions'
 
 type VenueInfo = { name?: string | null; city?: string | null }
-type Venue = { id: string; name: string; city: string }
 
 export default async function EventDetailPage({
   params,
@@ -29,11 +28,10 @@ export default async function EventDetailPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: event }, { data: profile }, { data: tiers }, { data: venues }] = await Promise.all([
+  const [{ data: event }, { data: profile }, { data: tiers }] = await Promise.all([
     supabase.from('events').select('*, venues(name, city)').eq('id', id).single(),
     supabase.from('profiles').select('role').eq('id', user.id).single(),
     supabase.from('ticket_tiers').select('*').eq('event_id', id).order('price'),
-    supabase.from('venues').select('id, name, city').order('name'),
   ])
 
   if (!event) notFound()

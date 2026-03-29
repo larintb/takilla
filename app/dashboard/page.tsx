@@ -338,7 +338,7 @@ function EventRowItem({
     return (
       <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-5 py-4 gap-4">
         <p className="text-sm font-medium text-red-800 min-w-0 truncate">
-          ¿Borrar <span className="font-semibold">"{event.title}"</span>?
+          ¿Borrar <span className="font-semibold">&quot;{event.title}&quot;</span>?
         </p>
         <div className="flex items-center gap-2 shrink-0">
           <button
@@ -670,7 +670,7 @@ export default function DashboardPage() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [supabase])
 
   useEffect(() => {
     if (section !== 'events' || !profile) return
@@ -696,7 +696,7 @@ export default function DashboardPage() {
       setEventsLoading(false)
     }
     loadEvents()
-  }, [section, profile])
+  }, [section, profile, events.length, supabase])
 
   async function handleDeleteEvent(id: string) {
     const { error } = await supabase.from('events').delete().eq('id', id)
