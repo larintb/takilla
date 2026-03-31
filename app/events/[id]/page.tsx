@@ -15,6 +15,35 @@ type VenueInfo = {
   capacity?: number | null
 }
 
+function AvailabilityBadge({ available, total }: { available: number; total: number }) {
+  if (available === 0) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full"
+        style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
+        <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
+        Agotado
+      </span>
+    )
+  }
+  const pct = total > 0 ? (available / total) * 100 : 100
+  if (pct <= 25) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full"
+        style={{ background: 'rgba(234,179,8,0.15)', color: '#facc15' }}>
+        <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 inline-block" />
+        Por agotarse
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full"
+      style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80' }}>
+      <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
+      Disponible
+    </span>
+  )
+}
+
 export default async function EventDetailPage({
   params,
 }: {
@@ -181,9 +210,6 @@ export default async function EventDetailPage({
                 <div className="space-y-3">
                   {tiers.map(tier => {
                     const soldOut = tier.available_tickets === 0
-                    const pct = tier.total_capacity > 0
-                      ? ((tier.total_capacity - tier.available_tickets) / tier.total_capacity) * 100
-                      : 0
 
                     return (
                       <div
@@ -192,22 +218,16 @@ export default async function EventDetailPage({
                         style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
+                          <div className="min-w-0 space-y-1">
                             <p className="font-semibold text-white truncate">{tier.name}</p>
-                            <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                              {tier.available_tickets} de {tier.total_capacity} disponibles
-                            </p>
+                            <AvailabilityBadge
+                              available={tier.available_tickets}
+                              total={tier.total_capacity}
+                            />
                           </div>
                           <p className="text-xl font-bold text-white shrink-0">
                             {Number(tier.price) === 0 ? 'Gratis' : `$${Number(tier.price).toFixed(2)}`}
                           </p>
-                        </div>
-
-                        <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #f97316, #ec4899)' }}
-                          />
                         </div>
 
                         {soldOut ? (
