@@ -5,7 +5,6 @@ import type mapboxgl from 'mapbox-gl'
 import { Loader2, MapPin, X } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { EVENT_IMAGES_BUCKET } from '@/utils/supabase/storage'
-import { Map, Marker } from 'mapbox-gl'
 
 export const CATEGORIES = [
   { value: 'musica',      label: 'Música'        },
