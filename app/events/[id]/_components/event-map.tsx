@@ -15,6 +15,9 @@ export default function EventMap({
 }) {
   const mapRef         = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<mapboxgl.Map | null>(null)
+  const animFrameRef   = useRef<number | null>(null)
+  const timeout2Ref    = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timeout3Ref    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [showPrompt, setShowPrompt] = useState(false)
 
   useEffect(() => {
@@ -30,22 +33,71 @@ export default function EventMap({
 
       const map = new mapboxgl.Map({
         container: mapRef.current!,
-        style: 'mapbox://styles/mapbox/streets-v12',
+        style: 'mapbox://styles/mapbox/standard',
         center: [lng, lat],
-        zoom: 15,
-        interactive: false, // desactivado para que el click llegue al wrapper
+        zoom: 1,
+        pitch: 0,
+        bearing: 0,
+        interactive: false,
       })
 
-      new mapboxgl.Marker({ color: '#ff6e01' })
-        .setLngLat([lng, lat])
-        .addTo(map)
-
       mapInstanceRef.current = map
+
+      map.on('load', () => {
+        // Dusk lighting on Standard style
+        map.setConfigProperty('basemap', 'lightPreset', 'dusk')
+
+        // Marker
+        new mapboxgl.Marker({ color: '#ff6e01' })
+          .setLngLat([lng, lat])
+          .addTo(map)
+
+        // ── Fase 1: desde el espacio ──────────────────────────────────
+        map.flyTo({
+          center: [lng, lat],
+          zoom: 14.5,
+          pitch: 50,
+          bearing: -20,
+          duration: 5000,
+          easing: (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t,
+        })
+
+        // ── Fase 2: zoom de dron ──────────────────────────────────────
+        timeout2Ref.current = setTimeout(() => {
+          if (!mapInstanceRef.current) return
+          map.easeTo({
+            zoom: 16.5,
+            pitch: 65,
+            bearing: 0,
+            duration: 2000,
+          })
+        }, 5200)
+
+        // ── Fase 3: órbita 360 ────────────────────────────────────────
+        timeout3Ref.current = setTimeout(() => {
+          if (!mapInstanceRef.current) return
+          let startTime: number | null = null
+
+          function rotate(timestamp: number) {
+            if (!mapInstanceRef.current) return
+            if (!startTime) startTime = timestamp
+            const elapsed = timestamp - startTime
+            const bearing = (elapsed / 12000) * 360 // vuelta completa cada 12s
+            map.jumpTo({ bearing: bearing % 360 })
+            animFrameRef.current = requestAnimationFrame(rotate)
+          }
+
+          animFrameRef.current = requestAnimationFrame(rotate)
+        }, 7500)
+      })
     }
 
     initMap()
 
     return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+      if (timeout2Ref.current)  clearTimeout(timeout2Ref.current)
+      if (timeout3Ref.current)  clearTimeout(timeout3Ref.current)
       mapInstanceRef.current?.remove()
       mapInstanceRef.current = null
     }
@@ -55,18 +107,18 @@ export default function EventMap({
   const appleMapsUrl  = `https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`
 
   return (
-    <div className="rounded-xl overflow-hidden border border-zinc-200 shadow-sm">
+    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
 
       {/* Map clickable area */}
       <div
         className="relative cursor-pointer group"
         onClick={() => setShowPrompt(true)}
       >
-        <div ref={mapRef} className="w-full h-56" />
+        <div ref={mapRef} className="w-full h-72" />
 
         {/* Hover hint */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-          <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur-sm text-zinc-700 text-xs font-medium px-3 py-1.5 rounded-full shadow flex items-center gap-1.5">
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-full shadow flex items-center gap-1.5">
             <Navigation size={11} />
             Abrir en mapas
           </span>
@@ -78,13 +130,14 @@ export default function EventMap({
         <button
           type="button"
           onClick={() => setShowPrompt(true)}
-          className="w-full px-3 py-2.5 bg-white border-t border-zinc-100 flex items-center gap-2 hover:bg-fuchsia-50 transition-colors group"
+          className="w-full px-3 py-2.5 flex items-center gap-2 hover:bg-white/5 transition-colors group"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
         >
-          <MapPin size={13} className="text-fuchsia-600 shrink-0" />
-          <p className="text-sm text-zinc-700 truncate text-left group-hover:text-fuchsia-700 transition-colors">
+          <MapPin size={13} className="shrink-0" style={{ color: 'var(--color-pink)' }} />
+          <p className="text-sm truncate text-left transition-colors" style={{ color: 'rgba(255,255,255,0.6)' }}>
             {locationName}
           </p>
-          <Navigation size={12} className="text-zinc-300 group-hover:text-violet-500 shrink-0 ml-auto transition-colors" />
+          <Navigation size={12} className="shrink-0 ml-auto transition-colors" style={{ color: 'rgba(255,255,255,0.2)' }} />
         </button>
       )}
 
@@ -92,22 +145,25 @@ export default function EventMap({
       {showPrompt && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setShowPrompt(false)}
           />
-          <div className="relative z-10 w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden">
-
+          <div
+            className="relative z-10 w-full max-w-sm rounded-2xl shadow-xl overflow-hidden"
+            style={{ background: 'var(--surface-panel)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
             <div className="px-5 pt-5 pb-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-semibold text-zinc-900">Abrir ubicación</p>
+                  <p className="font-semibold text-white">Abrir ubicación</p>
                   {locationName && (
-                    <p className="text-sm text-zinc-500 mt-0.5 line-clamp-2">{locationName}</p>
+                    <p className="text-sm mt-0.5 line-clamp-2" style={{ color: 'rgba(255,255,255,0.45)' }}>{locationName}</p>
                   )}
                 </div>
                 <button
                   onClick={() => setShowPrompt(false)}
-                  className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors shrink-0"
+                  className="p-1 rounded-lg transition-colors hover:bg-white/10"
+                  style={{ color: 'rgba(255,255,255,0.4)' }}
                 >
                   <X size={16} />
                 </button>
@@ -121,15 +177,16 @@ export default function EventMap({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setShowPrompt(false)}
-                className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-zinc-200 hover:border-fuchsia-300 hover:bg-fuchsia-50 transition-all group"
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all hover:bg-white/5"
+                style={{ border: '1px solid rgba(255,255,255,0.08)' }}
               >
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                   <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#EA4335"/>
                   <circle cx="12" cy="9" r="2.5" fill="white"/>
                 </svg>
                 <div className="text-left">
-                  <p className="text-sm font-semibold text-zinc-900 group-hover:text-fuchsia-700">Google Maps</p>
-                  <p className="text-xs text-zinc-400">Abrir con Google Maps</p>
+                  <p className="text-sm font-semibold text-white">Google Maps</p>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Abrir con Google Maps</p>
                 </div>
               </a>
 
@@ -139,7 +196,8 @@ export default function EventMap({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setShowPrompt(false)}
-                className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-zinc-200 hover:border-fuchsia-300 hover:bg-fuchsia-50 transition-all group"
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all hover:bg-white/5"
+                style={{ border: '1px solid rgba(255,255,255,0.08)' }}
               >
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                   <rect width="24" height="24" rx="5" fill="url(#appleGrad)"/>
@@ -153,8 +211,8 @@ export default function EventMap({
                   </defs>
                 </svg>
                 <div className="text-left">
-                  <p className="text-sm font-semibold text-zinc-900 group-hover:text-fuchsia-700">Apple Maps</p>
-                  <p className="text-xs text-zinc-400">Abrir con Apple Maps</p>
+                  <p className="text-sm font-semibold text-white">Apple Maps</p>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Abrir con Apple Maps</p>
                 </div>
               </a>
             </div>

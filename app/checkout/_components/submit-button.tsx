@@ -15,7 +15,7 @@ export default function SubmitButton({
       type="submit"
       disabled={pending}
       className={`
-        relative w-full py-3 rounded-xl text-white font-semibold
+        relative w-full h-14 rounded-2xl text-white font-bold text-base
         overflow-hidden transition-all duration-300
         ${pending
           ? 'bg-gradient-to-r from-orange-500 to-purple-700 scale-[0.98]'

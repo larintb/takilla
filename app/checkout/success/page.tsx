@@ -1,10 +1,8 @@
 import Link from 'next/link'
-import { VT323 } from 'next/font/google'
 import { stripe } from '@/utils/stripe/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import RetroTicketWallet from './_components/retro-ticket-wallet'
-
-const vt323 = VT323({ weight: '400', subsets: ['latin'] })
+import ConfettiBurst from './_components/confetti-burst'
 
 type CheckoutSuccessPageProps = {
   searchParams: Promise<{ session_id?: string }>
@@ -40,71 +38,85 @@ export default async function CheckoutSuccessPage({
       : null
 
     return (
-      <main className="flex-1 px-4">
-      <div className={`max-w-md mx-auto py-8 space-y-6 ${vt323.className}`}>
-        <div className="text-center space-y-2">
-          <p className="text-5xl tracking-widest text-red-700 uppercase">Boletos agotados</p>
-          <p className="text-zinc-500 text-xl mt-1 tracking-wide">
-            Los boletos se agotaron justo cuando procesamos tu pago.
-          </p>
-        </div>
-
-        <div className="border-4 border-black bg-amber-50 shadow-[8px_8px_0_0_#000] px-6 py-5 space-y-3">
-          <p className="text-2xl text-zinc-900 uppercase tracking-wide">¿Qué pasó?</p>
-          <p className="text-lg text-zinc-700 leading-snug">
-            Otro usuario compró los últimos boletos disponibles justo antes que tú.
-            Tu pago fue procesado pero no se pudo completar el pedido.
-          </p>
-
-          <div className="border-t-2 border-dashed border-zinc-300 pt-3">
-            <p className="text-2xl text-zinc-900 uppercase tracking-wide">Reembolso</p>
-            <p className="text-lg text-zinc-700">
-              Tu pago{amount ? ` de ${amount}` : ''} ha sido reembolsado automáticamente.
-              Los fondos se reflejarán en 3–5 días hábiles.
+      <main className="flex-1 px-4 py-12">
+        <div className="max-w-md mx-auto space-y-6">
+          <div className="text-center space-y-2 animate-fade-in">
+            <p className="font-bold leading-none" style={{ fontSize: 'clamp(2rem, 8vw, 2.8rem)', color: 'rgba(255,255,255,0.9)' }}>
+              Boletos agotados
+            </p>
+            <p className="text-base" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Los boletos se agotaron justo cuando procesamos tu pago.
             </p>
           </div>
-        </div>
 
-        <div className="text-center">
-          <Link
-            href="/events"
-            className="inline-block px-6 py-2 border-2 border-black bg-black text-amber-50 text-2xl tracking-widest uppercase hover:bg-zinc-800 transition-colors"
-          >
-            {'>'} Ver otros eventos
-          </Link>
+          <div className="rounded-2xl p-6 space-y-4 animate-fade-in-up"
+            style={{ background: 'var(--surface-panel)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>¿Qué pasó?</p>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                Otro usuario compró los últimos boletos disponibles justo antes que tú.
+                Tu pago fue procesado pero no se pudo completar el pedido.
+              </p>
+            </div>
+            <div className="border-t pt-4" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+              <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Reembolso</p>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                Tu pago{amount ? ` de ${amount}` : ''} ha sido reembolsado automáticamente.
+                Los fondos se reflejarán en 3–5 días hábiles.
+              </p>
+            </div>
+          </div>
+
+          <div className="text-center animate-fade-in-up" style={{ animationDelay: '120ms' }}>
+            <Link
+              href="/events"
+              className="inline-flex items-center justify-center px-8 h-14 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: 'var(--accent-gradient)', boxShadow: '0 0 32px rgba(249,115,22,0.3)' }}
+            >
+              Ver otros eventos
+            </Link>
+          </div>
         </div>
-      </div>
       </main>
     )
   }
 
   if (result.status === 'error') {
     return (
-      <main className="flex-1 px-4">
-      <div className={`max-w-md mx-auto py-8 space-y-6 ${vt323.className}`}>
-        <div className="text-center">
-          <p className="text-5xl tracking-widest text-zinc-700 uppercase">Algo salió mal</p>
-          <p className="text-zinc-500 text-xl mt-1 tracking-wide">
-            Stripe confirmó tu pago pero no pudimos procesar los boletos.
-          </p>
+      <main className="flex-1 px-4 py-12">
+        <div className="max-w-md mx-auto space-y-6">
+          <div className="text-center space-y-2 animate-fade-in">
+            <p className="font-bold leading-none" style={{ fontSize: 'clamp(2rem, 8vw, 2.8rem)', color: 'rgba(255,255,255,0.9)' }}>
+              Algo salió mal
+            </p>
+            <p className="text-base" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Stripe confirmó tu pago pero no pudimos procesar los boletos.
+            </p>
+          </div>
+
+          <div className="rounded-2xl p-6 animate-fade-in-up"
+            style={{ background: 'var(--surface-panel)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
+              Si tu pago fue cobrado, contáctanos con el ID de esta sesión y te ayudaremos a resolverlo.
+            </p>
+            {sessionId && (
+              <p className="text-xs font-mono break-all mt-3 px-3 py-2 rounded-xl"
+                style={{ color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.04)' }}>
+                {sessionId}
+              </p>
+            )}
+          </div>
+
+          <div className="text-center animate-fade-in-up" style={{ animationDelay: '120ms' }}>
+            <Link
+              href="/tickets"
+              className="inline-flex items-center justify-center px-8 h-14 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: 'var(--accent-gradient)', boxShadow: '0 0 32px rgba(249,115,22,0.3)' }}
+            >
+              Ir a mis boletos
+            </Link>
+          </div>
         </div>
-        <div className="border-4 border-black bg-amber-50 shadow-[8px_8px_0_0_#000] px-6 py-5">
-          <p className="text-lg text-zinc-700">
-            Si tu pago fue cobrado, contáctanos con el ID de esta sesión y te ayudaremos a resolverlo.
-          </p>
-          {sessionId && (
-            <p className="text-sm text-zinc-400 mt-2 font-mono break-all">{sessionId}</p>
-          )}
-        </div>
-        <div className="text-center">
-          <Link
-            href="/tickets"
-            className="inline-block px-6 py-2 border-2 border-black bg-black text-amber-50 text-2xl tracking-widest uppercase hover:bg-zinc-800 transition-colors"
-          >
-            {'>'} Ir a mis boletos
-          </Link>
-        </div>
-      </div>
       </main>
     )
   }
@@ -118,29 +130,54 @@ export default async function CheckoutSuccessPage({
   }))
 
   return (
-    <main className="flex-1 py-8 px-4 space-y-8">
-      <div className={`text-center ${vt323.className}`}>
-        <p className="text-6xl tracking-widest text-green-700 uppercase">¡Pago exitoso!</p>
-        <p className="text-zinc-500 text-xl mt-1 tracking-wide">
-          {tickets.length > 0
-            ? `${tickets.length === 1 ? 'Aquí está tu boleto' : `Aquí están tus ${tickets.length} boletos`}`
-            : 'Tus boletos estarán listos en un momento.'}
-        </p>
-      </div>
+    <main className="flex-1 py-10 px-4">
+      <ConfettiBurst />
 
-      {walletsTickets.length > 0 && (
-        <div className="max-w-2xl mx-auto">
-          <RetroTicketWallet tickets={walletsTickets} />
+      <div className="max-w-md mx-auto space-y-8">
+
+        {/* Header */}
+        <div className="text-center space-y-2 animate-fade-in">
+          <p
+            className="font-bold leading-none"
+            style={{
+              fontSize: 'clamp(2.4rem, 9vw, 3.5rem)',
+              background: 'var(--accent-gradient)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
+            ¡Pago exitoso!
+          </p>
+          <p className="text-base" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            {tickets.length === 0
+              ? 'Tus boletos estarán listos en un momento.'
+              : tickets.length === 1
+                ? 'Aquí está tu boleto'
+                : `Aquí están tus ${tickets.length} boletos`}
+          </p>
         </div>
-      )}
 
-      <div className={`text-center ${vt323.className}`}>
-        <Link
-          href="/tickets"
-          className="inline-block px-6 py-2 border-2 border-black bg-black text-amber-50 text-2xl tracking-widest uppercase hover:bg-zinc-800 transition-colors"
-        >
-          {'>'} Ir a mis boletos
-        </Link>
+        {/* Ticket wallet */}
+        {walletsTickets.length > 0 && (
+          <div className="animate-fade-in-up" style={{ animationDelay: '120ms' }}>
+            <RetroTicketWallet tickets={walletsTickets} />
+          </div>
+        )}
+
+        {/* CTA */}
+        <div className="text-center animate-fade-in-up" style={{ animationDelay: '240ms' }}>
+          <Link
+            href="/tickets"
+            className="inline-flex items-center justify-center px-8 h-14 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{
+              background: 'var(--accent-gradient)',
+              boxShadow: '0 0 32px rgba(249,115,22,0.3)',
+            }}
+          >
+            Ir a mis boletos
+          </Link>
+        </div>
+
       </div>
     </main>
   )
@@ -167,6 +204,31 @@ async function resolveResult(sessionId: string | undefined): Promise<PageResult>
     }
 
     const admin = createAdminClient()
+
+    // Guarantee the profile row exists before the FK on orders.user_id fires
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single()
+
+    if (!profile) {
+      const { data: { user: authUser } } = await admin.auth.admin.getUserById(userId)
+      if (!authUser) return { status: 'error' }
+
+      const { error: profileError } = await admin.from('profiles').upsert({
+        id: userId,
+        full_name: authUser.user_metadata?.full_name ?? null,
+        email: authUser.email ?? null,
+        role: 'customer',
+      })
+
+      if (profileError) {
+        console.error('[checkout/success] Error creando perfil:', profileError.message)
+        return { status: 'error' }
+      }
+    }
+
     const { data: orderId, error: rpcError } = await admin.rpc('fulfill_checkout_session', {
       p_user_id: userId,
       p_tier_id: tierId,

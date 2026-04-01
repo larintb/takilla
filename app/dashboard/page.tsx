@@ -711,7 +711,7 @@ export default function DashboardPage() {
       <header className="h-14 flex items-center px-4" style={{ borderBottom: BORDER, background: 'rgba(255,255,255,0.02)' }}>
         <div className="max-w-6xl mx-auto w-full flex items-center">
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/images/Artboard 1.png" alt="Takilla" width={28} height={28} className="rounded-md" />
+            <Image src="/images/logo1.png" alt="Takilla" width={28} height={28} className="rounded-md" />
             <span className="font-bold text-lg tracking-tight" style={{
               background: ACCENT, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>Takilla</span>
@@ -754,7 +754,7 @@ export default function DashboardPage() {
             <Menu size={22} />
           </button>
           <Link href="/" className="flex items-center gap-2 absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0">
-            <Image src="/images/Artboard 1.png" alt="Takilla" width={28} height={28} className="rounded-md" />
+            <Image src="/images/logo1.png" alt="Takilla" width={28} height={28} className="rounded-md" />
             <span className="font-bold text-lg tracking-tight" style={{
               background: ACCENT, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>Takilla</span>

@@ -2,12 +2,12 @@
 
 import { useActionState } from 'react'
 import Link from 'next/link'
-import Script from 'next/script'
 import { signup } from '@/app/actions/auth'
 import FormButton from '@/components/form-button'
 
 export default function SignupPage() {
   const [state, action] = useActionState(signup, null)
+  const errorMessage = state && 'error' in state ? state.error : null
 
   return (
     <div
@@ -24,11 +24,6 @@ export default function SignupPage() {
           Únete a Takilla
         </p>
       </div>
-
-      <Script
-        src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-        strategy="afterInteractive"
-      />
 
       <form action={action} className="space-y-5">
         <div>
@@ -146,15 +141,7 @@ export default function SignupPage() {
           </label>
         </div>
 
-        <div className="flex justify-center pt-1">
-          <div
-            className="cf-turnstile"
-            data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-            data-theme="dark"
-          />
-        </div>
-
-        {state?.error && (
+        {errorMessage && (
           <div
             className="rounded-xl px-4 py-3 text-sm font-medium"
             style={{
@@ -163,7 +150,7 @@ export default function SignupPage() {
               color: '#f87171',
             }}
           >
-            {state.error}
+            {errorMessage}
           </div>
         )}
 

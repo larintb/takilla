@@ -1,4 +1,4 @@
-﻿import { redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/utils/supabase/admin'
@@ -44,8 +44,8 @@ export default async function TicketsPage() {
 
   const eventGroups = (events ?? [])
     .map(event => {
-      const venue    = event.venue_id ? (venueById.get(event.venue_id) ?? null) : null
-      const imageUrl = resolveEventImageUrl(admin, event.image_url)
+      const venue      = event.venue_id ? (venueById.get(event.venue_id) ?? null) : null
+      const imageUrl   = resolveEventImageUrl(admin, event.image_url)
       const groupTickets = (tickets ?? [])
         .filter(t => t.event_id === event.id)
         .map((t, i) => ({
@@ -63,8 +63,8 @@ export default async function TicketsPage() {
           date:       new Date(event.event_date).toLocaleDateString('es-MX', {
             weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
           }),
-          venueName:  venue?.name  ?? null,
-          venueCity:  venue?.city  ?? null,
+          venueName:  venue?.name ?? null,
+          venueCity:  venue?.city ?? null,
           imageUrl,
           totalCount: groupTickets.length,
           validCount: groupTickets.filter(t => !t.is_used).length,
@@ -76,22 +76,26 @@ export default async function TicketsPage() {
     .filter(g => g.tickets.length > 0)
     .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())
 
-  const totalTickets = tickets?.length ?? 0
+  const totalTickets  = tickets?.length ?? 0
+  const totalEvents   = eventGroups.length
 
   return (
     <>
       {/* Banner */}
-      <section className="bg-gradient-to-r from-orange-500 via-pink-500 to-purple-700 text-white animate-fade-in">
+      <section style={{ background: 'var(--hero-gradient)' }} className="animate-fade-in">
         <div className="max-w-2xl mx-auto px-4 py-12 space-y-1">
-          <p className="text-white/70 text-sm font-medium uppercase tracking-widest animate-fade-in-up" style={{ animationDelay: '60ms' }}>
+          <p className="text-sm font-medium uppercase tracking-widest animate-fade-in-up"
+            style={{ color: 'rgba(255,255,255,0.5)', animationDelay: '60ms' }}>
             Tu billetera digital
           </p>
-          <h1 className="font-display text-5xl leading-none animate-fade-in-up" style={{ animationDelay: '120ms' }}>
+          <h1 className="font-display text-5xl text-white leading-none animate-fade-in-up"
+            style={{ animationDelay: '120ms' }}>
             Mis boletos
           </h1>
           {totalTickets > 0 && (
-            <p className="text-white/80 text-base animate-fade-in-up" style={{ animationDelay: '180ms' }}>
-              {totalTickets} boleto{totalTickets !== 1 ? 's' : ''} Â· {eventGroups.length} evento{eventGroups.length !== 1 ? 's' : ''}
+            <p className="text-base animate-fade-in-up"
+              style={{ color: 'rgba(255,255,255,0.6)', animationDelay: '180ms' }}>
+              {totalTickets} boleto{totalTickets !== 1 ? 's' : ''} · {totalEvents} evento{totalEvents !== 1 ? 's' : ''}
             </p>
           )}
         </div>
@@ -103,4 +107,3 @@ export default async function TicketsPage() {
     </>
   )
 }
-
