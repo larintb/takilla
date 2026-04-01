@@ -22,7 +22,7 @@ export default function FormButton({
       className={`relative overflow-hidden transition-all duration-300 disabled:cursor-not-allowed ${pending ? 'scale-[0.97]' : ''} ${className}`}
     >
       <span
-        className={`flex items-center gap-1.5 transition-all duration-300 ${
+        className={`flex items-center justify-center gap-1.5 transition-all duration-300 ${
           pending ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'
         }`}
       >

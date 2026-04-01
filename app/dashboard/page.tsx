@@ -174,7 +174,7 @@ function TicketsSection({ tickets }: { tickets: TicketRow[] }) {
           <div className="rounded-2xl p-16 text-center" style={{ background: CARD, border: BORDER }}>
             <Ticket size={40} className="mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.15)' }} />
             <p className="font-semibold" style={{ color: TEXT }}>No tienes boletos aún</p>
-            <p className="text-sm mt-1" style={{ color: TEXT_MUTED }}>Explora los eventos y compra tus boletos</p>
+            <p className="text-sm mt-1" style={{ color: TEXT_MUTED }}>Explora los eventos y adquiere tus boletos</p>
             <Link href="/events" className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg text-white text-sm font-semibold transition-opacity hover:opacity-80"
               style={{ background: ACCENT }}>
               <FileSearch size={15} /> Ver eventos

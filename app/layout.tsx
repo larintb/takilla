@@ -10,7 +10,7 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: "Takilla — Boletos para tu ciudad",
-  description: "Compra y vende boletos para eventos locales",
+  description: "Adquiere y vende boletos para eventos locales",
 };
 
 export const viewport: Viewport = {

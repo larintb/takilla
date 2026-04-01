@@ -242,7 +242,7 @@ export default async function EventDetailPage({
                             className="block w-full py-2.5 rounded-xl text-sm font-semibold text-center transition-all hover:opacity-80"
                             style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.7)' }}
                           >
-                            Inicia sesión para comprar
+                            Inicia sesión para adquirir boletos
                           </Link>
                         )}
                       </div>

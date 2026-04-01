@@ -55,7 +55,7 @@ export default async function Home() {
             className="text-lg max-w-xl mx-auto animate-fade-in-up"
             style={{ color: 'rgba(255,255,255,0.55)', animationDelay: '240ms' }}
           >
-            Compra boletos para conciertos, festivales y eventos locales. Validación instantánea con QR.
+            Adquiere boletos para conciertos, festivales y eventos locales. Validación instantánea con QR.
           </p>
           <div className="flex items-center justify-center gap-3 pt-2 animate-fade-in-up" style={{ animationDelay: '320ms' }}>
             <Link
@@ -216,7 +216,7 @@ export default async function Home() {
           </h2>
           <div className="grid gap-6 sm:grid-cols-3">
             {[
-              { icon: <Zap size={22} />,        title: 'Compra en segundos', desc: 'Selecciona tu tier, paga y recibe tu boleto digital al instante.',           delay: 0   },
+              { icon: <Zap size={22} />,        title: 'Adquiere en segundos', desc: 'Selecciona tu tier, paga y recibe tu boleto digital al instante.',           delay: 0   },
               { icon: <QrCode size={22} />,      title: 'Entrada con QR',    desc: 'El staff escanea tu QR desde el teléfono. Sin filas, sin papeles.',           delay: 100 },
               { icon: <ShieldCheck size={22} />, title: 'Validación segura', desc: 'Cada boleto es único e irrepetible. Imposible usar el mismo dos veces.',      delay: 200 },
             ].map(f => (

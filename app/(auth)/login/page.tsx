@@ -23,7 +23,7 @@ function LoginPageContent() {
     <div
       className="rounded-2xl p-8"
       style={{
-        background: '#1e1d2a',
+        background: 'var(--surface-panel)',
         border: '1px solid rgba(255,255,255,0.08)',
         boxShadow: '0 25px 80px rgba(0,0,0,0.4)',
       }}
@@ -112,7 +112,7 @@ function LoginPageContent() {
 
 function LoginPageFallback() {
   return (
-    <div className="rounded-2xl p-8" style={{ background: '#1e1d2a', border: '1px solid rgba(255,255,255,0.08)' }}>
+    <div className="rounded-2xl p-8" style={{ background: 'var(--surface-panel)', border: '1px solid rgba(255,255,255,0.08)' }}>
       <div className="h-6 w-40 rounded-lg mx-auto animate-pulse" style={{ background: 'rgba(255,255,255,0.08)' }} />
     </div>
   )

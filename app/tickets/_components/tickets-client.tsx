@@ -56,7 +56,7 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
       <div className="bg-white rounded-2xl border border-zinc-200 p-16 text-center animate-fade-in-up">
         <Ticket size={40} className="mx-auto text-zinc-300 mb-3" />
         <p className="font-semibold text-zinc-700">No tienes boletos aÃºn</p>
-        <p className="text-sm text-zinc-400 mt-1">Explora los eventos disponibles y compra tus boletos</p>
+        <p className="text-sm text-zinc-400 mt-1">Explora los eventos disponibles y adquiere tus boletos</p>
         <Link
           href="/events"
           className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 via-pink-500 to-purple-700 text-white text-sm font-semibold hover:opacity-90 transition-opacity"
