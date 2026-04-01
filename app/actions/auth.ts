@@ -28,6 +28,20 @@ export async function signup(
   prevState: { error: string } | null,
   formData: FormData
 ) {
+  const token = formData.get('cf-turnstile-response') as string | null
+  if (!token) return { error: 'Completa la verificación de seguridad.' }
+
+  const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      secret: process.env.TURNSTILE_SECRET_KEY,
+      response: token,
+    }),
+  })
+  const verifyData = await verifyRes.json()
+  if (!verifyData.success) return { error: 'Verificación de seguridad fallida. Intenta de nuevo.' }
+
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
