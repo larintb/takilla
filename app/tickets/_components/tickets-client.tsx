@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import Image from 'next/image'
@@ -7,10 +7,7 @@ import {
   Ticket, CalendarDays, MapPin, X,
   ChevronLeft, ChevronRight, FileSearch,
 } from 'lucide-react'
-import { VT323 } from 'next/font/google'
 import TicketQr from './ticket-qr'
-
-const vt323 = VT323({ weight: '400', subsets: ['latin'] })
 
 type TicketItem = {
   id: string
@@ -41,25 +38,28 @@ function ticketDisplayNumber(id: string): string {
 }
 
 export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup[] }) {
-  const [selected, setSelected] = useState<EventGroup | null>(null)
+  const [selected, setSelected]       = useState<EventGroup | null>(null)
   const [ticketIndex, setTicketIndex] = useState(0)
 
-  const openWallet = (group: EventGroup) => {
-    setTicketIndex(0)
-    setSelected(group)
-  }
-
+  const openWallet  = (group: EventGroup) => { setTicketIndex(0); setSelected(group) }
   const closeWallet = () => setSelected(null)
 
+  // ── Empty state ────────────────────────────────────────────────────────────
   if (eventGroups.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-zinc-200 p-16 text-center animate-fade-in-up">
-        <Ticket size={40} className="mx-auto text-zinc-300 mb-3" />
-        <p className="font-semibold text-zinc-700">No tienes boletos aÃºn</p>
-        <p className="text-sm text-zinc-400 mt-1">Explora los eventos disponibles y adquiere tus boletos</p>
+      <div
+        className="rounded-2xl p-16 text-center animate-fade-in-up"
+        style={{ background: 'var(--surface-panel)', border: '1px solid rgba(255,255,255,0.07)' }}
+      >
+        <Ticket size={40} className="mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.15)' }} />
+        <p className="font-semibold text-white">No tienes boletos aún</p>
+        <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          Explora los eventos disponibles y adquiere tus boletos
+        </p>
         <Link
           href="/events"
-          className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 via-pink-500 to-purple-700 text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+          className="inline-flex items-center gap-2 mt-6 px-5 h-11 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+          style={{ background: 'var(--accent-gradient)' }}
         >
           <FileSearch size={15} />
           Ver eventos
@@ -69,35 +69,39 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
   }
 
   const ticket = selected?.tickets[ticketIndex]
-  const total = selected?.tickets.length ?? 0
+  const total  = selected?.tickets.length ?? 0
 
+  const isPast = selected ? new Date(selected.eventDate) < new Date() : false
+  const isUsed = ticket?.is_used ?? false
+  const dimmed = isPast || isUsed
+
+  // ── Event list ─────────────────────────────────────────────────────────────
   return (
     <>
-      {/* â”€â”€ Event list â”€â”€ */}
       <div className="space-y-3">
         {eventGroups.map((group, i) => {
           const { eventData } = group
-          const isPast = new Date(group.eventDate) < new Date()
+          const past = new Date(group.eventDate) < new Date()
 
           return (
             <button
               key={group.eventDate + eventData.title}
               onClick={() => openWallet(group)}
-              className="w-full text-left flex items-center gap-4 bg-white border border-zinc-200 rounded-2xl p-4 hover:border-zinc-400 hover:shadow-sm transition-all animate-fade-in-up group"
-              style={{ animationDelay: `${i * 50}ms` }}
+              className="w-full text-left flex items-center gap-4 rounded-2xl p-4 transition-all animate-fade-in-up hover:brightness-110 active:scale-[0.99]"
+              style={{
+                background: 'var(--surface-panel)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                animationDelay: `${i * 50}ms`,
+              }}
             >
               {/* Thumbnail */}
-              <div className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0 bg-zinc-100">
+              <div className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0"
+                style={{ background: 'rgba(255,255,255,0.06)' }}>
                 {eventData.imageUrl ? (
-                  <Image
-                    src={eventData.imageUrl}
-                    alt={eventData.title}
-                    fill
-                    unoptimized
-                    className="object-cover"
-                  />
+                  <Image src={eventData.imageUrl} alt={eventData.title} fill unoptimized className="object-cover" />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-orange-500 to-purple-700 flex items-center justify-center">
+                  <div className="w-full h-full flex items-center justify-center"
+                    style={{ background: 'var(--accent-gradient)' }}>
                     <Ticket size={22} className="text-white/60" />
                   </div>
                 )}
@@ -105,36 +109,42 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
 
               {/* Info */}
               <div className="flex-1 min-w-0 space-y-1">
-                <p className="font-bold text-zinc-900 leading-snug truncate group-hover:text-zinc-700 transition-colors">
+                <p className="font-bold text-white leading-snug truncate">
                   {eventData.title}
                 </p>
-                <p className="text-sm text-zinc-500 flex items-center gap-1.5 capitalize">
-                  <CalendarDays size={12} />
+                <p className="text-sm flex items-center gap-1.5 capitalize"
+                  style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  <CalendarDays size={12} className="shrink-0" />
                   {eventData.date}
                 </p>
                 {eventData.venueName && (
-                  <p className="text-sm text-zinc-500 flex items-center gap-1.5 truncate">
-                    <MapPin size={12} />
+                  <p className="text-sm flex items-center gap-1.5 truncate"
+                    style={{ color: 'rgba(255,255,255,0.35)' }}>
+                    <MapPin size={12} className="shrink-0" />
                     {eventData.venueName}{eventData.venueCity ? `, ${eventData.venueCity}` : ''}
                   </p>
                 )}
               </div>
 
-              {/* Right badges */}
+              {/* Badges */}
               <div className="flex flex-col items-end gap-1.5 shrink-0">
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-600">
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                  style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}>
                   {eventData.totalCount} boleto{eventData.totalCount !== 1 ? 's' : ''}
                 </span>
-                {isPast ? (
-                  <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-400">
+                {past ? (
+                  <span className="text-xs font-medium px-2.5 py-1 rounded-full"
+                    style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)' }}>
                     Pasado
                   </span>
                 ) : eventData.validCount > 0 ? (
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700">
-                    {eventData.validCount} vÃ¡lido{eventData.validCount !== 1 ? 's' : ''}
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                    style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80' }}>
+                    {eventData.validCount} válido{eventData.validCount !== 1 ? 's' : ''}
                   </span>
                 ) : (
-                  <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-400">
+                  <span className="text-xs font-medium px-2.5 py-1 rounded-full"
+                    style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)' }}>
                     Usados
                   </span>
                 )}
@@ -144,131 +154,199 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
         })}
       </div>
 
-      {/* â”€â”€ Wallet overlay â€” always fits screen, no scroll â”€â”€ */}
-      {selected && ticket && (() => {
-        const isExpired = new Date(selected.eventDate) < new Date()
-        return (
-        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col" style={{ height: '100dvh' }}>
-
-          {/* Top bar: title (left) + close (right) */}
-          <div className="shrink-0 flex items-center justify-between px-4 pt-4 pb-2">
-            <span className={`text-sm text-white/50 tracking-widest uppercase ${vt323.className}`}>
-              {isExpired ? 'Evento terminado' : 'â˜… TAKILLA â˜…'}
-            </span>
+      {/* ── Ticket overlay ──────────────────────────────────────────────────── */}
+      {selected && ticket && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col"
+          style={{ height: '100dvh', background: 'rgba(8,4,20,0.97)', backdropFilter: 'blur(20px)' }}
+        >
+          {/* Top bar */}
+          <div className="shrink-0 flex items-center justify-between px-5 pt-safe-top pt-5 pb-3">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em]"
+                style={{ color: 'rgba(255,255,255,0.25)' }}>
+                {isPast ? 'Evento terminado' : isUsed ? 'Boleto usado' : 'Tu boleto'}
+              </span>
+              <span className="text-sm font-bold text-white truncate max-w-[220px]">
+                {selected.eventData.title}
+              </span>
+            </div>
             <button
               onClick={closeWallet}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white"
+              className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-white/10 active:scale-90 shrink-0 ml-3"
+              style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)' }}
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
 
-          {/* Ticket card â€” fills remaining space, vertically centered */}
-          <div className="flex-1 min-h-0 flex items-center justify-center px-4">
-            <div className={`w-full max-w-xs border-4 ${isExpired ? 'border-zinc-500' : 'border-black'} bg-amber-50 ${isExpired ? 'shadow-[6px_6px_0_0_#71717a]' : 'shadow-[6px_6px_0_0_#000]'} ${vt323.className}`}>
-
-              {/* Expired banner */}
-              {isExpired && (
-                <div className="bg-zinc-700 text-zinc-300 px-4 py-1.5 text-center text-sm tracking-[0.3em] uppercase">
-                  Este evento ya terminÃ³
-                </div>
-              )}
-
-              {/* Header â€” brand gradient or muted if expired */}
-              <div className={`${isExpired ? 'bg-zinc-600' : 'bg-gradient-to-r from-orange-500 via-pink-500 to-purple-700'} text-white px-4 py-2.5 flex items-center justify-between`}>
-                <span
-                  className="text-xl tracking-[0.3em] uppercase"
-                  style={isExpired ? undefined : { textShadow: '1px 1px 0 #c2410c, 2px 2px 0 #9a3412, 3px 3px 6px rgba(0,0,0,0.35)' }}
+          {/* Scrollable card area */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3">
+            <div className="flex flex-col items-center min-h-full justify-center">
+              <div
+                className="w-full"
+                style={{
+                  maxWidth: '380px',
+                  background: dimmed ? 'rgba(255,255,255,0.06)' : 'var(--accent-gradient)',
+                  padding: '1.5px',
+                  borderRadius: '28px',
+                  boxShadow: dimmed
+                    ? 'none'
+                    : '0 0 80px rgba(249,115,22,0.25), 0 0 120px rgba(250,20,146,0.12)',
+                  opacity: dimmed ? 0.65 : 1,
+                  transition: 'opacity 0.3s ease',
+                }}
+              >
+                <div
+                  className="w-full overflow-hidden"
+                  style={{
+                    background: 'linear-gradient(160deg, #1e1040 0%, #110726 100%)',
+                    borderRadius: '26.5px',
+                  }}
                 >
-                  â˜… TAKILLA â˜…
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg tracking-widest opacity-80">
-                    #{ticketDisplayNumber(ticket.id)}
-                  </span>
-                  {ticket.is_used && (
-                    <span className="text-[10px] bg-black/30 px-1.5 py-0.5 uppercase tracking-wider rounded-sm">
-                      Usado
+                  {/* Status banner */}
+                  {(isPast || isUsed) && (
+                    <div className="text-center py-2 text-[10px] font-bold uppercase tracking-[0.2em]"
+                      style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.35)' }}>
+                      {isPast ? 'Evento finalizado' : 'Boleto ya utilizado'}
+                    </div>
+                  )}
+
+                  {/* Header strip */}
+                  <div
+                    className="flex items-center justify-between px-5 py-3.5"
+                    style={{ background: dimmed ? 'rgba(255,255,255,0.05)' : 'var(--accent-gradient)' }}
+                  >
+                    <span className="font-bold text-base tracking-[0.22em] text-white uppercase">
+                      ★ Takilla
                     </span>
-                  )}
+                    <span className="font-mono text-sm font-bold tracking-widest"
+                      style={{ color: 'rgba(255,255,255,0.75)' }}>
+                      #{ticketDisplayNumber(ticket.id)}
+                    </span>
+                  </div>
+
+                  {/* Event info */}
+                  <div className="px-5 pt-5 pb-4 space-y-3">
+                    <h2 className="font-bold text-white leading-tight break-words"
+                      style={{ fontSize: 'clamp(1.35rem, 5.5vw, 1.8rem)' }}>
+                      {selected.eventData.title}
+                    </h2>
+
+                    <div className="space-y-1.5">
+                      <p className="text-sm flex items-center gap-2 capitalize"
+                        style={{ color: 'rgba(255,255,255,0.5)' }}>
+                        <CalendarDays size={13} className="shrink-0" style={{ color: 'var(--color-orange)' }} />
+                        {selected.eventData.date}
+                      </p>
+                      {selected.eventData.venueName && (
+                        <p className="text-sm flex items-center gap-2"
+                          style={{ color: 'rgba(255,255,255,0.5)' }}>
+                          <MapPin size={13} className="shrink-0" style={{ color: 'var(--color-pink)' }} />
+                          <span className="break-words">
+                            {selected.eventData.venueName}
+                            {selected.eventData.venueCity ? `, ${selected.eventData.venueCity}` : ''}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full"
+                      style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.09)' }}>
+                      <span className="text-xs font-semibold uppercase tracking-wider"
+                        style={{ color: 'rgba(255,255,255,0.6)' }}>
+                        {ticket.tierName}
+                      </span>
+                      {ticket.price > 0 && (
+                        <>
+                          <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
+                          <span className="text-xs font-bold text-white">${ticket.price.toFixed(2)}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Perforated separator */}
+                  <div className="relative flex items-center" style={{ margin: '0 -1.5px' }}>
+                    <div className="w-7 h-7 rounded-full shrink-0"
+                      style={{ background: 'rgba(8,4,20,0.97)', marginLeft: '-14px' }} />
+                    <div className="flex-1 border-t-2 border-dashed mx-1"
+                      style={{ borderColor: 'rgba(255,255,255,0.08)' }} />
+                    <div className="w-7 h-7 rounded-full shrink-0"
+                      style={{ background: 'rgba(8,4,20,0.97)', marginRight: '-14px' }} />
+                  </div>
+
+                  {/* QR section */}
+                  <div className="px-5 pt-5 pb-7 flex flex-col items-center gap-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] self-start"
+                      style={{ color: 'rgba(255,255,255,0.25)' }}>
+                      Código de acceso
+                    </p>
+                    <div className="p-3.5 rounded-2xl"
+                      style={{ background: '#fff', boxShadow: '0 12px 40px rgba(0,0,0,0.6)' }}>
+                      <TicketQr qrHash={ticket.qr_hash} size={200} />
+                    </div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-center"
+                      style={dimmed
+                        ? { color: 'rgba(255,255,255,0.25)' }
+                        : { background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }
+                      }>
+                      {isPast
+                        ? 'Evento finalizado'
+                        : isUsed
+                          ? 'Ya utilizado'
+                          : 'Muestra al staff en la entrada'}
+                    </p>
+                  </div>
                 </div>
-              </div>
-
-              {/* Event info â€” compact */}
-              <div className="px-4 pt-3 pb-2 space-y-1">
-                <p className="text-2xl text-zinc-900 uppercase tracking-wide leading-snug line-clamp-2">
-                  {selected.eventData.title}
-                </p>
-                <p className="text-base text-zinc-600 flex items-center gap-1.5 capitalize">
-                  <CalendarDays size={12} />
-                  {selected.eventData.date}
-                </p>
-                {selected.eventData.venueName && (
-                  <p className="text-base text-zinc-600 flex items-center gap-1.5 truncate">
-                    <MapPin size={12} />
-                    {selected.eventData.venueName}
-                    {selected.eventData.venueCity ? ` â€” ${selected.eventData.venueCity}` : ''}
-                  </p>
-                )}
-                <p className="text-base uppercase text-zinc-700">
-                  {ticket.tierName}
-                  {ticket.price > 0 && (
-                    <span className="ml-2 text-zinc-400">Â· ${ticket.price.toFixed(2)}</span>
-                  )}
-                </p>
-              </div>
-
-              {/* Dashed separator */}
-              <div className="relative flex items-center my-1.5">
-                <div className="absolute -left-[16px] w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-purple-700 border-4 border-black" />
-                <div className="flex-1 border-t-[3px] border-dashed border-orange-400 mx-4" />
-                <div className="absolute -right-[16px] w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-purple-700 border-4 border-black" />
-              </div>
-
-              {/* QR */}
-              <div className={`px-4 py-3 flex flex-col items-center gap-1.5 ${isExpired || ticket.is_used ? 'opacity-40' : ''}`}>
-                <p className="text-[10px] tracking-[0.3em] text-zinc-400 uppercase self-start">
-                  CÃ³digo de acceso
-                </p>
-                <TicketQr qrHash={ticket.qr_hash} size={170} />
-                <p className={`text-sm tracking-widest uppercase ${isExpired || ticket.is_used ? 'text-zinc-400' : 'text-orange-400'}`}>
-                  {isExpired ? 'Evento finalizado' : ticket.is_used ? 'Ya utilizado' : 'Muestra al staff en la entrada'}
-                </p>
               </div>
             </div>
           </div>
 
-          {/* Navigation â€” arrows + "1 / N" counter */}
-          {total > 1 && (
-            <div className={`shrink-0 flex items-center justify-center gap-6 px-4 py-4 ${vt323.className}`}>
-              <button
-                onClick={() => setTicketIndex(i => i - 1)}
-                disabled={ticketIndex === 0}
-                className="w-12 h-12 border-2 border-white/40 text-white flex items-center justify-center disabled:opacity-30 hover:bg-white/10 active:bg-white/20 transition-colors rounded"
-              >
-                <ChevronLeft size={24} />
-              </button>
+          {/* Bottom: navigation + safe area */}
+          <div className="shrink-0 pb-safe-bottom">
+            {total > 1 && (
+              <div className="flex items-center justify-center gap-6 px-4 py-3">
+                <button
+                  onClick={() => setTicketIndex(i => i - 1)}
+                  disabled={ticketIndex === 0}
+                  className="w-11 h-11 rounded-full flex items-center justify-center transition-all disabled:opacity-20 hover:bg-white/10 active:scale-90"
+                  style={{ border: '1px solid rgba(255,255,255,0.12)', color: 'white' }}
+                >
+                  <ChevronLeft size={20} />
+                </button>
 
-              <span className="text-2xl text-white tracking-widest min-w-[4rem] text-center">
-                {ticketIndex + 1} / {total}
-              </span>
+                {/* Dot indicators */}
+                <div className="flex items-center gap-2">
+                  {selected.tickets.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setTicketIndex(i)}
+                      className="transition-all"
+                      style={{
+                        width: i === ticketIndex ? '20px' : '6px',
+                        height: '6px',
+                        borderRadius: '3px',
+                        background: i === ticketIndex ? 'var(--color-orange)' : 'rgba(255,255,255,0.2)',
+                      }}
+                    />
+                  ))}
+                </div>
 
-              <button
-                onClick={() => setTicketIndex(i => i + 1)}
-                disabled={ticketIndex === total - 1}
-                className="w-12 h-12 border-2 border-white/40 text-white flex items-center justify-center disabled:opacity-30 hover:bg-white/10 active:bg-white/20 transition-colors rounded"
-              >
-                <ChevronRight size={24} />
-              </button>
-            </div>
-          )}
-
-          {/* Safe area bottom */}
-          <div className="shrink-0 h-4" />
+                <button
+                  onClick={() => setTicketIndex(i => i + 1)}
+                  disabled={ticketIndex === total - 1}
+                  className="w-11 h-11 rounded-full flex items-center justify-center transition-all disabled:opacity-20 hover:bg-white/10 active:scale-90"
+                  style={{ border: '1px solid rgba(255,255,255,0.12)', color: 'white' }}
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+            )}
+            <div className="h-4" />
+          </div>
         </div>
-        )
-      })()}
+      )}
     </>
   )
 }
-

@@ -17,7 +17,12 @@ export async function login(
     password: formData.get('password') as string,
   })
 
-  if (error) return { error: error.message }
+  if (error) {
+    if (error.message.toLowerCase().includes('email not confirmed')) {
+      return { error: 'Debes verificar tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada.' }
+    }
+    return { error: error.message }
+  }
 
   const next = formData.get('next') as string | null
   revalidatePath('/', 'layout')
@@ -25,9 +30,9 @@ export async function login(
 }
 
 export async function signup(
-  prevState: { error: string } | null,
+  prevState: { error: string } | { success: true } | null,
   formData: FormData
-) {
+): Promise<{ error: string } | { success: true }> {
   const token = formData.get('cf-turnstile-response') as string | null
   if (!token) return { error: 'Completa la verificación de seguridad.' }
 
@@ -45,7 +50,7 @@ export async function signup(
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: formData.get('email') as string,
     password: formData.get('password') as string,
     options: {
@@ -57,8 +62,11 @@ export async function signup(
 
   if (error) return { error: error.message }
 
-  revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  if (data.user?.identities?.length === 0) {
+    return { error: 'Ya existe una cuenta con ese correo electrónico.' }
+  }
+
+  return { success: true }
 }
 
 export async function logout() {

@@ -1,11 +1,8 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, CalendarDays, MapPin } from 'lucide-react'
-import { VT323 } from 'next/font/google'
 import TicketQr from '@/app/tickets/_components/ticket-qr'
-
-const vt323 = VT323({ weight: '400', subsets: ['latin'] })
 
 type TicketData = {
   id: string
@@ -28,86 +25,145 @@ export default function RetroTicketWallet({
 }) {
   const [index, setIndex] = useState(initialIndex)
   const ticket = tickets[index]
-  const total = tickets.length
+  const total  = tickets.length
 
   const date = ticket.eventDate
     ? new Date(ticket.eventDate).toLocaleDateString('es-MX', {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-      }).toUpperCase()
+      })
     : null
 
   return (
-    <div className="flex flex-col items-center gap-5">
+    <div className="flex flex-col items-center gap-6 w-full">
 
-      {/* Ticket */}
-      <div className={`w-full max-w-sm border-4 border-black bg-amber-50 shadow-[8px_8px_0_0_#000] ${vt323.className}`}>
+      {/* ── Ticket card ──────────────────────────────────────── */}
+      {/* Gradient border wrapper */}
+      <div
+        className="w-full"
+        style={{
+          background: 'var(--accent-gradient)',
+          padding: '1.5px',
+          borderRadius: '28px',
+          boxShadow: '0 0 60px rgba(249,115,22,0.18), 0 0 120px rgba(250,20,146,0.1)',
+        }}
+      >
+        <div
+          className="w-full overflow-hidden"
+          style={{
+            background: 'linear-gradient(160deg, #1e1040 0%, #110726 100%)',
+            borderRadius: '26.5px',
+          }}
+        >
 
-        {/* Header â€” brand gradient */}
-        <div className="bg-gradient-to-r from-orange-500 via-pink-500 to-purple-700 text-white px-5 py-2.5 flex items-center justify-between">
-          <span
-            className="text-2xl tracking-[0.3em] uppercase"
-            style={{ textShadow: '1px 1px 0 #c2410c, 2px 2px 0 #9a3412, 3px 3px 6px rgba(0,0,0,0.35)' }}
+          {/* ── Header strip ──────────────────────────────── */}
+          <div
+            className="flex items-center justify-between px-6 py-4"
+            style={{ background: 'var(--accent-gradient)' }}
           >
-            â˜… TAKILLA â˜…
-          </span>
-          <span className="text-xl tracking-widest opacity-80">#{ticket.displayNumber}</span>
-        </div>
+            <span className="font-bold text-xl tracking-[0.22em] text-white uppercase"
+              style={{ textShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
+              ★ Takilla
+            </span>
+            <span className="font-mono text-sm font-bold text-white/70 tracking-widest">
+              #{ticket.displayNumber}
+            </span>
+          </div>
 
-        {/* Event info */}
-        <div className="px-5 pt-4 pb-3 space-y-1.5">
-          <p className="text-3xl text-zinc-900 uppercase tracking-wide leading-snug">
-            {ticket.eventTitle}
-          </p>
-          {date && (
-            <p className="text-lg text-zinc-600 flex items-center gap-1.5">
-              <CalendarDays size={14} />
-              {date}
-            </p>
-          )}
-          {(ticket.venueName || ticket.venueCity) && (
-            <p className="text-lg text-zinc-600 flex items-center gap-1.5">
-              <MapPin size={14} />
-              {[ticket.venueName, ticket.venueCity].filter(Boolean).join(' â€” ')}
-            </p>
-          )}
-          {ticket.tierName && (
-            <p className="text-lg uppercase text-zinc-700">
-              {ticket.tierName}
-              {ticket.tierPrice !== null && ticket.tierPrice > 0 && (
-                <span className="ml-2 text-zinc-400">Â· ${ticket.tierPrice.toFixed(2)}</span>
+          {/* ── Event info ────────────────────────────────── */}
+          <div className="px-6 pt-6 pb-5 space-y-3">
+            <h2
+              className="font-bold text-white leading-tight break-words"
+              style={{ fontSize: 'clamp(1.6rem, 7vw, 2.2rem)' }}
+            >
+              {ticket.eventTitle}
+            </h2>
+
+            <div className="space-y-1.5">
+              {date && (
+                <p className="flex items-center gap-2 text-sm font-medium"
+                  style={{ color: 'rgba(255,255,255,0.55)' }}>
+                  <CalendarDays size={14} className="shrink-0" style={{ color: 'var(--color-orange)' }} />
+                  <span className="capitalize">{date}</span>
+                </p>
               )}
+              {(ticket.venueName || ticket.venueCity) && (
+                <p className="flex items-center gap-2 text-sm font-medium"
+                  style={{ color: 'rgba(255,255,255,0.55)' }}>
+                  <MapPin size={14} className="shrink-0" style={{ color: 'var(--color-pink)' }} />
+                  {[ticket.venueName, ticket.venueCity].filter(Boolean).join(', ')}
+                </p>
+              )}
+            </div>
+
+            {ticket.tierName && (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">
+                  {ticket.tierName}
+                </span>
+                {ticket.tierPrice !== null && ticket.tierPrice > 0 && (
+                  <>
+                    <span style={{ color: 'rgba(255,255,255,0.25)' }}>·</span>
+                    <span className="text-xs font-bold text-white">${ticket.tierPrice.toFixed(2)}</span>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Perforated separator ──────────────────────── */}
+          <div className="relative flex items-center" style={{ margin: '0 -1.5px' }}>
+            {/* Left notch */}
+            <div className="w-7 h-7 rounded-full shrink-0"
+              style={{ background: 'linear-gradient(160deg, #1e1040 0%, #110726 100%)', marginLeft: '-14px' }} />
+            {/* Dashed line */}
+            <div className="flex-1 border-t-2 border-dashed mx-2"
+              style={{ borderColor: 'rgba(255,255,255,0.12)' }} />
+            {/* Right notch */}
+            <div className="w-7 h-7 rounded-full shrink-0"
+              style={{ background: 'linear-gradient(160deg, #1e1040 0%, #110726 100%)', marginRight: '-14px' }} />
+          </div>
+
+          {/* ── QR section ────────────────────────────────── */}
+          <div className="px-6 pt-6 pb-7 flex flex-col items-center gap-4">
+            <p className="text-xs font-bold uppercase tracking-[0.2em]"
+              style={{ color: 'rgba(255,255,255,0.3)' }}>
+              Código de acceso
             </p>
-          )}
-        </div>
 
-        {/* Dashed separator */}
-        <div className="relative flex items-center my-2">
-          <div className="absolute -left-[18px] w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-purple-700 border-4 border-black" />
-          <div className="flex-1 border-t-[3px] border-dashed border-orange-400 mx-5" />
-          <div className="absolute -right-[18px] w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-purple-700 border-4 border-black" />
-        </div>
+            {/* QR container */}
+            <div
+              className="p-4 rounded-2xl"
+              style={{ background: '#fff', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
+            >
+              <TicketQr qrHash={ticket.qr_hash} size={210} />
+            </div>
 
-        {/* QR */}
-        <div className="px-5 py-5 flex flex-col items-center gap-3">
-          <p className="text-xs tracking-[0.3em] text-zinc-400 uppercase self-start">
-            CÃ³digo de acceso
-          </p>
-          <TicketQr qrHash={ticket.qr_hash} size={200} />
-          <p className="text-base text-orange-400 tracking-widest uppercase">
-            Muestra al staff en la entrada
-          </p>
+            <p
+              className="text-xs font-semibold uppercase tracking-widest text-center"
+              style={{
+                background: 'var(--accent-gradient)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              Muestra al staff en la entrada
+            </p>
+          </div>
+
         </div>
       </div>
 
-      {/* Navigation */}
+      {/* ── Navigation (multi-ticket) ─────────────────────── */}
       {total > 1 && (
-        <div className={`flex items-center gap-4 ${vt323.className}`}>
+        <div className="flex items-center gap-5">
           <button
             onClick={() => setIndex(i => i - 1)}
             disabled={index === 0}
-            className="w-10 h-10 border-2 border-white flex items-center justify-center disabled:opacity-30 hover:bg-white hover:text-zinc-900 text-white transition-colors"
+            className="w-10 h-10 rounded-full flex items-center justify-center transition-all disabled:opacity-25 hover:opacity-70 active:scale-90"
+            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={18} color="white" />
           </button>
 
           <div className="flex items-center gap-2">
@@ -115,9 +171,13 @@ export default function RetroTicketWallet({
               <button
                 key={i}
                 onClick={() => setIndex(i)}
-                className={`w-2.5 h-2.5 rounded-full border-2 transition-colors ${
-                  i === index ? 'bg-white border-white' : 'bg-transparent border-white/50'
-                }`}
+                className="transition-all"
+                style={{
+                  width: i === index ? '20px' : '8px',
+                  height: '8px',
+                  borderRadius: '4px',
+                  background: i === index ? 'var(--color-orange)' : 'rgba(255,255,255,0.2)',
+                }}
               />
             ))}
           </div>
@@ -125,15 +185,16 @@ export default function RetroTicketWallet({
           <button
             onClick={() => setIndex(i => i + 1)}
             disabled={index === total - 1}
-            className="w-10 h-10 border-2 border-white flex items-center justify-center disabled:opacity-30 hover:bg-white hover:text-zinc-900 text-white transition-colors"
+            className="w-10 h-10 rounded-full flex items-center justify-center transition-all disabled:opacity-25 hover:opacity-70 active:scale-90"
+            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}
           >
-            <ChevronRight size={20} />
+            <ChevronRight size={18} color="white" />
           </button>
         </div>
       )}
 
       {total > 1 && (
-        <p className={`text-sm text-white/60 tracking-widest uppercase ${vt323.className}`}>
+        <p className="text-xs font-medium tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.3)' }}>
           Boleto {index + 1} de {total}
         </p>
       )}
