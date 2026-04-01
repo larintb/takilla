@@ -37,7 +37,7 @@ export default async function Navbar() {
       <header style={{ background: 'rgba(20,10,42,0.85)', borderBottom: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }} className="relative z-40 sticky top-0">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
-            <Image src="/images/Artboard 1.png" alt="Takilla" width={32} height={32} className="rounded-lg" />
+            <Image src="/images/logo1.png" alt="Takilla" width={32} height={32} className="rounded-lg" />
             <span
               className="font-bold text-xl tracking-tight"
               style={{ background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
@@ -112,7 +112,7 @@ export default async function Navbar() {
     <header style={{ background: 'rgba(20,10,42,0.85)', borderBottom: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }} className="relative z-40 sticky top-0">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5">
-          <Image src="/images/Artboard 1.png" alt="Takilla" width={32} height={32} className="rounded-lg" />
+          <Image src="/images/logo1.png" alt="Takilla" width={32} height={32} className="rounded-lg" />
           <span
             className="font-bold text-xl tracking-tight"
             style={{ background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}

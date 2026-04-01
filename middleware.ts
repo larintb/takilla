@@ -12,7 +12,7 @@ export default async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const publicPaths = ['/login', '/signup', '/auth', '/events']
+  const publicPaths = ['/login', '/signup', '/auth', '/events', '/terminos', '/privacidad']
   const isPublic =
     publicPaths.some((p) => request.nextUrl.pathname.startsWith(p)) ||
     request.nextUrl.pathname === '/'
@@ -28,6 +28,6 @@ export default async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|pdf)$).*)',
   ],
 }

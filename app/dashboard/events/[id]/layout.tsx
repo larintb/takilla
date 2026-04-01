@@ -26,7 +26,7 @@ export default async function EventDetailLayout({
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
             <Image
-              src="/images/Artboard 1.png"
+              src="/images/logo1.png"
               alt="Takilla"
               width={28}
               height={28}
