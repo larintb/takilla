@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type mapboxgl from 'mapbox-gl'
 import { MapPin, Navigation, X } from 'lucide-react'
-import { Map } from 'mapbox-gl'
 
 export default function EventMap({
   lat,
