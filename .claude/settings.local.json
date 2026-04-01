@@ -14,7 +14,8 @@
       "Bash(npm run:*)",
       "Bash(node -e \"const pkg = require\\(''./node_modules/next/package.json''\\); console.log\\(pkg.version\\)\")",
       "Bash(node -e \":*)",
-      "Bash(find .next -name *.html)"
+      "Bash(find .next -name *.html)",
+      "Bash(pnpm install:*)"
     ]
   }
 }
