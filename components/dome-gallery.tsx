@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useCallback } from 'react'
+import NextImage from 'next/image'
 import { useGesture } from '@use-gesture/react'
 
 type ImageItem = string | { src: string; alt?: string }
@@ -288,7 +289,7 @@ export default function DomeGallery({
             const TAP_THRESH_PX = pointerTypeRef.current === 'touch' ? 10 : 6
             if (dx * dx + dy * dy <= TAP_THRESH_PX * TAP_THRESH_PX) isTap = true
           }
-          let [vMagX, vMagY] = velArr; const [dirX, dirY] = dirArr
+          const [vMagX, vMagY] = velArr; const [dirX, dirY] = dirArr
           let vx = vMagX * dirX, vy = vMagY * dirY
           if (!isTap && Math.abs(vx) < 0.001 && Math.abs(vy) < 0.001 && Array.isArray(movement)) {
             const [mx, my] = movement; vx = (mx / dragSensitivity) * 0.02; vy = (my / dragSensitivity) * 0.02
@@ -498,9 +499,10 @@ export default function DomeGallery({
                     }}
                     style={{ inset: '10px', borderRadius: `var(--tile-radius, ${imageBorderRadius})`, backfaceVisibility: 'hidden' }}
                   >
-                    <img
-                      src={it.src} draggable={false} alt={it.alt}
-                      className="w-full h-full object-cover pointer-events-none"
+                    <NextImage
+                      src={it.src} alt={it.alt} fill unoptimized
+                      draggable={false}
+                      className="object-cover pointer-events-none"
                       style={{ backfaceVisibility: 'hidden', filter: `var(--image-filter, ${grayscale ? 'grayscale(1)' : 'none'})` }}
                     />
                   </div>
