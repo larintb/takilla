@@ -2,7 +2,7 @@
 
 import { useActionState, useTransition, useState, useEffect, useRef, useCallback } from 'react'
 import type mapboxgl from 'mapbox-gl'
-import { Loader2, MapPin, X } from 'lucide-react'
+import { Loader2, MapPin, X, CalendarDays, Eye } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { EVENT_IMAGES_BUCKET } from '@/utils/supabase/storage'
 
@@ -162,7 +162,6 @@ function LocationPicker({
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-purple-300">Ubicación</label>
-
       <input type="hidden" name="location_name" value={selected?.name ?? ''} />
       <input type="hidden" name="location_lat"  value={selected?.lat  ?? ''} />
       <input type="hidden" name="location_lng"  value={selected?.lng  ?? ''} />
@@ -170,8 +169,7 @@ function LocationPicker({
       <div className="relative">
         <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-400/50 pointer-events-none" />
         <input
-          type="text"
-          value={query}
+          type="text" value={query}
           onChange={e => { setQuery(e.target.value); if (selected) setSelected(null) }}
           placeholder="Busca una dirección o lugar..."
           className={`${inputClass} pl-8 pr-8`}
@@ -188,12 +186,8 @@ function LocationPicker({
       {suggestions.length > 0 && (
         <div className="border border-purple-700/40 rounded-xl overflow-hidden bg-[#1a1035] shadow-lg z-10 relative">
           {suggestions.map(feature => (
-            <button
-              key={feature.id}
-              type="button"
-              onClick={() => handleSelect(feature)}
-              className="w-full text-left px-4 py-2.5 text-sm text-purple-200 hover:bg-orange-500/10 hover:text-orange-300 flex items-center gap-2 border-b border-purple-700/30 last:border-0 transition-colors"
-            >
+            <button key={feature.id} type="button" onClick={() => handleSelect(feature)}
+              className="w-full text-left px-4 py-2.5 text-sm text-purple-200 hover:bg-orange-500/10 hover:text-orange-300 flex items-center gap-2 border-b border-purple-700/30 last:border-0 transition-colors">
               <MapPin size={13} className="shrink-0 text-purple-400/50" />
               <span className="truncate">{feature.place_name}</span>
             </button>
@@ -220,9 +214,83 @@ function LocationPicker({
         </div>
       )}
 
-      {!token && (
-        <p className="text-xs text-red-400">Falta NEXT_PUBLIC_MAPBOX_TOKEN en .env.local</p>
-      )}
+      {!token && <p className="text-xs text-red-400">Falta NEXT_PUBLIC_MAPBOX_TOKEN en .env.local</p>}
+    </div>
+  )
+}
+
+// ─── Image Preview ────────────────────────────────────────────────────────────
+
+function ImagePreview({ previewUrl, title, eventDate }: {
+  previewUrl: string
+  title: string
+  eventDate: string
+}) {
+  const dateStr = eventDate
+    ? new Date(eventDate).toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+    : 'Fecha del evento'
+
+  return (
+    <div className="space-y-3 mt-4">
+      <div className="flex items-center gap-2 text-xs font-semibold text-purple-300 uppercase tracking-widest">
+        <Eye size={12} />
+        Vista previa
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+        {/* Preview: evento individual (hero banner) */}
+        <div className="space-y-1.5">
+          <p className="text-xs text-purple-400/60">Página del evento</p>
+          <div className="relative w-full h-40 rounded-xl overflow-hidden bg-zinc-900">
+            {/* blurred bg */}
+            <img src={previewUrl} alt="" aria-hidden
+              className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-50" />
+            {/* sharp contained image */}
+            <img src={previewUrl} alt={title}
+              className="absolute inset-0 w-full h-full object-contain" />
+            {/* gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            {/* title overlay */}
+            <div className="absolute bottom-0 left-0 right-0 p-3">
+              <p className="text-white font-bold text-sm leading-tight line-clamp-1 drop-shadow">
+                {title || 'Título del evento'}
+              </p>
+              <p className="text-white/60 text-xs mt-0.5 flex items-center gap-1">
+                <CalendarDays size={10} />
+                {dateStr}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Preview: card en el home/lista */}
+        <div className="space-y-1.5">
+          <p className="text-xs text-purple-400/60">Tarjeta en listado</p>
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <div className="relative h-28 overflow-hidden">
+              <img src={previewUrl} alt={title}
+                className="w-full h-full object-cover" />
+            </div>
+            <div className="p-3 space-y-1">
+              <p className="font-semibold text-white text-sm leading-snug line-clamp-1">
+                {title || 'Título del evento'}
+              </p>
+              <p className="text-xs flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                <CalendarDays size={11} className="text-orange-400" />
+                {dateStr}
+              </p>
+              <p className="text-xs font-bold pt-1" style={{ color: '#f97316' }}>
+                Desde $0.00
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   )
 }
@@ -251,12 +319,31 @@ export default function EventForm({ action, defaultValues, submitLabel = 'Guarda
   const [isActionPending, startTransition] = useTransition()
   const [uploading, setUploading]          = useState(false)
   const [localError, setLocalError]        = useState<string | null>(null)
+  const [previewUrl, setPreviewUrl]        = useState<string | null>(null)
+  const [liveTitle, setLiveTitle]          = useState(defaultValues?.title ?? '')
+  const [liveDate, setLiveDate]            = useState(defaultValues?.event_date ?? '')
 
   const isPending = uploading || isActionPending
 
   const defaultDate = defaultValues?.event_date
     ? new Date(defaultValues.event_date).toISOString().slice(0, 16)
     : ''
+
+  // Set initial preview from existing image
+  useEffect(() => {
+    if (defaultValues?.image_url && !previewUrl) {
+      const supabase = createClient()
+      const { data } = supabase.storage.from(EVENT_IMAGES_BUCKET).getPublicUrl(defaultValues.image_url)
+      if (data?.publicUrl) setPreviewUrl(data.publicUrl)
+    }
+  }, [])
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const url = URL.createObjectURL(file)
+    setPreviewUrl(url)
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -266,8 +353,6 @@ export default function EventForm({ action, defaultValues, submitLabel = 'Guarda
     const formData = new FormData(e.currentTarget)
     const imageFile = formData.get('image_file') as File | null
     formData.delete('image_file')
-
-    // Status is always draft — managed by StatusActions
     formData.set('status', 'draft')
 
     if (imageFile && imageFile.size > 0) {
@@ -303,7 +388,9 @@ export default function EventForm({ action, defaultValues, submitLabel = 'Guarda
           Título <span className="text-orange-400">*</span>
         </label>
         <input id="title" name="title" type="text" required
-          defaultValue={defaultValues?.title ?? ''} placeholder="Concierto de Rock en el Parque"
+          defaultValue={defaultValues?.title ?? ''}
+          placeholder="Concierto de Rock en el Parque"
+          onChange={e => setLiveTitle(e.target.value)}
           className={inputClass} />
       </div>
 
@@ -321,9 +408,9 @@ export default function EventForm({ action, defaultValues, submitLabel = 'Guarda
           </label>
           <input id="event_date" name="event_date" type="datetime-local" required
             defaultValue={defaultDate}
+            onChange={e => setLiveDate(e.target.value)}
             className={`${inputClass} [color-scheme:dark]`} />
         </div>
-
         <div>
           <label htmlFor="category" className="block text-sm font-medium text-purple-300 mb-1">Categoría</label>
           <select id="category" name="category" defaultValue={defaultValues?.category ?? 'otro'}
@@ -341,14 +428,27 @@ export default function EventForm({ action, defaultValues, submitLabel = 'Guarda
         defaultLng={defaultValues?.location_lng}
       />
 
+      {/* Image upload + live preview */}
       <div>
         <label htmlFor="image_file" className="block text-sm font-medium text-purple-300 mb-1">Imagen del evento</label>
-        {defaultValues?.image_url && (
+        {defaultValues?.image_url && !previewUrl && (
           <p className="text-xs text-purple-400/50 mb-2">Ya tienes una imagen. Sube una nueva para reemplazarla.</p>
         )}
-        <input id="image_file" name="image_file" type="file" accept="image/*"
-          className="w-full rounded-lg border border-purple-700/40 bg-white/5 px-3 py-2 text-sm text-purple-300 file:mr-3 file:rounded-md file:border-0 file:bg-orange-500/20 file:px-3 file:py-1 file:text-xs file:font-medium file:text-orange-300 hover:file:bg-orange-500/30 transition-all cursor-pointer" />
+        <input
+          id="image_file" name="image_file" type="file" accept="image/*"
+          onChange={handleImageChange}
+          className="w-full rounded-lg border border-purple-700/40 bg-white/5 px-3 py-2 text-sm text-purple-300 file:mr-3 file:rounded-md file:border-0 file:bg-orange-500/20 file:px-3 file:py-1 file:text-xs file:font-medium file:text-orange-300 hover:file:bg-orange-500/30 transition-all cursor-pointer"
+        />
         <p className="mt-1 text-xs text-purple-400/50">Opcional. Formatos: JPG, PNG, WEBP.</p>
+
+        {/* Live preview */}
+        {previewUrl && (
+          <ImagePreview
+            previewUrl={previewUrl}
+            title={liveTitle}
+            eventDate={liveDate}
+          />
+        )}
       </div>
 
       {(localError || state?.error) && (
@@ -356,7 +456,6 @@ export default function EventForm({ action, defaultValues, submitLabel = 'Guarda
           {localError ?? state?.error}
         </p>
       )}
-
 
     </form>
   )
