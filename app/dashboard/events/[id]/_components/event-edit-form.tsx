@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useTransition, useState, useEffect, useRef, useCallback } from 'react'
+import { useActionState, useTransition, useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type mapboxgl from 'mapbox-gl'
 import { Loader2, MapPin, X, CalendarDays, Eye } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
@@ -315,7 +315,6 @@ export default function EventForm({ action, defaultValues, submitLabel = 'Guarda
   const [isActionPending, startTransition] = useTransition()
   const [uploading, setUploading]          = useState(false)
   const [localError, setLocalError]        = useState<string | null>(null)
-  const [previewUrl, setPreviewUrl]        = useState<string | null>(null)
   const [liveTitle, setLiveTitle]          = useState(defaultValues?.title ?? '')
   const [liveDate, setLiveDate]            = useState(defaultValues?.event_date ?? '')
 
@@ -325,13 +324,18 @@ export default function EventForm({ action, defaultValues, submitLabel = 'Guarda
     ? new Date(defaultValues.event_date).toISOString().slice(0, 16)
     : ''
 
-  useEffect(() => {
-    if (defaultValues?.image_url && !previewUrl) {
+  const imageUrl = defaultValues && defaultValues.image_url
+
+  const initialPreviewUrl = useMemo(() => {
+    if (imageUrl) {
       const supabase = createClient()
-      const { data } = supabase.storage.from(EVENT_IMAGES_BUCKET).getPublicUrl(defaultValues.image_url)
-      if (data?.publicUrl) setPreviewUrl(data.publicUrl)
+      const { data } = supabase.storage.from(EVENT_IMAGES_BUCKET).getPublicUrl(imageUrl)
+      return data?.publicUrl || null
     }
-  }, [])
+    return null
+  }, [imageUrl])
+
+  const [previewUrl, setPreviewUrl] = useState<string | null>(initialPreviewUrl)
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
