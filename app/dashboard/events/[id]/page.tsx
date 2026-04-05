@@ -1,9 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import Image from 'next/image'
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
-import { resolveEventImageUrl } from '@/utils/supabase/storage'
 import {
   CalendarDays, MapPin, Ticket, Globe, ArrowLeft,
   TrendingUp, Users, DollarSign, Pencil, Lock
@@ -41,7 +39,6 @@ export default async function EventDetailPage({
   if (!isOwner && !isAdmin) redirect('/dashboard')
 
   const venue = (event.venues ?? null) as VenueInfo | null
-  const imageUrl = resolveEventImageUrl(supabase, event.image_url)
   const isFinished = event.status === 'published' && new Date(event.event_date) < new Date()
   const isDraft = event.status === 'draft'
   const isPublished = event.status === 'published' && !isFinished
@@ -51,11 +48,12 @@ export default async function EventDetailPage({
   const totalRevenue  = tiers?.reduce((sum, t) => sum + (t.total_capacity - t.available_tickets) * Number(t.price), 0) ?? 0
   const soldPct       = totalCapacity > 0 ? Math.round((totalSold / totalCapacity) * 100) : 0
 
+  // Brand-consistent status styles using the orange→purple palette
   const statusStyle: Record<string, string> = {
-    draft:     'bg-zinc-100 text-zinc-600',
-    published: 'bg-green-100 text-green-700',
-    cancelled: 'bg-red-100 text-red-600',
-    finished:  'bg-orange-100 text-orange-700',
+    draft:     'bg-purple-900/40 text-purple-300 border border-purple-700/50',
+    published: 'bg-gradient-to-r from-orange-500/20 to-purple-600/20 text-orange-300 border border-orange-500/30',
+    cancelled: 'bg-red-900/30 text-red-400 border border-red-700/40',
+    finished:  'bg-orange-900/30 text-orange-400 border border-orange-700/40',
   }
   const statusLabel: Record<string, string> = {
     draft:     'Borrador',
@@ -71,34 +69,39 @@ export default async function EventDetailPage({
     <div className="max-w-3xl space-y-8">
 
       {/* Back */}
-      <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-orange-600 transition-colors">
+      <Link
+        href="/dashboard"
+        className="inline-flex items-center gap-1.5 text-sm text-purple-400 hover:text-orange-400 transition-colors"
+      >
         <ArrowLeft size={14} />
         Mis eventos
       </Link>
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-start gap-4">
         <div className="flex-1 min-w-0 space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusStyle[displayStatus]}`}>
+            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${statusStyle[displayStatus]}`}>
               {statusLabel[displayStatus]}
             </span>
-            {isFinished && <span className="text-xs text-zinc-400">· Evento terminado</span>}
+            {isFinished && (
+              <span className="text-xs text-purple-400/70">· Evento terminado</span>
+            )}
             {isPublished && (
-              <span className="flex items-center gap-1 text-xs text-zinc-400">
+              <span className="flex items-center gap-1 text-xs text-purple-400/70">
                 <Lock size={11} /> Solo lectura — regresa a borrador para editar
               </span>
             )}
             {isDraft && (
-              <span className="flex items-center gap-1 text-xs text-orange-500">
+              <span className="flex items-center gap-1 text-xs text-orange-400">
                 <Pencil size={11} /> Modo edición activo
               </span>
             )}
           </div>
-          <h1 className="text-2xl font-bold text-zinc-900">{event.title}</h1>
-          <div className="flex flex-wrap items-center gap-4 text-sm text-zinc-500">
+          <h1 className="text-2xl font-bold text-white">{event.title}</h1>
+          <div className="flex flex-wrap items-center gap-4 text-sm text-purple-300/70">
             <span className="flex items-center gap-1.5">
-              <CalendarDays size={14} />
+              <CalendarDays size={14} className="text-orange-400" />
               {new Date(event.event_date).toLocaleDateString('es-MX', {
                 weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
                 hour: '2-digit', minute: '2-digit',
@@ -106,27 +109,20 @@ export default async function EventDetailPage({
             </span>
             {venue?.name && (
               <span className="flex items-center gap-1.5">
-                <MapPin size={14} />
+                <MapPin size={14} className="text-orange-400" />
                 {venue.name}, {venue.city}
               </span>
             )}
           </div>
         </div>
-        {imageUrl && (
-          <Image
-            src={imageUrl} alt={event.title}
-            width={96} height={96} unoptimized
-            className="w-24 h-24 rounded-xl object-cover shrink-0"
-          />
-        )}
       </div>
 
       {/* DRAFT: edit form */}
       {isDraft && (
         <section className="space-y-3">
           <div className="flex items-center gap-2">
-            <Pencil size={15} className="text-orange-500" />
-            <h2 className="text-base font-semibold text-zinc-900">Editar información</h2>
+            <Pencil size={15} className="text-orange-400" />
+            <h2 className="text-base font-semibold text-white">Editar información</h2>
           </div>
           <EventEditForm
             action={boundUpdateEvent}
@@ -146,16 +142,16 @@ export default async function EventDetailPage({
         </section>
       )}
 
-      {/* PUBLISHED/FINISHED: show description + location readonly */}
+      {/* PUBLISHED/FINISHED: readonly info */}
       {!isDraft && (
         <div className="space-y-3">
           {event.description && (
-            <p className="text-sm text-zinc-600 bg-white border border-zinc-200 rounded-xl px-4 py-3">
+            <p className="text-sm text-purple-200/80 bg-white/5 border border-purple-700/30 rounded-xl px-4 py-3">
               {event.description}
             </p>
           )}
           {event.location_name && (
-            <p className="text-sm text-zinc-500 bg-white border border-zinc-200 rounded-xl px-4 py-3 flex items-center gap-2">
+            <p className="text-sm text-purple-300/70 bg-white/5 border border-purple-700/30 rounded-xl px-4 py-3 flex items-center gap-2">
               <MapPin size={14} className="text-orange-400 shrink-0" />
               {event.location_name}
             </p>
@@ -165,73 +161,78 @@ export default async function EventDetailPage({
 
       {/* Sales summary */}
       {totalCapacity > 0 && (
-        <section className={`rounded-2xl border p-5 space-y-4 ${isFinished ? 'bg-orange-50 border-orange-200' : 'bg-white border-zinc-200'}`}>
+        <section className="rounded-2xl border border-purple-700/40 bg-white/5 p-5 space-y-4">
           <div className="flex items-center gap-2">
-            <TrendingUp size={16} className={isFinished ? 'text-orange-500' : 'text-zinc-400'} />
-            <h2 className="text-sm font-semibold text-zinc-900">
+            <TrendingUp size={16} className="text-orange-400" />
+            <h2 className="text-sm font-semibold text-white">
               {isFinished ? 'Resumen del evento' : 'Ventas en tiempo real'}
             </h2>
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
-              <div className="flex items-center justify-center gap-1 text-zinc-400 text-xs mb-1">
+              <div className="flex items-center justify-center gap-1 text-purple-400/70 text-xs mb-1">
                 <Users size={12} /> Vendidos
               </div>
-              <p className="text-2xl font-bold text-zinc-900">{totalSold}</p>
-              <p className="text-xs text-zinc-400">de {totalCapacity}</p>
+              <p className="text-2xl font-bold text-white">{totalSold}</p>
+              <p className="text-xs text-purple-400/60">de {totalCapacity}</p>
             </div>
             <div className="text-center">
-              <div className="flex items-center justify-center gap-1 text-zinc-400 text-xs mb-1">
+              <div className="flex items-center justify-center gap-1 text-purple-400/70 text-xs mb-1">
                 <TrendingUp size={12} /> Ocupación
               </div>
-              <p className="text-2xl font-bold text-zinc-900">{soldPct}%</p>
-              <div className="mt-1 h-1.5 bg-zinc-200 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-amber-400 to-red-500 rounded-full" style={{ width: `${soldPct}%` }} />
+              <p className="text-2xl font-bold text-white">{soldPct}%</p>
+              <div className="mt-1 h-1.5 bg-purple-900/60 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${soldPct}%`, background: 'var(--accent-gradient)' }}
+                />
               </div>
             </div>
             <div className="text-center">
-              <div className="flex items-center justify-center gap-1 text-zinc-400 text-xs mb-1">
+              <div className="flex items-center justify-center gap-1 text-purple-400/70 text-xs mb-1">
                 <DollarSign size={12} /> Recaudado
               </div>
-              <p className="text-2xl font-bold text-zinc-900">${totalRevenue.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-white">${totalRevenue.toFixed(2)}</p>
             </div>
           </div>
         </section>
       )}
 
-      {/* Status actions */}
-      {!isFinished && <StatusActions eventId={id} currentStatus={event.status} />}
-
       {/* Tiers */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
-          <Ticket size={16} className="text-zinc-500" />
-          <h2 className="text-base font-semibold text-zinc-900">Tiers de boletos</h2>
-          <span className="text-sm text-zinc-400">({tiers?.length ?? 0})</span>
+          <Ticket size={16} className="text-orange-400" />
+          <h2 className="text-base font-semibold text-white">Tiers de boletos</h2>
+          <span className="text-sm text-purple-400/60">({tiers?.length ?? 0})</span>
         </div>
 
         <TierList tiers={tiers ?? []} eventId={id} />
 
         {isDraft && (
           <div>
-            <h3 className="text-sm font-medium text-zinc-700 mb-3">Agregar tier</h3>
+            <h3 className="text-sm font-medium text-purple-300 mb-3">Agregar tier</h3>
             <TierForm eventId={id} />
           </div>
         )}
 
         {isPublished && (
-          <p className="text-xs text-zinc-400 flex items-center gap-1.5 bg-zinc-50 px-3 py-2 rounded-lg">
+          <p className="text-xs text-purple-400/60 flex items-center gap-1.5 bg-white/5 border border-purple-700/30 px-3 py-2 rounded-lg">
             <Lock size={11} /> Regresa el evento a borrador para agregar o eliminar tiers.
           </p>
         )}
       </section>
 
-      {/* Public link */}
+      {/* Status actions */}
+      {!isFinished && <StatusActions eventId={id} currentStatus={event.status} />}
       {event.status === 'published' && (
-        <div className="flex items-center gap-2 text-sm text-zinc-500 bg-zinc-50 rounded-lg px-4 py-3">
-          <Globe size={14} />
+        <div className="flex items-center gap-2 text-sm text-purple-300/70 bg-white/5 border border-purple-700/30 rounded-lg px-4 py-3">
+          <Globe size={14} className="text-orange-400" />
           <span>Evento público en</span>
-          <a href={`/events/${id}`} className="font-medium text-orange-600 hover:underline" target="_blank">
+          <a
+            href={`/events/${id}`}
+            className="font-medium bg-gradient-to-r from-orange-400 to-purple-400 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+            target="_blank"
+          >
             /events/{id}
           </a>
         </div>

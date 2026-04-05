@@ -228,29 +228,38 @@ function TicketsSection({ tickets }: { tickets: TicketRow[] }) {
 
 // ─── Event Row ────────────────────────────────────────────────────────────────
 
-function EventRowItem({ event, onDelete }: { event: EventRow; onDelete: (id: string) => Promise<void> }) {
-  const [confirmDelete, setConfirmDelete] = useState(false)
+function EventRowItem({ event, confirmingId, onConfirm, onCancel, onDelete }: {
+  event: EventRow
+  confirmingId: string | null
+  onConfirm: (id: string) => void
+  onCancel: () => void
+  onDelete: (id: string) => Promise<void>
+}) {
   const [deleting, startDelete] = useTransition()
   const displayStatus = getDisplayStatus(event.status, event.event_date)
   const venue = event.venues
   const sc = statusColors[displayStatus] ?? statusColors.draft
+  const isConfirming = confirmingId === event.id
 
-  if (confirmDelete) {
+  if (isConfirming) {
     return (
-      <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-5 py-4 gap-4">
-        <p className="text-sm font-medium text-red-800 min-w-0 truncate">
+      <div className="flex items-center justify-between rounded-xl px-5 py-4 gap-4"
+        style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
+        <p className="text-sm font-medium min-w-0 truncate" style={{ color: '#fca5a5' }}>
           ¿Borrar <span className="font-semibold">&quot;{event.title}&quot;</span>?
         </p>
         <div className="flex items-center gap-2 shrink-0">
-          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); startDelete(async () => { await onDelete(event.id) }) }}
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); startDelete(async () => { await onDelete(event.id) }) }}
             disabled={deleting}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold disabled:opacity-60 transition-colors"
             style={{ background: '#dc2626' }}>
             {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Sí, borrar
           </button>
-          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmDelete(false) }}
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCancel() }}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-            style={{ border: BORDER, color: TEXT_MUTED }}>
+            style={{ background: 'rgba(255,255,255,0.08)', color: TEXT }}>
             Cancelar
           </button>
         </div>
@@ -276,7 +285,8 @@ function EventRowItem({ event, onDelete }: { event: EventRow; onDelete: (id: str
           {statusLabel[displayStatus]}
         </span>
       </Link>
-      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmDelete(true) }}
+      <button
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onConfirm(event.id) }}
         className="ml-3 shrink-0 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
         style={{ color: TEXT_DIM }}
         onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
@@ -290,6 +300,9 @@ function EventRowItem({ event, onDelete }: { event: EventRow; onDelete: (id: str
 // ─── Events Section ───────────────────────────────────────────────────────────
 
 function EventsSection({ events, loading, onDeleteEvent }: { events: EventRow[]; loading: boolean; onDeleteEvent: (id: string) => Promise<void> }) {
+  // Solo un confirm activo a la vez
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+
   if (loading) return (
     <div className="space-y-3">
       {[...Array(3)].map((_, i) => (
@@ -300,6 +313,7 @@ function EventsSection({ events, loading, onDeleteEvent }: { events: EventRow[];
       ))}
     </div>
   )
+
   return (
     <Fade id="events">
       <div className="space-y-6">
@@ -325,7 +339,16 @@ function EventsSection({ events, loading, onDeleteEvent }: { events: EventRow[];
           </div>
         ) : (
           <div className="space-y-3">
-            {events.map(event => <EventRowItem key={event.id} event={event} onDelete={onDeleteEvent} />)}
+            {events.map(event => (
+              <EventRowItem
+                key={event.id}
+                event={event}
+                confirmingId={confirmingId}
+                onConfirm={(id) => setConfirmingId(id)}
+                onCancel={() => setConfirmingId(null)}
+                onDelete={async (id) => { await onDeleteEvent(id); setConfirmingId(null) }}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -522,7 +545,6 @@ function SettingsSection({ profile, email, onProfileUpdate, onLogout }: {
   const [emailSaved, setEmailSaved] = useState(false)
   const [emailError, setEmailError] = useState('')
   const [savingEmail, startEmailSave] = useTransition()
-  const [currentPw, setCurrentPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
   const [pwSaved, setPwSaved] = useState(false)
@@ -557,16 +579,13 @@ function SettingsSection({ profile, email, onProfileUpdate, onLogout }: {
   }
   async function handleSavePassword() {
     setPwError(''); setPwSaved(false)
-    if (!currentPw) { setPwError('Ingresa tu contraseña actual.'); return }
     if (!newPw) { setPwError('Ingresa la nueva contraseña.'); return }
     if (newPw.length < 6) { setPwError('Mínimo 6 caracteres.'); return }
     if (newPw !== confirmPw) { setPwError('Las contraseñas no coinciden.'); return }
     startPwSave(async () => {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: currentPw })
-      if (signInError) { setPwError('La contraseña actual es incorrecta.'); return }
       const { error } = await supabase.auth.updateUser({ password: newPw })
       if (error) { setPwError('No se pudo actualizar. Intenta de nuevo.'); return }
-      setPwSaved(true); setCurrentPw(''); setNewPw(''); setConfirmPw(''); setTimeout(() => setPwSaved(false), 2500)
+      setPwSaved(true); setNewPw(''); setConfirmPw(''); setTimeout(() => setPwSaved(false), 2500)
     })
   }
 
@@ -602,8 +621,7 @@ function SettingsSection({ profile, email, onProfileUpdate, onLogout }: {
         <Card>
           <h2 className="text-sm font-semibold" style={{ color: TEXT }}>Contraseña</h2>
           <div className="space-y-2">
-            <input type="password" placeholder="Contraseña actual" value={currentPw} onChange={e => setCurrentPw(e.target.value)} className={inputClass} style={inputStyle} />
-            <input type="password" placeholder="Nueva contraseña" value={newPw} onChange={e => setNewPw(e.target.value)} className={inputClass} style={inputStyle} />
+            <input type="password" placeholder="Nueva contraseña" value={newPw} onChange={e => setNewPw(e.target.value)} className={inputClass} style={{ ...inputStyle, '--tw-placeholder-color': 'rgba(255,255,255,0.3)' } as React.CSSProperties} />
             <input type="password" placeholder="Confirmar nueva contraseña" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} className={inputClass} style={inputStyle} />
           </div>
           {pwError && <p className="text-xs" style={{ color: '#fca5a5' }}>{pwError}</p>}
@@ -786,14 +804,6 @@ export default function DashboardPage() {
         <div className="p-4">
           <SidebarContent profile={profile} section={section} onSelect={handleSelectSection} isTeamMember={isTeamMember} />
         </div>
-      </div>
-
-      {/* Mobile "Inicio" hint */}
-      <div className="md:hidden flex flex-col items-center pt-2 pb-1">
-        <span style={{ color: TEXT_MUTED, fontSize: '1rem', lineHeight: 1 }}>↑</span>
-        <p className="text-xs mt-0.5 font-semibold" style={{
-          background: ACCENT, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-        }}>Toca aquí para volver al inicio</p>
       </div>
 
       {/* Body */}

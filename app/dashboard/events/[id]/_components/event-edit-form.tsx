@@ -1,8 +1,9 @@
 'use client'
 
-import { useActionState, useTransition, useState, useEffect, useRef, useCallback } from 'react'
+import { useActionState, useTransition, useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import Image from 'next/image'
 import type mapboxgl from 'mapbox-gl'
-import { Loader2, MapPin, X } from 'lucide-react'
+import { Loader2, MapPin, X, CalendarDays, Eye } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { EVENT_IMAGES_BUCKET } from '@/utils/supabase/storage'
 
@@ -11,12 +12,10 @@ export const CATEGORIES = [
   { value: 'arte',        label: 'Arte'          },
   { value: 'social',      label: 'Evento social' },
   { value: 'nocturna',    label: 'Vida nocturna' },
-  { value: 'deporte',     label: 'Deporte'       },
-  { value: 'gastronomia', label: 'Gastronomía'   },
   { value: 'otro',        label: 'Otro'          },
 ]
 
-// ─── Mapbox location picker with mini map ─────────────────────────────────────
+// ─── Mapbox location picker ────────────────────────────────────────────────────
 
 interface MapboxFeature {
   id: string
@@ -49,16 +48,14 @@ function LocationPicker({
   const mapInstanceRef = useRef<mapboxgl.Map | null>(null)
   const markerRef      = useRef<mapboxgl.Marker | null>(null)
 
-  // Get user location on mount for proximity bias
   useEffect(() => {
     if (!navigator.geolocation) return
     navigator.geolocation.getCurrentPosition(
       pos => setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => {} // silently ignore if denied
+      () => {}
     )
   }, [])
 
-  // Search suggestions
   useEffect(() => {
     if (!query.trim() || query === selected?.name) { setSuggestions([]); return }
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -66,9 +63,7 @@ function LocationPicker({
       if (!token) return
       setSearching(true)
       try {
-        const proximity = userCoords
-          ? `&proximity=${userCoords.lng},${userCoords.lat}`
-          : ''
+        const proximity = userCoords ? `&proximity=${userCoords.lng},${userCoords.lat}` : ''
         const res = await fetch(
           `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&language=es&limit=5&country=mx,us${proximity}`
         )
@@ -79,7 +74,6 @@ function LocationPicker({
     }, 350)
   }, [query, userCoords, selected?.name, token])
 
-  // Reverse geocode when user moves pin
   const reverseGeocode = useCallback(async (lng: number, lat: number) => {
     if (!token) return
     try {
@@ -95,10 +89,8 @@ function LocationPicker({
     }
   }, [token])
 
-  // Init map when selected changes
   useEffect(() => {
     if (!selected || !mapRef.current || !token) return
-
     async function initMap() {
       const mapboxgl = (await import('mapbox-gl')).default as typeof import('mapbox-gl').default
       await import('mapbox-gl/dist/mapbox-gl.css')
@@ -118,18 +110,15 @@ function LocationPicker({
         interactive: true,
       })
 
-      // Draggable marker
-      const marker = new mapboxgl.Marker({ color: '#ff6e01', draggable: true })
+      const marker = new mapboxgl.Marker({ color: '#f97316', draggable: true })
         .setLngLat([selected!.lng, selected!.lat])
         .addTo(map)
 
-      // Update on drag end
       marker.on('dragend', () => {
         const { lng, lat } = marker.getLngLat()
         reverseGeocode(lng, lat)
       })
 
-      // Click on map to move marker
       map.on('click', (e) => {
         const { lng, lat } = e.lngLat
         marker.setLngLat([lng, lat])
@@ -139,11 +128,9 @@ function LocationPicker({
       mapInstanceRef.current = map
       markerRef.current = marker
     }
-
     initMap()
   }, [selected, token, reverseGeocode])
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => { mapInstanceRef.current?.remove() }
   }, [])
@@ -160,35 +147,32 @@ function LocationPicker({
   }
 
   function handleSelect(feature: MapboxFeature) {
-    const [lng, lat] = feature.center
-    // Destroy old map so useEffect reinitializes it at new coords
     if (mapInstanceRef.current) {
       mapInstanceRef.current.remove()
       mapInstanceRef.current = null
       markerRef.current = null
     }
+    const [lng, lat] = feature.center
     setSelected({ name: feature.place_name, lat, lng })
     setQuery(feature.place_name)
     setSuggestions([])
   }
 
-  const inputClass = "w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
+  const inputClass = "w-full rounded-lg border border-purple-700/40 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-purple-400/50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-zinc-700">Ubicación</label>
-
-      {/* Hidden fields */}
+      <label className="block text-sm font-medium text-purple-300">
+        Ubicación <span className="text-orange-400">*</span>
+      </label>
       <input type="hidden" name="location_name" value={selected?.name ?? ''} />
       <input type="hidden" name="location_lat"  value={selected?.lat  ?? ''} />
       <input type="hidden" name="location_lng"  value={selected?.lng  ?? ''} />
 
-      {/* Search input */}
       <div className="relative">
-        <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+        <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-400/50 pointer-events-none" />
         <input
-          type="text"
-          value={query}
+          type="text" value={query}
           onChange={e => { setQuery(e.target.value); if (selected) setSelected(null) }}
           placeholder="Busca una dirección o lugar..."
           className={`${inputClass} pl-8 pr-8`}
@@ -196,23 +180,18 @@ function LocationPicker({
         />
         {(query || selected) && (
           <button type="button" onClick={handleClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700">
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-400/50 hover:text-white transition-colors">
             <X size={13} />
           </button>
         )}
       </div>
 
-      {/* Suggestions */}
       {suggestions.length > 0 && (
-        <div className="border border-zinc-200 rounded-xl overflow-hidden bg-white shadow-md z-10 relative">
+        <div className="border border-purple-700/40 rounded-xl overflow-hidden bg-[#1a1035] shadow-lg z-10 relative">
           {suggestions.map(feature => (
-            <button
-              key={feature.id}
-              type="button"
-              onClick={() => handleSelect(feature)}
-              className="w-full text-left px-4 py-2.5 text-sm text-zinc-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-2 border-b border-zinc-100 last:border-0 transition-colors"
-            >
-              <MapPin size={13} className="shrink-0 text-zinc-400" />
+            <button key={feature.id} type="button" onClick={() => handleSelect(feature)}
+              className="w-full text-left px-4 py-2.5 text-sm text-purple-200 hover:bg-orange-500/10 hover:text-orange-300 flex items-center gap-2 border-b border-purple-700/30 last:border-0 transition-colors">
+              <MapPin size={13} className="shrink-0 text-purple-400/50" />
               <span className="truncate">{feature.place_name}</span>
             </button>
           ))}
@@ -220,28 +199,107 @@ function LocationPicker({
       )}
 
       {searching && (
-        <p className="text-xs text-zinc-400 flex items-center gap-1.5">
+        <p className="text-xs text-purple-400/60 flex items-center gap-1.5">
           <Loader2 size={11} className="animate-spin" /> Buscando...
         </p>
       )}
 
-      {/* Mini map */}
       {selected && (
-        <div className="rounded-xl overflow-hidden border border-zinc-200 shadow-sm">
+        <div className="rounded-xl overflow-hidden border border-purple-700/40">
           <div ref={mapRef} className="w-full h-48" />
-          <div className="px-3 py-2 bg-white border-t border-zinc-100 space-y-0.5">
+          <div className="px-3 py-2 bg-white/5 border-t border-purple-700/30 space-y-0.5">
             <div className="flex items-center gap-2">
-              <MapPin size={12} className="text-orange-500 shrink-0" />
-              <p className="text-xs text-zinc-700 truncate font-medium">{selected.name}</p>
+              <MapPin size={12} className="text-orange-400 shrink-0" />
+              <p className="text-xs text-white truncate font-medium">{selected.name}</p>
             </div>
-            <p className="text-xs text-zinc-400 pl-5">Arrastra el pin o haz clic en el mapa para ajustar la ubicación</p>
+            <p className="text-xs text-purple-400/50 pl-5">Arrastra el pin o haz clic en el mapa para ajustar</p>
           </div>
         </div>
       )}
 
-      {!token && (
-        <p className="text-xs text-red-500">Falta NEXT_PUBLIC_MAPBOX_TOKEN en .env.local</p>
-      )}
+      {!token && <p className="text-xs text-red-400">Falta NEXT_PUBLIC_MAPBOX_TOKEN en .env.local</p>}
+    </div>
+  )
+}
+
+// ─── Image Preview ────────────────────────────────────────────────────────────
+
+function ImagePreview({ previewUrl, title, eventDate }: {
+  previewUrl: string
+  title: string
+  eventDate: string
+}) {
+  const dateStr = eventDate
+    ? new Date(eventDate).toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+    : 'Fecha del evento'
+
+  return (
+    <div className="space-y-3 mt-4">
+      <div className="flex items-center gap-2 text-xs font-semibold text-purple-300 uppercase tracking-widest">
+        <Eye size={12} />
+        Vista previa
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+        <div className="space-y-1.5">
+          <p className="text-xs text-purple-400/60">Página del evento</p>
+          <div className="relative w-full h-40 rounded-xl overflow-hidden bg-zinc-900">
+            {previewUrl && (
+              <>
+                <Image src={previewUrl} alt="" aria-hidden
+                  fill
+                  className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-50"
+                  sizes="(max-width: 768px) 100vw, 50vw" />
+                <Image src={previewUrl} alt={title}
+                  fill
+                  className="absolute inset-0 w-full h-full object-contain"
+                  sizes="(max-width: 768px) 100vw, 50vw" />
+              </>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-3">
+              <p className="text-white font-bold text-sm leading-tight line-clamp-1 drop-shadow">
+                {title || 'Título del evento'}
+              </p>
+              <p className="text-white/60 text-xs mt-0.5 flex items-center gap-1">
+                <CalendarDays size={10} />
+                {dateStr}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="text-xs text-purple-400/60">Tarjeta en listado</p>
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <div className="relative h-28 overflow-hidden">
+              {previewUrl && (
+                <Image src={previewUrl} alt={title}
+                  fill
+                  className="w-full h-full object-cover"
+                  sizes="(max-width: 768px) 100vw, 50vw" />
+              )}
+            </div>
+            <div className="p-3 space-y-1">
+              <p className="font-semibold text-white text-sm leading-snug line-clamp-1">
+                {title || 'Título del evento'}
+              </p>
+              <p className="text-xs flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                <CalendarDays size={11} className="text-orange-400" />
+                {dateStr}
+              </p>
+              <p className="text-xs font-bold pt-1" style={{ color: '#f97316' }}>
+                Desde $0.00
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   )
 }
@@ -265,11 +323,13 @@ type Props = {
   onCancel?: () => void
 }
 
-export default function EventForm({ action, defaultValues, submitLabel = 'Guardar', onCancel }: Props) {
+export default function EventForm({ action, defaultValues }: Props) {
   const [state, formAction]                = useActionState(action, null)
   const [isActionPending, startTransition] = useTransition()
   const [uploading, setUploading]          = useState(false)
   const [localError, setLocalError]        = useState<string | null>(null)
+  const [liveTitle, setLiveTitle]          = useState(defaultValues?.title ?? '')
+  const [liveDate, setLiveDate]            = useState(defaultValues?.event_date ?? '')
 
   const isPending = uploading || isActionPending
 
@@ -277,14 +337,57 @@ export default function EventForm({ action, defaultValues, submitLabel = 'Guarda
     ? new Date(defaultValues.event_date).toISOString().slice(0, 16)
     : ''
 
+  const imageUrl = defaultValues && defaultValues.image_url
+
+  const initialPreviewUrl = useMemo(() => {
+    if (imageUrl) {
+      const supabase = createClient()
+      const { data } = supabase.storage.from(EVENT_IMAGES_BUCKET).getPublicUrl(imageUrl)
+      return data?.publicUrl || null
+    }
+    return null
+  }, [imageUrl])
+
+  const [previewUrl, setPreviewUrl] = useState<string | null>(initialPreviewUrl)
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const url = URL.createObjectURL(file)
+    setPreviewUrl(url)
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (isPending) return
     setLocalError(null)
 
-    const formData = new FormData(e.currentTarget)
+    const form = e.currentTarget
+    // El borrador pone data-skip-validation="true" antes de submitear
+    const skipValidation = form.dataset.skipValidation === 'true'
+    delete form.dataset.skipValidation // limpiar el flag siempre
+
+    const formData = new FormData(form)
     const imageFile = formData.get('image_file') as File | null
     formData.delete('image_file')
+    formData.set('status', 'draft')
+
+    if (!skipValidation) {
+      // Validar ubicación
+      const locationName = formData.get('location_name') as string
+      if (!locationName?.trim()) {
+        setLocalError('La ubicación es obligatoria')
+        return
+      }
+
+      // Validar imagen
+      const hasExistingImage = !!defaultValues?.image_url
+      const hasNewImage = imageFile && imageFile.size > 0
+      if (!hasExistingImage && !hasNewImage) {
+        setLocalError('La imagen del evento es obligatoria')
+        return
+      }
+    }
 
     if (imageFile && imageFile.size > 0) {
       if (!imageFile.type.startsWith('image/')) { setLocalError('El archivo debe ser una imagen válida'); return }
@@ -309,89 +412,113 @@ export default function EventForm({ action, defaultValues, submitLabel = 'Guarda
     startTransition(() => formAction(formData))
   }
 
-  const inputClass = "w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
+  const inputClass = "w-full rounded-lg border border-purple-700/40 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-purple-400/50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-5">
-
+    <form
+      id="event-edit-form"
+      onSubmit={handleSubmit}
+      data-has-image={defaultValues?.image_url ? 'true' : ''}
+      className="bg-white/5 rounded-2xl border border-purple-700/40 p-6 space-y-5"
+    >
+      {/* Título */}
       <div>
-        <label htmlFor="title" className="block text-sm font-medium text-zinc-700 mb-1">
-          Título <span className="text-red-500">*</span>
+        <label htmlFor="title" className="block text-sm font-medium text-purple-300 mb-1">
+          Título <span className="text-orange-400">*</span>
         </label>
         <input id="title" name="title" type="text" required
-          defaultValue={defaultValues?.title ?? ''} placeholder="Concierto de Rock en el Parque"
+          defaultValue={defaultValues?.title ?? ''}
+          placeholder="Concierto de Rock en el Parque"
+          onChange={e => setLiveTitle(e.target.value)}
           className={inputClass} />
       </div>
 
+      {/* Descripción */}
       <div>
-        <label htmlFor="description" className="block text-sm font-medium text-zinc-700 mb-1">Descripción</label>
-        <textarea id="description" name="description" rows={3}
+        <label htmlFor="description" className="block text-sm font-medium text-purple-300 mb-1">
+          Descripción <span className="text-orange-400">*</span>
+        </label>
+        <textarea id="description" name="description" rows={3} required
           defaultValue={defaultValues?.description ?? ''} placeholder="Describe el evento..."
           className={`${inputClass} resize-none`} />
       </div>
 
+      {/* Fecha y hora + Categoría */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="event_date" className="block text-sm font-medium text-zinc-700 mb-1">
-            Fecha y hora <span className="text-red-500">*</span>
+          <label htmlFor="event_date" className="block text-sm font-medium text-purple-300 mb-1">
+            Fecha y hora <span className="text-orange-400">*</span>
           </label>
           <input id="event_date" name="event_date" type="datetime-local" required
-            defaultValue={defaultDate} className={inputClass} />
+            defaultValue={defaultDate}
+            onChange={e => setLiveDate(e.target.value)}
+            className={`${inputClass} [color-scheme:dark]`} />
         </div>
         <div>
-          <label htmlFor="status" className="block text-sm font-medium text-zinc-700 mb-1">Estado</label>
-          <select id="status" name="status" defaultValue={defaultValues?.status ?? 'draft'} className={inputClass}>
-            <option value="draft">Borrador</option>
-            <option value="published">Publicado</option>
+          <label htmlFor="category" className="block text-sm font-medium text-purple-300 mb-1">
+            Categoría <span className="text-orange-400">*</span>
+          </label>
+          <select id="category" name="category" required
+            defaultValue={defaultValues?.category ?? 'otro'}
+            className={`${inputClass} [&>option]:bg-[#1a1035] [&>option]:text-white`}>
+            {CATEGORIES.map(cat => (
+              <option key={cat.value} value={cat.value}>{cat.label}</option>
+            ))}
           </select>
         </div>
       </div>
 
-      <div>
-        <label htmlFor="category" className="block text-sm font-medium text-zinc-700 mb-1">Categoría</label>
-        <select id="category" name="category" defaultValue={defaultValues?.category ?? 'otro'} className={inputClass}>
-          {CATEGORIES.map(cat => (
-            <option key={cat.value} value={cat.value}>{cat.label}</option>
-          ))}
-        </select>
-      </div>
-
+      {/* Ubicación */}
       <LocationPicker
         defaultLocationName={defaultValues?.location_name}
         defaultLat={defaultValues?.location_lat}
         defaultLng={defaultValues?.location_lng}
       />
 
+      {/* Imagen del evento */}
       <div>
-        <label htmlFor="image_file" className="block text-sm font-medium text-zinc-700 mb-1">Imagen del evento</label>
-        {defaultValues?.image_url && (
-          <p className="text-xs text-zinc-400 mb-2">Ya tienes una imagen. Sube una nueva para reemplazarla.</p>
+        <label htmlFor="image_file" className="block text-sm font-medium text-purple-300 mb-1">
+          Imagen del evento <span className="text-orange-400">*</span>
+        </label>
+
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mb-2">
+          <p className="text-xs text-purple-400/50">
+            Tamaño recomendado: <span className="text-purple-300/70 font-medium">1200 × 630 px</span>
+          </p>
+          <p className="text-xs text-purple-400/50">
+            Relación de aspecto: <span className="text-purple-300/70 font-medium">16:9</span>
+          </p>
+          <p className="text-xs text-purple-400/50">
+            Peso máximo: <span className="text-purple-300/70 font-medium">5 MB</span>
+          </p>
+        </div>
+
+        {defaultValues?.image_url && !previewUrl && (
+          <p className="text-xs text-purple-400/50 mb-2">Ya tienes una imagen. Sube una nueva para reemplazarla.</p>
         )}
-        <input id="image_file" name="image_file" type="file" accept="image/*" className={inputClass} />
-        <p className="mt-1 text-xs text-zinc-400">Opcional. Formatos: JPG, PNG, WEBP.</p>
+
+        <input
+          id="image_file" name="image_file" type="file" accept="image/*"
+          onChange={handleImageChange}
+          className="w-full rounded-lg border border-purple-700/40 bg-white/5 px-3 py-2 text-sm text-purple-300 file:mr-3 file:rounded-md file:border-0 file:bg-orange-500/20 file:px-3 file:py-1 file:text-xs file:font-medium file:text-orange-300 hover:file:bg-orange-500/30 transition-all cursor-pointer"
+        />
+        <p className="mt-1 text-xs text-purple-400/50">Formatos: JPG, PNG, WEBP.</p>
+
+        {previewUrl && (
+          <ImagePreview
+            previewUrl={previewUrl}
+            title={liveTitle}
+            eventDate={liveDate}
+          />
+        )}
       </div>
 
       {(localError || state?.error) && (
-        <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{localError ?? state?.error}</p>
+        <p className="text-sm text-red-400 bg-red-900/20 border border-red-700/40 rounded-lg px-3 py-2">
+          {localError ?? state?.error}
+        </p>
       )}
 
-      <div className="flex items-center justify-end gap-3 pt-2">
-        {onCancel && (
-          <button type="button" onClick={onCancel}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-600 hover:text-zinc-900 transition-colors">
-            Cancelar
-          </button>
-        )}
-        <button type="submit" disabled={isPending}
-          className={`relative overflow-hidden px-5 py-2 rounded-lg bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white text-sm font-semibold hover:from-amber-500 hover:via-orange-600 hover:to-red-700 transition-all duration-300 disabled:cursor-not-allowed ${isPending ? 'scale-[0.97]' : ''}`}>
-          <span className={`flex items-center gap-1.5 transition-all duration-300 ${isPending ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'}`}>
-            {uploading ? 'Subiendo imagen…' : submitLabel}
-          </span>
-          <span className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${isPending ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}>
-            <Loader2 size={15} className="animate-spin" />
-          </span>
-        </button>
-      </div>
     </form>
   )
 }

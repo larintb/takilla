@@ -14,8 +14,6 @@ const CATEGORIES = [
   { value: 'arte',        label: 'Arte',          img: '/images/arte.2.png'          },
   { value: 'social',      label: 'Evento social', img: '/images/evento social.png'   },
   { value: 'nocturna',    label: 'Vida nocturna', img: '/images/vida nocturna.2.png' },
-  { value: 'deporte',     label: 'Deporte',       img: null },
-  { value: 'gastronomia', label: 'Gastronomía',   img: null },
   { value: 'otro',        label: 'Otro',          img: null },
 ]
 

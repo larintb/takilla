@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { updateEventStatus } from '../actions'
-import { Globe, FileText, XCircle, AlertTriangle } from 'lucide-react'
+import { Globe, FileText, XCircle, AlertTriangle, Save, Loader2 } from 'lucide-react'
 import FormButton from '@/components/form-button'
 
 export default function StatusActions({
@@ -13,39 +14,133 @@ export default function StatusActions({
   currentStatus: string
 }) {
   const [confirmCancel, setConfirmCancel] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
+  const router = useRouter()
+
+  async function handleSaveDraft() {
+    const form = document.getElementById('event-edit-form') as HTMLFormElement | null
+    if (!form) return
+    setSaving(true)
+
+    // Activar flag para saltarse validaciones custom (ubicación e imagen)
+    form.dataset.skipValidation = 'true'
+    // Usar formNoValidate para saltarse también las validaciones nativas del browser
+    const btn = document.createElement('button')
+    btn.type = 'submit'
+    btn.formNoValidate = true
+    btn.style.display = 'none'
+    form.appendChild(btn)
+    btn.click()
+    form.removeChild(btn)
+
+    await new Promise(r => setTimeout(r, 1200))
+    router.push('/dashboard')
+  }
+
+  async function handlePublish() {
+    setPublishError(null)
+
+    const form = document.getElementById('event-edit-form') as HTMLFormElement | null
+    if (!form) return
+
+    // 1. Validación nativa del browser (título, descripción, fecha, categoría)
+    if (!form.checkValidity()) {
+      form.reportValidity()
+      return
+    }
+
+    // 2. Validar campos custom (ubicación e imagen)
+    const formData = new FormData(form)
+
+    const locationName = formData.get('location_name') as string
+    if (!locationName?.trim()) {
+      setPublishError('La ubicación es obligatoria antes de publicar.')
+      form.querySelector<HTMLElement>('[name="location_name"]')
+        ?.closest('div')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+
+    const imageFile = formData.get('image_file') as File | null
+    const hasExistingImage = form.dataset.hasImage === 'true'
+    const hasNewImage = imageFile && imageFile.size > 0
+    if (!hasExistingImage && !hasNewImage) {
+      setPublishError('La imagen del evento es obligatoria antes de publicar.')
+      document.getElementById('image_file')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+
+    // 3. Guardar el formulario primero (con validación activa)
+    setPublishing(true)
+    form.requestSubmit()
+
+    // 4. Esperar a que el server action termine
+    await new Promise(r => setTimeout(r, 1500))
+
+    const formError = form.dataset.submitError
+    if (formError) {
+      setPublishError(`Error al guardar: ${formError}`)
+      setPublishing(false)
+      return
+    }
+
+    // 5. Publicar
+    await updateEventStatus(eventId, 'published')
+    router.push('/dashboard')
+  }
 
   return (
-    <div className="bg-white rounded-2xl border border-zinc-200 p-5 space-y-4">
-      <h2 className="text-sm font-semibold text-zinc-900">Acciones del evento</h2>
+    <div className="bg-white/5 rounded-2xl border border-purple-700/40 p-5 space-y-4">
+      <h2 className="text-sm font-semibold text-white">Acciones del evento</h2>
 
       <div className="flex items-center gap-3 flex-wrap">
 
+        {/* Draft → Save draft */}
+        {currentStatus === 'draft' && (
+          <button
+            type="button"
+            onClick={handleSaveDraft}
+            disabled={saving || publishing}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-purple-700/50 text-purple-300 text-sm font-semibold hover:bg-purple-900/30 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            {saving ? 'Guardando…' : 'Guardar borrador'}
+          </button>
+        )}
+
         {/* Draft → Published */}
         {currentStatus === 'draft' && (
-          <form action={updateEventStatus.bind(null, eventId, 'published')}>
-            <FormButton className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 text-white text-sm font-semibold hover:from-amber-500 hover:via-orange-600 hover:to-red-700 transition-all">
-              <Globe size={14} />
-              Publicar evento
-            </FormButton>
-          </form>
+          <button
+            type="button"
+            onClick={handlePublish}
+            disabled={publishing || saving}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ background: 'var(--accent-gradient)' }}
+          >
+            {publishing ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />}
+            {publishing ? 'Publicando…' : 'Publicar evento'}
+          </button>
         )}
 
         {/* Published → Draft */}
         {currentStatus === 'published' && (
           <form action={updateEventStatus.bind(null, eventId, 'draft')}>
-            <FormButton className="flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 text-zinc-700 text-sm font-semibold hover:bg-zinc-50 transition-colors">
+            <FormButton className="flex items-center gap-2 px-4 py-2 rounded-xl border border-purple-700/50 text-purple-300 text-sm font-semibold hover:bg-purple-900/30 transition-colors">
               <FileText size={14} />
               Volver a borrador
             </FormButton>
           </form>
         )}
 
-        {/* Cancel button — shows confirmation inline */}
+        {/* Cancel button */}
         {currentStatus !== 'cancelled' && !confirmCancel && (
           <button
             type="button"
             onClick={() => setConfirmCancel(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-700/40 text-red-400 text-sm font-semibold hover:bg-red-900/20 transition-colors"
           >
             <XCircle size={14} />
             Cancelar evento
@@ -53,13 +148,21 @@ export default function StatusActions({
         )}
       </div>
 
+      {/* Error de publicación */}
+      {publishError && (
+        <p className="text-sm text-red-400 bg-red-900/20 border border-red-700/40 rounded-lg px-3 py-2 flex items-center gap-2">
+          <AlertTriangle size={14} className="shrink-0" />
+          {publishError}
+        </p>
+      )}
+
       {/* Cancel confirmation */}
       {confirmCancel && (
-        <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4">
-          <AlertTriangle size={16} className="text-red-500 mt-0.5 shrink-0" />
+        <div className="flex items-start gap-3 bg-red-900/20 border border-red-700/40 rounded-xl p-4">
+          <AlertTriangle size={16} className="text-red-400 mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-red-800">¿Cancelar este evento?</p>
-            <p className="text-xs text-red-600 mt-0.5">
+            <p className="text-sm font-semibold text-red-300">¿Cancelar este evento?</p>
+            <p className="text-xs text-red-400/80 mt-0.5">
               Esta acción notificará a los compradores. No se puede deshacer fácilmente.
             </p>
             <div className="flex items-center gap-2 mt-3">
@@ -72,7 +175,7 @@ export default function StatusActions({
               <button
                 type="button"
                 onClick={() => setConfirmCancel(false)}
-                className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-xs font-semibold hover:bg-red-100 transition-colors"
+                className="px-3 py-1.5 rounded-lg border border-red-700/40 text-red-400 text-xs font-semibold hover:bg-red-900/20 transition-colors"
               >
                 No, volver
               </button>
