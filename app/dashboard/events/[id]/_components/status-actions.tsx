@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { updateEventStatus } from '../actions'
-import { Globe, FileText, XCircle, AlertTriangle } from 'lucide-react'
+import { Globe, FileText, XCircle, AlertTriangle, Save, Loader2 } from 'lucide-react'
 import FormButton from '@/components/form-button'
 
 export default function StatusActions({
@@ -13,12 +14,37 @@ export default function StatusActions({
   currentStatus: string
 }) {
   const [confirmCancel, setConfirmCancel] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const router = useRouter()
+
+  async function handleSaveDraft() {
+    const form = document.getElementById('event-edit-form') as HTMLFormElement | null
+    if (!form) return
+    setSaving(true)
+    form.requestSubmit()
+    // Give the server action time to complete before redirecting
+    await new Promise(r => setTimeout(r, 1200))
+    router.push('/dashboard')
+  }
 
   return (
     <div className="bg-white/5 rounded-2xl border border-purple-700/40 p-5 space-y-4">
       <h2 className="text-sm font-semibold text-white">Acciones del evento</h2>
 
       <div className="flex items-center gap-3 flex-wrap">
+
+        {/* Draft → Save draft */}
+        {currentStatus === 'draft' && (
+          <button
+            type="button"
+            onClick={handleSaveDraft}
+            disabled={saving}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-purple-700/50 text-purple-300 text-sm font-semibold hover:bg-purple-900/30 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            {saving ? 'Guardando…' : 'Guardar borrador'}
+          </button>
+        )}
 
         {/* Draft → Published */}
         {currentStatus === 'draft' && (

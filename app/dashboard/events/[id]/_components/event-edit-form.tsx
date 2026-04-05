@@ -296,7 +296,7 @@ export default function EventForm({ action, defaultValues, submitLabel = 'Guarda
   const inputClass = "w-full rounded-lg border border-purple-700/40 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-purple-400/50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white/5 rounded-2xl border border-purple-700/40 p-6 space-y-5">
+    <form id="event-edit-form" onSubmit={handleSubmit} className="bg-white/5 rounded-2xl border border-purple-700/40 p-6 space-y-5">
 
       <div>
         <label htmlFor="title" className="block text-sm font-medium text-purple-300 mb-1">
@@ -354,23 +354,7 @@ export default function EventForm({ action, defaultValues, submitLabel = 'Guarda
         </p>
       )}
 
-      <div className="flex items-center justify-end gap-3 pt-2">
-        {onCancel && (
-          <button type="button" onClick={onCancel}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-purple-400 hover:text-white border border-purple-700/40 hover:bg-white/5 transition-colors">
-            Cancelar
-          </button>
-        )}
-        <button type="submit" disabled={isPending}
-          className={`relative overflow-hidden px-5 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-purple-600 text-white text-sm font-semibold hover:from-orange-600 hover:to-purple-700 transition-all duration-300 disabled:cursor-not-allowed ${isPending ? 'scale-[0.97]' : ''}`}>
-          <span className={`flex items-center gap-1.5 transition-all duration-300 ${isPending ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'}`}>
-            {uploading ? 'Subiendo imagen…' : submitLabel}
-          </span>
-          <span className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${isPending ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}>
-            <Loader2 size={15} className="animate-spin" />
-          </span>
-        </button>
-      </div>
+
     </form>
   )
 }
