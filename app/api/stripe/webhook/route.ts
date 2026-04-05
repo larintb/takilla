@@ -3,6 +3,22 @@ import Stripe from 'stripe'
 import { stripe } from '@/utils/stripe/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 
+async function handleAccountUpdated(account: Stripe.Account) {
+  if (!account.charges_enabled || !account.payouts_enabled) return
+
+  const supabaseAdmin = createAdminClient()
+  const { error } = await supabaseAdmin
+    .from('profiles')
+    .update({ stripe_onboarding_complete: true })
+    .eq('stripe_account_id', account.id)
+
+  if (error) {
+    console.error('[webhook] Error actualizando stripe_onboarding_complete:', error.message)
+  } else {
+    console.log('[webhook] Onboarding completo para cuenta:', account.id)
+  }
+}
+
 export const runtime = 'nodejs'
 
 function asRequiredMetadata(metadata: Stripe.Metadata | null) {
@@ -50,6 +66,11 @@ export async function POST(request: Request) {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
   } catch {
     return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 400 })
+  }
+
+  if (event.type === 'account.updated') {
+    await handleAccountUpdated(event.data.object as Stripe.Account)
+    return NextResponse.json({ received: true })
   }
 
   if (

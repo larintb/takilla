@@ -12,6 +12,17 @@ export async function createEmptyEvent() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, terms_accepted_at, stripe_onboarding_complete')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'organizer') redirect('/dashboard')
+  if (!profile?.terms_accepted_at || !profile?.stripe_onboarding_complete) {
+    redirect('/dashboard/onboarding')
+  }
+
   const { data: event, error } = await supabase
     .from('events')
     .insert({
@@ -95,6 +106,18 @@ export async function updateEventStatus(eventId: string, status: string) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
+
+  if (status === 'published') {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('stripe_onboarding_complete')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile?.stripe_onboarding_complete) {
+      redirect('/dashboard/onboarding')
+    }
+  }
 
   await supabase.from('events').update({ status }).eq('id', eventId)
   revalidatePath(`/dashboard/events/${eventId}`)

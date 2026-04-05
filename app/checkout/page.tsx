@@ -7,6 +7,7 @@ import { resolveEventImageUrl } from '@/utils/supabase/storage'
 import { ArrowLeft, CalendarDays, MapPin, Ticket } from 'lucide-react'
 import { startStripeCheckout } from './actions'
 import SubmitButton from './_components/submit-button'
+import { calculateFees } from '@/utils/pricing'
 
 type CheckoutPageProps = {
   searchParams: Promise<{
@@ -58,8 +59,9 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
   if (finalQuantity < 1) redirect(`/events/${eventId}`)
 
   const price  = Number(tier.price)
-  const total  = price * finalQuantity
   const isFree = price === 0
+  const fees   = isFree ? null : calculateFees(price, finalQuantity)
+  const total  = fees ? fees.totalAmount : 0
 
   const venue        = (Array.isArray(event.venues) ? event.venues[0] : event.venues) as VenueInfo | null
   const imageUrl     = resolveEventImageUrl(supabase, event.image_url ?? null)
@@ -120,17 +122,33 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
               Resumen
             </p>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-base" style={{ color: 'rgba(255,255,255,0.45)' }}>Tier</span>
                 <span className="text-base font-semibold text-white">{tier.name}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-base" style={{ color: 'rgba(255,255,255,0.45)' }}>Precio unitario</span>
+                <span className="text-base" style={{ color: 'rgba(255,255,255,0.45)' }}>Precio del boleto</span>
                 <span className="text-base font-semibold text-white">
                   {isFree ? 'Gratis' : `$${price.toFixed(2)}`}
                 </span>
               </div>
+              {fees && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>Cargo por servicio</span>
+                  <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    +${fees.serviceChargePerTicket.toFixed(2)}
+                  </span>
+                </div>
+              )}
+              {fees && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>Precio por boleto</span>
+                  <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    ${fees.unitTotal.toFixed(2)}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-base" style={{ color: 'rgba(255,255,255,0.45)' }}>Cantidad</span>
                 <span className="text-base font-semibold text-white">
@@ -155,7 +173,7 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
               <input type="hidden" name="eventId" value={eventId} />
               <input type="hidden" name="tierId"  value={tierId} />
               <input type="hidden" name="quantity" value={String(finalQuantity)} />
-              <SubmitButton label={isFree ? 'Confirmar boletos gratis' : `Pagar $${total.toFixed(2)}`} />
+              <SubmitButton label={isFree ? 'Confirmar boletos gratis' : `Pagar $${fees!.totalAmount.toFixed(2)} MXN`} />
             </form>
 
             <p className="text-sm text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.3)' }}>

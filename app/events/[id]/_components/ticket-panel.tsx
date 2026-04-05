@@ -152,6 +152,11 @@ export default function TicketPanel({
               {isPast ? 'Evento finalizado' : 'Sin disponibilidad'}
             </p>
           )}
+          {!isFree && !isPast && !isSoldOut && (
+            <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.28)' }}>
+              + cargos por servicio
+            </p>
+          )}
           {selectedTier && !isPast && (
             <AvailBar
               available={selectedTier.available_tickets}

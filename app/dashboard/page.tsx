@@ -27,7 +27,7 @@ const SIDEBAR_BG = 'rgba(255,255,255,0.03)'
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type Section = 'tickets' | 'settings' | 'events' | 'team'
-interface Profile { full_name: string; role: string }
+interface Profile { full_name: string; role: string; terms_accepted_at?: string | null; stripe_onboarding_complete?: boolean }
 interface TicketRow {
   id: string; qr_hash: string; is_used: boolean; used_at: string | null
   ticket_tiers: { name: string; price: number } | null
@@ -299,7 +299,7 @@ function EventRowItem({ event, confirmingId, onConfirm, onCancel, onDelete }: {
 
 // ─── Events Section ───────────────────────────────────────────────────────────
 
-function EventsSection({ events, loading, onDeleteEvent }: { events: EventRow[]; loading: boolean; onDeleteEvent: (id: string) => Promise<void> }) {
+function EventsSection({ events, loading, onDeleteEvent, profile }: { events: EventRow[]; loading: boolean; onDeleteEvent: (id: string) => Promise<void>; profile: Profile | null }) {
   // Solo un confirm activo a la vez
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
 
@@ -314,9 +314,27 @@ function EventsSection({ events, loading, onDeleteEvent }: { events: EventRow[];
     </div>
   )
 
+  const onboardingIncomplete = profile?.role === 'organizer' && (!profile?.terms_accepted_at || !profile?.stripe_onboarding_complete)
+
   return (
     <Fade id="events">
       <div className="space-y-6">
+        {onboardingIncomplete && (
+          <div className="rounded-xl px-5 py-4 flex items-center justify-between gap-4"
+            style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.3)' }}>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: '#fb923c' }}>Configura tu cuenta de organizador</p>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Acepta los términos y conecta tu cuenta de pagos para publicar eventos.
+              </p>
+            </div>
+            <Link href="/dashboard/onboarding"
+              className="shrink-0 px-3 py-1.5 rounded-lg text-white text-xs font-semibold"
+              style={{ background: 'var(--accent-gradient)' }}>
+              Configurar
+            </Link>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold" style={{ color: TEXT }}>Mis eventos</h1>
@@ -681,7 +699,7 @@ export default function DashboardPage() {
       setEmail(user.email ?? '')
       setUserId(user.id)
       const [{ data: prof }, { data: tix }] = await Promise.all([
-        supabase.from('profiles').select('full_name, role').eq('id', user.id).single(),
+        supabase.from('profiles').select('full_name, role, terms_accepted_at, stripe_onboarding_complete').eq('id', user.id).single(),
         supabase.from('tickets').select('id, qr_hash, is_used, used_at, ticket_tiers(name, price), events(title, event_date, venues(name, city))').eq('owner_id', user.id).order('id', { ascending: false }),
       ])
       setProfile(prof ?? { full_name: '', role: 'customer' })
@@ -827,7 +845,7 @@ export default function DashboardPage() {
         {/* Content */}
         <main className="flex-1 min-w-0">
           {section === 'tickets'  && <TicketsSection tickets={tickets} />}
-          {section === 'events'   && <EventsSection events={events} loading={eventsLoading} onDeleteEvent={handleDeleteEvent} />}
+          {section === 'events'   && <EventsSection events={events} loading={eventsLoading} onDeleteEvent={handleDeleteEvent} profile={profile} />}
           {section === 'team'     && userId && <TeamSection userId={userId} />}
           {section === 'settings' && profile && (
             <SettingsSection profile={profile} email={email} onProfileUpdate={p => setProfile(p)} onLogout={handleLogout} />
