@@ -271,7 +271,7 @@ export default async function Home() {
                 ¿Tienes un evento?<br />Véndelo en Takilla.
               </h2>
               <p className="text-base leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                Publica en minutos, cobra directo a tu cuenta y deja que el comprador cubra los cargos por servicio. Sin costos fijos, sin sorpresas.
+                Lleva tus eventos al siguiente nivel. Regístrate y empieza a vender hoy.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link

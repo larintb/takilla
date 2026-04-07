@@ -2,12 +2,40 @@
 
 import { useActionState } from 'react'
 import Link from 'next/link'
+import { Turnstile } from '@marsidev/react-turnstile'
 import { signup } from '@/app/actions/auth'
 import FormButton from '@/components/form-button'
 
 export default function SignupPage() {
   const [state, action] = useActionState(signup, null)
   const errorMessage = state && 'error' in state ? state.error : null
+  const success = state && 'success' in state && state.success
+
+  if (success) {
+    return (
+      <div
+        className="rounded-2xl p-8 text-center"
+        style={{
+          background: 'var(--surface-panel)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 25px 80px rgba(0,0,0,0.4)',
+        }}
+      >
+        <div className="text-5xl mb-4">📬</div>
+        <h2 className="text-2xl font-bold text-white mb-2">¡Casi listo!</h2>
+        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          Te enviamos un correo de confirmación. Revisa tu bandeja de entrada y haz clic en el enlace para activar tu cuenta.
+        </p>
+        <Link
+          href="/login"
+          className="inline-block mt-6 py-2 px-6 rounded-xl font-semibold text-sm text-white transition-all hover:opacity-90"
+          style={{ background: 'var(--accent-gradient)' }}
+        >
+          Ir a iniciar sesión
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -139,6 +167,10 @@ export default function SignupPage() {
               </a>
             </span>
           </label>
+        </div>
+
+        <div className="flex justify-center pt-1">
+          <Turnstile siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!} />
         </div>
 
         {errorMessage && (
