@@ -7,6 +7,13 @@ import { Ticket, CalendarDays, MapPin, QrCode, ShieldCheck, Zap, TrendingUp, Bad
 import Navbar from '@/components/navbar'
 import DomeGallery from '@/components/dome-gallery'
 
+const CATEGORY_LABELS: Record<string, string> = {
+  musica:   'Música',
+  arte:     'Arte',
+  social:   'Evento social',
+  nocturna: 'Vida nocturna',
+}
+
 type VenueInfo = {
   name?: string | null
   city?: string | null
@@ -23,7 +30,7 @@ export default async function Home() {
   const [{ data: { user } }, { data: events }] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from('events').select(`
-      id, title, event_date, image_url,
+      id, title, event_date, image_url, category,
       venues(name, city),
       ticket_tiers(price)
     `).eq('status', 'published').gt('event_date', new Date().toISOString()).order('event_date', { ascending: true }).limit(6),
@@ -53,7 +60,6 @@ export default async function Home() {
           />
         </div>
         <div className="max-w-6xl mx-auto px-4 py-24 text-center space-y-6 relative z-10">
-          
           <h1
             className="font-display text-6xl md:text-7xl leading-none max-w-3xl mx-auto animate-fade-in-up"
             style={{ animationDelay: '160ms' }}
@@ -152,12 +158,15 @@ export default async function Home() {
               const prices   = tiers?.map(t => Number(t.price)) ?? []
               const minPrice = prices.length ? Math.min(...prices) : null
               const imageUrl = resolveEventImageUrl(supabase, event.image_url)
+              const catLabel = event.category && event.category !== 'otro'
+                ? CATEGORY_LABELS[event.category]
+                : null
 
               return (
                 <Link
                   key={event.id}
                   href={`/events/${event.id}`}
-                  className="group rounded-2xl overflow-hidden transition-all hover:scale-[1.02] hover:shadow-2xl animate-fade-in-up"
+                  className="group rounded-2xl overflow-hidden transition-all hover:scale-[1.02] hover:shadow-2xl animate-fade-in-up flex flex-col"
                   style={{
                     background: 'rgba(255,255,255,0.04)',
                     border: '1px solid rgba(255,255,255,0.08)',
@@ -165,7 +174,7 @@ export default async function Home() {
                   }}
                 >
                   <div
-                    className="relative h-44 overflow-hidden"
+                    className="relative h-44 overflow-hidden shrink-0"
                     style={{ background: 'rgba(255,255,255,0.06)' }}
                   >
                     {imageUrl ? (
@@ -182,27 +191,43 @@ export default async function Home() {
                         <Ticket size={32} style={{ color: 'rgba(255,255,255,0.2)' }} />
                       </div>
                     )}
+                    {/* Category badge */}
+                    {catLabel && (
+                      <span
+                        className="absolute top-3 right-3 text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm text-white"
+                        style={{ background: 'var(--accent-gradient)' }}
+                      >
+                        {catLabel}
+                      </span>
+                    )}
                   </div>
-                  <div className="p-4 space-y-2">
-                    <p className="font-semibold text-white leading-snug line-clamp-2 group-hover:text-orange-400 transition-colors">
+                  <div className="p-4 flex flex-col gap-2 flex-1">
+                    <p className="font-semibold text-white leading-snug line-clamp-2 group-hover:opacity-85 transition-opacity">
                       {event.title}
                     </p>
-                    <div className="space-y-1 text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    <div className="space-y-1 text-sm flex-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
                       <p className="flex items-center gap-1.5">
-                        <CalendarDays size={13} />
+                        <CalendarDays size={13} className="shrink-0" style={{ color: 'var(--color-pink)' }} />
                         {new Date(event.event_date).toLocaleDateString('es-MX', {
                           weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
                         })}
                       </p>
                       {venue?.name && (
                         <p className="flex items-center gap-1.5">
-                          <MapPin size={13} />
+                          <MapPin size={13} className="shrink-0" style={{ color: 'var(--color-pink)' }} />
                           {venue.name}, {venue.city}
                         </p>
                       )}
                     </div>
-                    <div className="pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                      <p className="text-sm font-semibold" style={{ color: 'var(--color-orange)' }}>
+                    <div className="pt-2 mt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                      <p
+                        className="text-sm font-bold"
+                        style={{
+                          background: 'var(--accent-gradient)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                        }}
+                      >
                         {minPrice === null ? 'Sin tiers' : minPrice === 0 ? 'Gratis' : `Desde $${minPrice.toFixed(2)}`}
                       </p>
                     </div>
@@ -225,9 +250,9 @@ export default async function Home() {
           </h2>
           <div className="grid gap-6 sm:grid-cols-3">
             {[
-              { icon: <Zap size={22} />,        title: 'Adquiere en segundos', desc: 'Selecciona tu tier, paga y recibe tu boleto digital al instante.',           delay: 0   },
-              { icon: <QrCode size={22} />,      title: 'Entrada con QR',    desc: 'El staff escanea tu QR desde el teléfono. Sin filas, sin papeles.',           delay: 100 },
-              { icon: <ShieldCheck size={22} />, title: 'Validación segura', desc: 'Cada boleto es único e irrepetible. Imposible usar el mismo dos veces.',      delay: 200 },
+              { icon: <Zap size={22} />,        title: 'Adquiere en segundos', desc: 'Selecciona tu tier, paga y recibe tu boleto digital al instante.',      delay: 0   },
+              { icon: <QrCode size={22} />,      title: 'Entrada con QR',       desc: 'El staff escanea tu QR desde el teléfono. Sin filas, sin papeles.',     delay: 100 },
+              { icon: <ShieldCheck size={22} />, title: 'Validación segura',    desc: 'Cada boleto es único e irrepetible. Imposible usar el mismo dos veces.', delay: 200 },
             ].map(f => (
               <div
                 key={f.title}
@@ -297,7 +322,6 @@ export default async function Home() {
             <div className="rounded-2xl p-7 space-y-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <p className="text-sm font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.35)' }}>Ejemplo de cobro</p>
 
-              {/* Price breakdown */}
               <div className="space-y-3 text-sm">
                 {[
                   { label: 'Precio del boleto (tú decides)',  value: '$100.00', muted: false },
@@ -321,7 +345,6 @@ export default async function Home() {
                 </div>
               </div>
 
-              {/* Benefits */}
               <div className="grid grid-cols-3 gap-3 pt-2">
                 {[
                   { icon: <BadgeDollarSign size={18} />, label: 'Cobro directo' },

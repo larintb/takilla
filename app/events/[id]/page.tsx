@@ -15,7 +15,6 @@ type VenueInfo = {
   capacity?: number | null
 }
 
-
 export default async function EventDetailPage({
   params,
 }: {
@@ -48,9 +47,7 @@ export default async function EventDetailPage({
   })
 
   const isPast = new Date(event.event_date) < new Date()
-
   const hasLocation = !!(event.location_lat && event.location_lng)
-
   const locationLabel = event.location_name
     ?? (venue?.name ? `${venue.name}${venue.city ? `, ${venue.city}` : ''}` : null)
 
@@ -75,7 +72,6 @@ export default async function EventDetailPage({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
-        {/* Title + meta — inside banner, bottom */}
         <div className="absolute inset-x-0 bottom-0 px-4 pb-5 sm:px-6 sm:pb-7">
           <h1
             className="font-display text-white font-bold leading-tight break-words"
@@ -120,7 +116,6 @@ export default async function EventDetailPage({
           Todos los eventos
         </Link>
 
-        {/* ── Layout: stack on mobile, sidebar on desktop ─────── */}
         <div className="flex flex-col md:grid md:grid-cols-3 md:gap-8 md:items-start gap-6 animate-fade-in-up"
           style={{ animationDelay: '80ms' }}>
 
@@ -189,6 +184,8 @@ export default async function EventDetailPage({
                   price: Number(t.price),
                   available_tickets: t.available_tickets,
                   total_capacity: t.total_capacity,
+                  description: t.description ?? null,
+                  effect: t.effect ?? null,
                 }))}
                 isPast={isPast}
                 isLoggedIn={!!user}
