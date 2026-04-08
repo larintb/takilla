@@ -109,7 +109,7 @@ export default async function CheckoutSuccessPage({
 
           <div className="text-center animate-fade-in-up" style={{ animationDelay: '120ms' }}>
             <Link
-              href="/tickets"
+              href="/dashboard"
               className="inline-flex items-center justify-center px-8 h-14 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
               style={{ background: 'var(--accent-gradient)', boxShadow: '0 0 32px rgba(249,115,22,0.3)' }}
             >
@@ -167,7 +167,7 @@ export default async function CheckoutSuccessPage({
         {/* CTA */}
         <div className="text-center animate-fade-in-up" style={{ animationDelay: '240ms' }}>
           <Link
-            href="/tickets"
+            href="/dashboard"
             className="inline-flex items-center justify-center px-8 h-14 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
             style={{
               background: 'var(--accent-gradient)',
