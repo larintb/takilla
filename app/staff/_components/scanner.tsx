@@ -36,6 +36,18 @@ export default function Scanner() {
     const res = await validateTicket(hash)
     setResult(res)
     setState('result')
+
+    if (typeof window !== 'undefined') {
+      const { Capacitor } = await import('@capacitor/core')
+      if (Capacitor.isNativePlatform()) {
+        const { Haptics, ImpactStyle, NotificationType } = await import('@capacitor/haptics')
+        if (res.success) {
+          await Haptics.impact({ style: ImpactStyle.Medium })
+        } else {
+          await Haptics.notification({ type: NotificationType.Error })
+        }
+      }
+    }
   }, [setState])
 
   const reset = useCallback(() => {
