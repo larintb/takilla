@@ -103,12 +103,13 @@ export async function startStripeCheckout(formData: FormData) {
       },
     ],
     payment_intent_data: {
-      // application_fee_amount es deducido del transfer antes de enviarlo al organizador.
-      // Resultado: organizer recibe exactamente ticketPrice × qty; fee aparece en "Collected fees".
+      // Stripe transfiere (totalCobrado - stripeFee) al organizador, luego
+      // application_fee_amount regresa a la plataforma.
+      // Neto organizador = totalCobrado - stripeFee - applicationFee = ticketPrice × qty ✓
+      // transfer_data.amount es mutuamente exclusivo con application_fee_amount en API 2026.
       application_fee_amount: fees.applicationFeeAmountCentavos,
       transfer_data: {
         destination: organizer.stripe_account_id,
-        amount: fees.transferAmount,
       },
     },
     metadata: {
