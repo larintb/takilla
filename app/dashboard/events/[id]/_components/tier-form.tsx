@@ -32,7 +32,7 @@ export default function TierForm({ eventId, canCharge }: { eventId: string; canC
 
         <div>
           <label htmlFor="tier-price" className="block text-xs font-medium text-purple-300 mb-1">
-            Precio ($)
+            Precio ($) <span className="text-purple-400/50 font-normal">— $0 gratis o mín. $20</span>
           </label>
           <input
             id="tier-price"

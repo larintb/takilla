@@ -151,6 +151,7 @@ export async function addTier(
 
   if (!name?.trim())                         return { error: 'El nombre es requerido' }
   if (isNaN(price) || price < 0)             return { error: 'Precio inválido' }
+  if (price > 0 && price < 20)              return { error: 'El precio debe ser $0 (gratis) o mínimo $20 MXN' }
   if (!total_capacity || total_capacity < 1) return { error: 'Capacidad inválida' }
   if (total_capacity > 999)                  return { error: 'La capacidad máxima es 999' }
 
