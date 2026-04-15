@@ -57,13 +57,6 @@ export default function Scanner() {
     scannerRef.current?.start()
   }, [setState])
 
-  // Auto-reset 5s después de un resultado exitoso
-  useEffect(() => {
-    if (state !== 'result' || !result?.success) return
-    const t = setTimeout(reset, 5000)
-    return () => clearTimeout(t)
-  }, [state, result, reset])
-
   // Inicializa y arranca la cámara — solo cuando el usuario pulsa el botón
   const startCamera = useCallback(async () => {
     if (!videoRef.current) return
@@ -207,9 +200,6 @@ export default function Scanner() {
               <RefreshCw size={15} />
               Escanear otro
             </button>
-            {result.success && (
-              <p className="text-white/40 text-xs">Reanuda automáticamente en 5s</p>
-            )}
           </div>
         )}
       </div>

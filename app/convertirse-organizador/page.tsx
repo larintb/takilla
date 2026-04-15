@@ -7,7 +7,7 @@ import Link from 'next/link'
 
 // ── REGISTRO CERRADO ──────────────────────────────────────────────────────────
 // Cambiar a true para abrir el registro de organizadores.
-const ORGANIZER_REGISTRATION_OPEN = false
+const ORGANIZER_REGISTRATION_OPEN = true
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default async function ConvertirseOrganizadorPage() {

@@ -79,6 +79,35 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true })
   }
 
+  // ── PaymentIntent (flujo embebido, sin redirect) ──────────────────────────
+  if (event.type === 'payment_intent.succeeded') {
+    const pi     = event.data.object as Stripe.PaymentIntent
+    const parsed = asRequiredMetadata(pi.metadata)
+
+    if (parsed) {
+      const supabaseAdmin = createAdminClient()
+      const { error } = await supabaseAdmin.rpc('fulfill_checkout_session', {
+        p_user_id:           parsed.userId,
+        p_tier_id:           parsed.tierId,
+        p_quantity:          parsed.quantity,
+        p_session_id:        pi.id,
+        p_payment_intent_id: pi.id,
+      })
+
+      if (error) {
+        if (error.message.includes('No hay boletos suficientes')) {
+          console.warn('[webhook] Inventario insuficiente en PaymentIntent, reembolsando:', pi.id)
+          await tryRefund(pi.id, pi.id)
+          return NextResponse.json({ received: true })
+        }
+        console.error('[webhook] fulfill error (payment_intent.succeeded):', error.message)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+    }
+
+    return NextResponse.json({ received: true })
+  }
+
   if (
     event.type === 'checkout.session.completed' ||
     event.type === 'checkout.session.async_payment_succeeded'

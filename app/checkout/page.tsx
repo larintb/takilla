@@ -4,9 +4,11 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { resolveEventImageUrl } from '@/utils/supabase/storage'
-import { ArrowLeft, CalendarDays, MapPin, Ticket } from 'lucide-react'
+import { CalendarDays, MapPin, Ticket } from 'lucide-react'
 import { startStripeCheckout } from './actions'
 import SubmitButton from './_components/submit-button'
+import PaymentForm from './_components/payment-form'
+import BackButton from './_components/back-button'
 import { calculateFees } from '@/utils/pricing'
 
 type CheckoutPageProps = {
@@ -74,14 +76,7 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
       <div className="w-full max-w-md space-y-4">
 
         {/* Back */}
-        <Link
-          href={`/events/${eventId}`}
-          className="inline-flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-70"
-          style={{ color: 'rgba(255,255,255,0.4)' }}
-        >
-          <ArrowLeft size={14} />
-          Volver al evento
-        </Link>
+        <BackButton href={`/events/${eventId}`} hasPayment={!isFree} />
 
         {/* Card */}
         <div className="rounded-2xl overflow-hidden"
@@ -169,18 +164,26 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
 
           {/* CTA */}
           <div className="px-6 pb-6 space-y-3">
-            <form action={startStripeCheckout}>
-              <input type="hidden" name="eventId" value={eventId} />
-              <input type="hidden" name="tierId"  value={tierId} />
-              <input type="hidden" name="quantity" value={String(finalQuantity)} />
-              <SubmitButton label={isFree ? 'Confirmar boletos · FREE' : `Pagar $${fees!.totalAmount.toFixed(2)} MXN`} />
-            </form>
-
-            <p className="text-sm text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.3)' }}>
-              {isFree
-                ? 'Tus boletos se generarán al confirmar.'
-                : 'Pago seguro procesado por Stripe. Serás redirigido para completar tu compra.'}
-            </p>
+            {isFree ? (
+              <>
+                <form action={startStripeCheckout}>
+                  <input type="hidden" name="eventId" value={eventId} />
+                  <input type="hidden" name="tierId"  value={tierId} />
+                  <input type="hidden" name="quantity" value={String(finalQuantity)} />
+                  <SubmitButton label="Confirmar boletos · FREE" />
+                </form>
+                <p className="text-sm text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  Tus boletos se generarán al confirmar.
+                </p>
+              </>
+            ) : (
+              <PaymentForm
+                eventId={eventId}
+                tierId={tierId}
+                quantity={finalQuantity}
+                totalLabel={`$${fees!.totalAmount.toFixed(2)} MXN`}
+              />
+            )}
           </div>
 
         </div>

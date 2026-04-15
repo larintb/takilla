@@ -5,7 +5,7 @@ import RetroTicketWallet from './_components/retro-ticket-wallet'
 import ConfettiBurst from './_components/confetti-burst'
 
 type CheckoutSuccessPageProps = {
-  searchParams: Promise<{ session_id?: string }>
+  searchParams: Promise<{ session_id?: string; payment_intent?: string }>
 }
 
 type TicketData = {
@@ -27,10 +27,11 @@ type PageResult =
 export default async function CheckoutSuccessPage({
   searchParams,
 }: CheckoutSuccessPageProps) {
-  const params = await searchParams
-  const sessionId = params.session_id?.trim()
+  const params          = await searchParams
+  const sessionId       = params.session_id?.trim()
+  const paymentIntentId = params.payment_intent?.trim()
 
-  const result = await resolveResult(sessionId)
+  const result = await resolveResult(sessionId, paymentIntentId)
 
   if (result.status === 'refunded') {
     const amount = result.amount != null && result.currency
@@ -184,7 +185,66 @@ export default async function CheckoutSuccessPage({
   )
 }
 
-async function resolveResult(sessionId: string | undefined): Promise<PageResult> {
+async function resolveResult(sessionId: string | undefined, paymentIntentId?: string): Promise<PageResult> {
+  // ── PaymentIntent path (nuevo flujo embebido) ─────────────────────────────
+  if (paymentIntentId) {
+    try {
+      const pi = await stripe.paymentIntents.retrieve(paymentIntentId)
+      if (pi.status !== 'succeeded') return { status: 'error' }
+
+      const userId      = pi.metadata?.user_id?.trim()
+      const tierId      = pi.metadata?.tier_id?.trim()
+      const quantityRaw = Number(pi.metadata?.quantity)
+      const quantity    = Number.isInteger(quantityRaw) ? quantityRaw : NaN
+
+      if (!userId || !tierId || !Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
+        return { status: 'error' }
+      }
+
+      const admin = createAdminClient()
+
+      const { data: profile } = await admin.from('profiles').select('id').eq('id', userId).single()
+      if (!profile) {
+        const { data: { user: authUser } } = await admin.auth.admin.getUserById(userId)
+        if (!authUser) return { status: 'error' }
+        const { error: profileError } = await admin.from('profiles').upsert({
+          id: userId, full_name: authUser.user_metadata?.full_name ?? null,
+          email: authUser.email ?? null, role: 'customer',
+        })
+        if (profileError) return { status: 'error' }
+      }
+
+      const { data: orderId, error: rpcError } = await admin.rpc('fulfill_checkout_session', {
+        p_user_id:           userId,
+        p_tier_id:           tierId,
+        p_quantity:          quantity,
+        p_session_id:        pi.id,   // pi_xxx como clave única de idempotencia
+        p_payment_intent_id: pi.id,
+      })
+
+      if (rpcError) {
+        console.error('[checkout/success] PaymentIntent fulfillment error:', rpcError.message)
+        if (rpcError.message.includes('No hay boletos suficientes')) {
+          try {
+            await stripe.refunds.create({ payment_intent: pi.id, reverse_transfer: true })
+          } catch (refundErr: unknown) {
+            const msg = refundErr instanceof Error ? refundErr.message : String(refundErr)
+            if (!msg.toLowerCase().includes('already')) console.error('[checkout/success] Refund error:', msg)
+          }
+          return { status: 'refunded', amount: pi.amount_received, currency: pi.currency }
+        }
+        return { status: 'error' }
+      }
+
+      if (!orderId) return { status: 'success', tickets: [] }
+      return resolveTickets(admin, orderId)
+    } catch (err) {
+      console.error('[checkout/success] PaymentIntent error:', err)
+      return { status: 'error' }
+    }
+  }
+
+  // ── Checkout Session path (flujo legacy con redirect) ─────────────────────
   if (!sessionId) return { status: 'error' }
 
   try {
@@ -271,56 +331,63 @@ async function resolveResult(sessionId: string | undefined): Promise<PageResult>
     }
 
     if (!orderId) return { status: 'success', tickets: [] }
-
-    const { data: rawTickets } = await admin
-      .from('tickets')
-      .select('id, qr_hash, tier_id, event_id')
-      .eq('order_id', orderId)
-
-    if (!rawTickets?.length) return { status: 'success', tickets: [] }
-
-    const tierIds = [...new Set(rawTickets.map(t => t.tier_id))]
-    const eventIds = [...new Set(rawTickets.map(t => t.event_id))]
-
-    const [{ data: tiers }, { data: events }] = await Promise.all([
-      admin.from('ticket_tiers').select('id, name, price').in('id', tierIds),
-      admin.from('events').select('id, title, event_date, venue_id').in('id', eventIds),
-    ])
-
-    const venueIds = [...new Set((events ?? []).map(e => e.venue_id).filter((id): id is string => !!id))]
-    const { data: venues } = venueIds.length
-      ? await admin.from('venues').select('id, name, city').in('id', venueIds)
-      : { data: [] as { id: string; name: string; city: string }[] }
-
-    const tierMap = new Map((tiers ?? []).map(t => [t.id, t]))
-    const venueMap = new Map((venues ?? []).map(v => [v.id, v]))
-    const eventMap = new Map(
-      (events ?? []).map(e => [
-        e.id,
-        { ...e, venue: e.venue_id ? (venueMap.get(e.venue_id) ?? null) : null },
-      ])
-    )
-
-    const tickets: TicketData[] = rawTickets.map(t => {
-      const ev = eventMap.get(t.event_id) ?? null
-      const tier = tierMap.get(t.tier_id) ?? null
-      return {
-        id: t.id,
-        qr_hash: t.qr_hash,
-        eventTitle: ev?.title ?? 'Evento',
-        eventDate: ev?.event_date ?? null,
-        venueName: (ev?.venue as { name: string; city: string } | null)?.name ?? null,
-        venueCity: (ev?.venue as { name: string; city: string } | null)?.city ?? null,
-        tierName: tier?.name ?? null,
-        tierPrice: tier ? Number(tier.price) : null,
-      }
-    })
-
-    return { status: 'success', tickets }
+    return resolveTickets(admin, orderId)
   } catch (err) {
     console.error('[checkout/success] Error inesperado:', err)
     return { status: 'error' }
   }
+}
+
+// ── Shared helper: load tickets for an order ─────────────────────────────────
+
+type AdminClient = ReturnType<typeof createAdminClient>
+
+async function resolveTickets(admin: AdminClient, orderId: string): Promise<PageResult> {
+  const { data: rawTickets } = await admin
+    .from('tickets')
+    .select('id, qr_hash, tier_id, event_id')
+    .eq('order_id', orderId)
+
+  if (!rawTickets?.length) return { status: 'success', tickets: [] }
+
+  const tierIds  = [...new Set(rawTickets.map(t => t.tier_id))]
+  const eventIds = [...new Set(rawTickets.map(t => t.event_id))]
+
+  const [{ data: tiers }, { data: events }] = await Promise.all([
+    admin.from('ticket_tiers').select('id, name, price').in('id', tierIds),
+    admin.from('events').select('id, title, event_date, venue_id').in('id', eventIds),
+  ])
+
+  const venueIds = [...new Set((events ?? []).map(e => e.venue_id).filter((id): id is string => !!id))]
+  const { data: venues } = venueIds.length
+    ? await admin.from('venues').select('id, name, city').in('id', venueIds)
+    : { data: [] as { id: string; name: string; city: string }[] }
+
+  const tierMap  = new Map((tiers  ?? []).map(t => [t.id, t]))
+  const venueMap = new Map((venues ?? []).map(v => [v.id, v]))
+  const eventMap = new Map(
+    (events ?? []).map(e => [
+      e.id,
+      { ...e, venue: e.venue_id ? (venueMap.get(e.venue_id) ?? null) : null },
+    ])
+  )
+
+  const tickets: TicketData[] = rawTickets.map(t => {
+    const ev   = eventMap.get(t.event_id) ?? null
+    const tier = tierMap.get(t.tier_id)   ?? null
+    return {
+      id:         t.id,
+      qr_hash:    t.qr_hash,
+      eventTitle: ev?.title ?? 'Evento',
+      eventDate:  ev?.event_date ?? null,
+      venueName:  (ev?.venue as { name: string; city: string } | null)?.name ?? null,
+      venueCity:  (ev?.venue as { name: string; city: string } | null)?.city ?? null,
+      tierName:   tier?.name ?? null,
+      tierPrice:  tier ? Number(tier.price) : null,
+    }
+  })
+
+  return { status: 'success', tickets }
 }
 
 function ticketDisplayNumber(id: string): string {
