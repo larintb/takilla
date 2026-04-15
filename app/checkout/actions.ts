@@ -3,6 +3,7 @@
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/utils/supabase/admin'
 import { stripe } from '@/utils/stripe/server'
 import { calculateFees } from '@/utils/pricing'
 
@@ -59,8 +60,10 @@ export async function startStripeCheckout(formData: FormData) {
     redirect('/tickets')
   }
 
-  // Obtener cuenta de Stripe del organizador para destination charges (solo tiers pagados)
-  const { data: organizer } = await supabase
+  // Obtener cuenta de Stripe del organizador — usa admin client para saltar RLS,
+  // ya que un customer no puede leer el perfil de otro usuario.
+  const supabaseAdmin = createAdminClient()
+  const { data: organizer } = await supabaseAdmin
     .from('profiles')
     .select('stripe_account_id, stripe_onboarding_complete')
     .eq('id', event.organizer_id)
@@ -71,6 +74,11 @@ export async function startStripeCheckout(formData: FormData) {
   }
 
   const fees = calculateFees(priceNumber, quantity)
+
+  // Stripe MXN: mínimo 10 MXN (1000 centavos) por transacción
+  if (fees.unitAmountCentavos < 1000) {
+    throw new Error('El precio del boleto es menor al mínimo permitido por Stripe para pagos en MXN')
+  }
 
   const baseUrl = getBaseUrl(headerStore)
   const successUrl = `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
