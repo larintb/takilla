@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 
 // ── REGISTRO CERRADO — debe coincidir con el flag en page.tsx ─────────────────
-const ORGANIZER_REGISTRATION_OPEN = false
+const ORGANIZER_REGISTRATION_OPEN = true
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function becomeOrganizer(formData: FormData) {
