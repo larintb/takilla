@@ -16,7 +16,6 @@ export interface FeeBreakdown {
   serviceChargePerTicket: number  // total cargo = platform + stripe
   unitTotal:            number  // lo que paga el comprador por 1 boleto
   totalAmount:          number  // unitTotal * quantity
-  transferAmount:       number  // centavos a transferir ANTES de deducir app fee (ticketPrice + platformFee) × qty
   applicationFeeAmountCentavos: number  // cargo de plataforma en centavos (para Stripe "Collected fees")
   unitAmountCentavos:   number  // unitTotal en centavos para Stripe
 }
@@ -61,10 +60,9 @@ export function calculateFees(ticketPrice: number, quantity: number): FeeBreakdo
     serviceChargePerTicket: Math.round(serviceChargePerTicket * 100) / 100,
     unitTotal:              Math.round(unitTotal              * 100) / 100,
     totalAmount:            Math.round(totalAmount            * 100) / 100,
-    // transfer_data.amount = ticketPrice + platformFee; Stripe luego deduce application_fee_amount
-    // → organizer recibe exactamente ticketPrice; platform fee aparece en "Collected fees"
-    transferAmount:               Math.round((ticketPrice + platformFeePerTicket) * quantity * 100),
+    // Stripe transfiere (totalCobrado - stripeFee) al organizador y regresa
+    // applicationFeeAmount a la plataforma. Neto organizer = ticketPrice × qty.
     applicationFeeAmountCentavos: Math.round(platformFeePerTicket * quantity * 100),
-    unitAmountCentavos:           Math.round(unitTotal * 100),  // centavos para Stripe
+    unitAmountCentavos:           Math.round(unitTotal * 100),
   }
 }
