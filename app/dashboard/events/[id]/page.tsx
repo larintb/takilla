@@ -1,9 +1,8 @@
 import { notFound, redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
 import {
-  CalendarDays, MapPin, Ticket, Globe, ArrowLeft,
+  CalendarDays, MapPin, Ticket, Globe,
   TrendingUp, Users, DollarSign, Pencil, Lock
 } from 'lucide-react'
 import TierForm from './_components/tier-form'
@@ -67,16 +66,6 @@ export default async function EventDetailPage({
 
   return (
     <div className="max-w-3xl space-y-8 mx-auto px-4">
-
-
-      {/* Back */}
-      <Link
-        href="/dashboard"
-        className="inline-flex items-center gap-1.5 text-sm text-purple-400 hover:text-orange-400 transition-colors"
-      >
-        <ArrowLeft size={14} />
-        Mis eventos
-      </Link>
 
       {/* Header */}
       <div className="flex items-start justify-start gap-4">
