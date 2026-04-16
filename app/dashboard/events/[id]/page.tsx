@@ -66,7 +66,8 @@ export default async function EventDetailPage({
   const boundUpdateEvent = updateEvent.bind(null, id)
 
   return (
-    <div className="max-w-3xl space-y-8">
+    <div className="max-w-3xl space-y-8 mx-auto px-4">
+
 
       {/* Back */}
       <Link
