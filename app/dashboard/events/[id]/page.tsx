@@ -1,9 +1,8 @@
 import { notFound, redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
 import {
-  CalendarDays, MapPin, Ticket, Globe, ArrowLeft,
+  CalendarDays, MapPin, Ticket, Globe,
   TrendingUp, Users, DollarSign, Pencil, Lock
 } from 'lucide-react'
 import TierForm from './_components/tier-form'
@@ -11,6 +10,7 @@ import TierList from './_components/tier-list'
 import StatusActions from './_components/status-actions'
 import EventEditForm from './_components/event-edit-form'
 import { updateEvent } from './actions'
+import Link from 'next/link'
 
 type VenueInfo = { name?: string | null; city?: string | null }
 
@@ -66,16 +66,7 @@ export default async function EventDetailPage({
   const boundUpdateEvent = updateEvent.bind(null, id)
 
   return (
-    <div className="max-w-3xl space-y-8">
-
-      {/* Back */}
-      <Link
-        href="/dashboard"
-        className="inline-flex items-center gap-1.5 text-sm text-purple-400 hover:text-orange-400 transition-colors"
-      >
-        <ArrowLeft size={14} />
-        Mis eventos
-      </Link>
+    <div className="max-w-3xl space-y-8 mx-auto px-4">
 
       {/* Header */}
       <div className="flex items-start justify-start gap-4">
@@ -225,18 +216,17 @@ export default async function EventDetailPage({
       {/* Status actions */}
       {!isFinished && <StatusActions eventId={id} currentStatus={event.status} />}
       {event.status === 'published' && (
-        <div className="flex items-center gap-2 text-sm text-purple-300/70 bg-white/5 border border-purple-700/30 rounded-lg px-4 py-3">
-          <Globe size={14} className="text-orange-400" />
-          <span>Evento público en</span>
-          <a
-            href={`/events/${id}`}
-            className="font-medium bg-gradient-to-r from-orange-400 to-purple-400 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
-            target="_blank"
-          >
-            /events/{id}
-          </a>
-        </div>
-      )}
+  <div className="flex items-center gap-2 text-sm text-purple-300/70 bg-white/5 border border-purple-700/30 rounded-lg px-4 py-3">
+    <Globe size={14} className="text-orange-400" />
+    <span>Evento público en</span>
+    <Link
+      href={`/events/${id}`}
+      className="font-medium bg-gradient-to-r from-orange-400 to-purple-400 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+    >
+      /events/{id}
+    </Link>
+  </div>
+)}
     </div>
   )
 }

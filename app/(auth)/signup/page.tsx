@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useActionState } from 'react'
 import Link from 'next/link'
 import { Turnstile } from '@marsidev/react-turnstile'
@@ -8,6 +9,8 @@ import FormButton from '@/components/form-button'
 
 export default function SignupPage() {
   const [state, action] = useActionState(signup, null)
+  const [showPassword, setShowPassword] = useState(false)
+
   const errorMessage = state && 'error' in state ? state.error : null
   const success = state && 'success' in state && state.success
 
@@ -54,6 +57,7 @@ export default function SignupPage() {
       </div>
 
       <form action={action} className="space-y-5">
+        {/* Nombre */}
         <div>
           <label
             htmlFor="full_name"
@@ -78,6 +82,7 @@ export default function SignupPage() {
           />
         </div>
 
+        {/* Correo */}
         <div>
           <label
             htmlFor="email"
@@ -102,6 +107,7 @@ export default function SignupPage() {
           />
         </div>
 
+        {/* Contraseña con ojito */}
         <div>
           <label
             htmlFor="password"
@@ -110,23 +116,45 @@ export default function SignupPage() {
           >
             Contraseña
           </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            required
-            autoComplete="new-password"
-            minLength={6}
-            className="w-full rounded-xl px-4 py-3 text-sm text-white focus:outline-none transition-all"
-            style={{
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              color: 'white',
-            }}
-            placeholder="Mínimo 6 caracteres"
-          />
+          <div className="relative">
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              autoComplete="new-password"
+              minLength={6}
+              className="w-full rounded-xl px-4 py-3 text-sm text-white focus:outline-none transition-all pr-12"
+              style={{
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: 'white',
+              }}
+              placeholder="Mínimo 6 caracteres"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-80"
+              style={{ color: 'rgba(255,255,255,0.4)' }}
+            >
+              {showPassword ? (
+                // Ojo normal — contraseña visible
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              ) : (
+                // Ojo tachado — contraseña oculta
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 4.411m0 0L21 21" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
 
+        {/* Checkboxes */}
         <div className="space-y-3 pt-1">
           <label className="flex items-start gap-3 cursor-pointer group">
             <input
@@ -169,10 +197,12 @@ export default function SignupPage() {
           </label>
         </div>
 
+        {/* Turnstile */}
         <div className="flex justify-center pt-1">
           <Turnstile siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!} />
         </div>
 
+        {/* Error */}
         {errorMessage && (
           <div
             className="rounded-xl px-4 py-3 text-sm font-medium"
@@ -186,6 +216,7 @@ export default function SignupPage() {
           </div>
         )}
 
+        {/* Botón submit */}
         <div className="pt-1">
           <FormButton
             className="w-full py-3 rounded-xl font-bold text-white text-sm transition-all hover:opacity-90 active:scale-[0.98]"

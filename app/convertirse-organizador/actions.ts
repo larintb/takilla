@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/utils/supabase/server'
 
 // ── REGISTRO CERRADO — debe coincidir con el flag en page.tsx ─────────────────
@@ -33,9 +34,12 @@ export async function becomeOrganizer(formData: FormData) {
   const { error } = await supabase.rpc('self_become_organizer')
   if (error) throw new Error(error.message)
 
+  // ✅ Invalida el layout para que el navbar refleje el nuevo rol de inmediato
+  revalidatePath('/', 'layout')
+
   if (tipo === 'pago') {
     redirect('/dashboard/onboarding')
   } else {
-    redirect('/dashboard/events')
+    redirect('/dashboard')
   }
 }
