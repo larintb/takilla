@@ -16,26 +16,30 @@ type Tier = {
 }
 
 // ── Gold shimmer styles ──────────────────────────────────────────────────────
-const goldStyle: React.CSSProperties = {
-  background: 'linear-gradient(135deg, #78350f, #b45309, #d97706, #fbbf24, #d97706, #b45309, #78350f)',
+const goldBase: React.CSSProperties = {
+  backgroundImage: 'linear-gradient(135deg, #78350f, #b45309, #d97706, #fbbf24, #d97706, #b45309, #78350f)',
   backgroundSize: '300% 300%',
+  backgroundRepeat: 'no-repeat',
   animation: 'goldWave 3s ease infinite',
   color: '#fef3c7',
   textShadow: '0 1px 3px rgba(0,0,0,0.6)',
   border: 'none',
   boxShadow: '0 0 16px rgba(251,191,36,0.35)',
+  // No overflow here — let each element control its own border-radius
 }
 
+const goldStyle: React.CSSProperties = { ...goldBase }
 const goldActiveStyle: React.CSSProperties = {
-  ...goldStyle,
+  ...goldBase,
   boxShadow: '0 0 28px rgba(251,191,36,0.6)',
   outline: '2px solid rgba(251,191,36,0.5)',
 }
 
 // ── Diamond shimmer styles ───────────────────────────────────────────────────
-const diamondStyle: React.CSSProperties = {
-  background: 'linear-gradient(135deg, #0c4a6e, #0369a1, #0ea5e9, #7dd3fc, #0ea5e9, #0369a1, #0c4a6e)',
+const diamondBase: React.CSSProperties = {
+  backgroundImage: 'linear-gradient(135deg, #0c4a6e, #0369a1, #0ea5e9, #7dd3fc, #0ea5e9, #0369a1, #0c4a6e)',
   backgroundSize: '300% 300%',
+  backgroundRepeat: 'no-repeat',
   animation: 'diamondWave 3s ease infinite',
   color: '#e0f2fe',
   textShadow: '0 1px 3px rgba(0,0,0,0.6)',
@@ -43,8 +47,9 @@ const diamondStyle: React.CSSProperties = {
   boxShadow: '0 0 16px rgba(56,189,248,0.35)',
 }
 
+const diamondStyle: React.CSSProperties = { ...diamondBase }
 const diamondActiveStyle: React.CSSProperties = {
-  ...diamondStyle,
+  ...diamondBase,
   boxShadow: '0 0 28px rgba(56,189,248,0.6)',
   outline: '2px solid rgba(56,189,248,0.5)',
 }
@@ -134,8 +139,14 @@ export default function TicketPanel({
     const sold   = tier.available_tickets === 0
     const e      = tier.effect ?? 'none'
 
-    if (e === 'gold') return active ? goldActiveStyle : { ...goldStyle, opacity: sold ? 0.4 : 0.75 }
-    if (e === 'diamond') return active ? diamondActiveStyle : { ...diamondStyle, opacity: sold ? 0.4 : 0.75 }
+    if (e === 'gold') return {
+      ...(active ? goldActiveStyle : { ...goldStyle, opacity: sold ? 0.4 : 0.75 }),
+      borderRadius: '0.75rem', // rounded-xl — asegura que el gradiente no se salga
+    }
+    if (e === 'diamond') return {
+      ...(active ? diamondActiveStyle : { ...diamondStyle, opacity: sold ? 0.4 : 0.75 }),
+      borderRadius: '0.75rem',
+    }
 
     return {
       background: active ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.06)',
@@ -151,6 +162,24 @@ export default function TicketPanel({
     : effect === 'diamond'
     ? { background: 'linear-gradient(90deg, #7dd3fc, #38bdf8, #0ea5e9)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }
     : { color: 'white' }
+
+  // ── CTA button style ─────────────────────────────────────────────────────
+  function ctaStyle(): React.CSSProperties {
+    if (effect === 'gold') return {
+      ...goldStyle,
+      borderRadius: '1rem',
+      fontSize: '1rem',
+    }
+    if (effect === 'diamond') return {
+      ...diamondStyle,
+      borderRadius: '1rem',
+      fontSize: '1rem',
+    }
+    return {
+      background: 'var(--accent-gradient)',
+      boxShadow: '0 0 28px rgba(249,115,22,0.28)',
+    }
+  }
 
   return (
     <>
@@ -179,17 +208,22 @@ export default function TicketPanel({
           {tiers.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
               {tiers.map(tier => (
-                <button
+                <div
                   key={tier.id}
-                  onClick={() => handleSelectTier(tier.id)}
-                  className="shrink-0 px-4 h-10 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-95"
-                  style={tierButtonStyle(tier)}
+                  className="shrink-0 rounded-xl overflow-hidden"
+                  style={{ borderRadius: '0.75rem' }}
                 >
-                  {tier.name}
-                  {tier.available_tickets === 0 && (
-                    <span className="ml-1.5 opacity-60 text-xs">·&nbsp;agotado</span>
-                  )}
-                </button>
+                  <button
+                    onClick={() => handleSelectTier(tier.id)}
+                    className="px-4 h-10 w-full text-sm font-semibold transition-all duration-200 active:scale-95"
+                    style={tierButtonStyle(tier)}
+                  >
+                    {tier.name}
+                    {tier.available_tickets === 0 && (
+                      <span className="ml-1.5 opacity-60 text-xs">·&nbsp;agotado</span>
+                    )}
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -321,13 +355,7 @@ export default function TicketPanel({
               onClick={handleBuy}
               disabled={loading}
               className="relative w-full h-14 rounded-2xl overflow-hidden font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed"
-              style={
-                effect === 'gold'
-                  ? { ...goldStyle, height: '3.5rem', width: '100%', borderRadius: '1rem', fontSize: '1rem' }
-                  : effect === 'diamond'
-                  ? { ...diamondStyle, height: '3.5rem', width: '100%', borderRadius: '1rem', fontSize: '1rem' }
-                  : { background: 'var(--accent-gradient)', boxShadow: '0 0 28px rgba(249,115,22,0.28)' }
-              }
+              style={ctaStyle()}
             >
               <span className={`flex items-center justify-center gap-2 transition-all duration-250 ${loading ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
                 {isFree

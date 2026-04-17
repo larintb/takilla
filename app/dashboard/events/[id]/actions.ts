@@ -61,6 +61,7 @@ export async function updateEvent(
   const title         = formData.get('title') as string
   const description   = formData.get('description') as string
   const event_date    = formData.get('event_date') as string
+  const event_end_date = formData.get('event_end_date') as string
   const venue_id      = formData.get('venue_id') as string
   const image_path    = (formData.get('image_path') as string | null)?.trim() || null
   const status        = formData.get('status') as string
@@ -76,6 +77,7 @@ export async function updateEvent(
     title:         title.trim(),
     description:   description?.trim() || null,
     event_date,
+    event_end_date: event_end_date || null,
     venue_id:      venue_id || null,
     status:        status || 'draft',
     category:      category || 'otro',
@@ -148,10 +150,12 @@ export async function addTier(
   const total_capacity = Number(formData.get('total_capacity'))
   const description    = (formData.get('description') as string | null)?.trim() || null
   const items          = (formData.get('items') as string | null)?.trim() || null
+  // ✅ Leer el efecto visual del formulario
+  const effect         = (formData.get('effect') as string | null) ?? 'none'
 
   if (!name?.trim())                         return { error: 'El nombre es requerido' }
   if (isNaN(price) || price < 0)             return { error: 'Precio inválido' }
-  if (price > 0 && price < 20)              return { error: 'El precio debe ser $0 (gratis) o mínimo $20 MXN' }
+  if (price > 0 && price < 20)               return { error: 'El precio debe ser $0 (gratis) o mínimo $20 MXN' }
   if (!total_capacity || total_capacity < 1) return { error: 'Capacidad inválida' }
   if (total_capacity > 999)                  return { error: 'La capacidad máxima es 999' }
 
@@ -175,6 +179,7 @@ export async function addTier(
     available_tickets: total_capacity,
     description,
     items,
+    effect, // ✅ Guardar efecto en Supabase
   })
 
   if (error) return { error: error.message }
@@ -208,6 +213,22 @@ export async function updateTierItems(tierId: string, eventId: string, items: st
   await supabase
     .from('ticket_tiers')
     .update({ items: items.trim() || null })
+    .eq('id', tierId)
+
+  revalidatePath(`/dashboard/events/${eventId}`)
+}
+
+// ✅ Nuevo action para editar el efecto de un tier existente
+export async function updateTierEffect(tierId: string, eventId: string, effect: string) {
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  await supabase
+    .from('ticket_tiers')
+    .update({ effect })
     .eq('id', tierId)
 
   revalidatePath(`/dashboard/events/${eventId}`)

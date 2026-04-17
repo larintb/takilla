@@ -1,21 +1,23 @@
 'use client'
 
-import { useActionState, useTransition, useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useActionState, useTransition, useState, useMemo } from 'react'
 import Image from 'next/image'
 import type mapboxgl from 'mapbox-gl'
+import { useRef, useEffect, useCallback } from 'react'
 import { Loader2, MapPin, X, CalendarDays, Eye } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import { EVENT_IMAGES_BUCKET } from '@/utils/supabase/storage'
+import DateTimePicker from '@/app/dashboard/events/new/_components/date-time-picker'
 
 export const CATEGORIES = [
-  { value: 'musica',      label: 'Música'        },
-  { value: 'arte',        label: 'Arte'          },
-  { value: 'social',      label: 'Evento social' },
-  { value: 'nocturna',    label: 'Vida nocturna' },
-  { value: 'otro',        label: 'Otro'          },
+  { value: 'musica',   label: 'Música'        },
+  { value: 'arte',     label: 'Arte'          },
+  { value: 'social',   label: 'Evento social' },
+  { value: 'nocturna', label: 'Vida nocturna' },
+  { value: 'otro',     label: 'Otro'          },
 ]
 
-// ─── Mapbox location picker ────────────────────────────────────────────────────
+// ─── Mapbox location picker ───────────────────────────────────────────────────
 
 interface MapboxFeature {
   id: string
@@ -241,7 +243,6 @@ function ImagePreview({ previewUrl, title, eventDate }: {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
         <div className="space-y-1.5">
           <p className="text-xs text-purple-400/60">Página del evento</p>
           <div className="relative w-full h-40 rounded-xl overflow-hidden bg-zinc-900">
@@ -298,7 +299,6 @@ function ImagePreview({ previewUrl, title, eventDate }: {
             </div>
           </div>
         </div>
-
       </div>
     </div>
   )
@@ -312,6 +312,7 @@ type Props = {
     title?: string
     description?: string
     event_date?: string
+    event_end_date?: string
     status?: string
     image_url?: string | null
     category?: string | null
@@ -323,21 +324,17 @@ type Props = {
   onCancel?: () => void
 }
 
-export default function EventForm({ action, defaultValues }: Props) {
-  const [state, formAction]                = useActionState(action, null)
+export default function EventEditForm({ action, defaultValues }: Props) {
+  const [state, formAction]                = useActionState<{ error: string } | null, FormData>(action, null)
   const [isActionPending, startTransition] = useTransition()
   const [uploading, setUploading]          = useState(false)
   const [localError, setLocalError]        = useState<string | null>(null)
   const [liveTitle, setLiveTitle]          = useState(defaultValues?.title ?? '')
-  const [liveDate, setLiveDate]            = useState(defaultValues?.event_date ?? '')
+  const liveDate                            = defaultValues?.event_date ?? ''
 
   const isPending = uploading || isActionPending
 
-  const defaultDate = defaultValues?.event_date
-    ? new Date(defaultValues.event_date).toISOString().slice(0, 16)
-    : ''
-
-  const imageUrl = defaultValues && defaultValues.image_url
+  const imageUrl = defaultValues?.image_url
 
   const initialPreviewUrl = useMemo(() => {
     if (imageUrl) {
@@ -353,8 +350,7 @@ export default function EventForm({ action, defaultValues }: Props) {
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const url = URL.createObjectURL(file)
-    setPreviewUrl(url)
+    setPreviewUrl(URL.createObjectURL(file))
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -363,9 +359,8 @@ export default function EventForm({ action, defaultValues }: Props) {
     setLocalError(null)
 
     const form = e.currentTarget
-    // El borrador pone data-skip-validation="true" antes de submitear
     const skipValidation = form.dataset.skipValidation === 'true'
-    delete form.dataset.skipValidation // limpiar el flag siempre
+    delete form.dataset.skipValidation
 
     const formData = new FormData(form)
     const imageFile = formData.get('image_file') as File | null
@@ -373,14 +368,23 @@ export default function EventForm({ action, defaultValues }: Props) {
     formData.set('status', 'draft')
 
     if (!skipValidation) {
-      // Validar ubicación
+      const startISO = formData.get('event_date') as string
+      const endISO   = formData.get('event_end_date') as string
+
+      if (!startISO) { setLocalError('Selecciona la fecha y hora de inicio'); return }
+      if (!endISO)   { setLocalError('Selecciona la fecha y hora de fin'); return }
+
+      if (new Date(endISO) <= new Date(startISO)) {
+        setLocalError('La hora de fin debe ser después de la hora de inicio')
+        return
+      }
+
       const locationName = formData.get('location_name') as string
       if (!locationName?.trim()) {
         setLocalError('La ubicación es obligatoria')
         return
       }
 
-      // Validar imagen
       const hasExistingImage = !!defaultValues?.image_url
       const hasNewImage = imageFile && imageFile.size > 0
       if (!hasExistingImage && !hasNewImage) {
@@ -443,29 +447,36 @@ export default function EventForm({ action, defaultValues }: Props) {
           className={`${inputClass} resize-y`} />
       </div>
 
-      {/* Fecha y hora + Categoría */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="event_date" className="block text-sm font-medium text-purple-300 mb-1">
-            Fecha y hora <span className="text-orange-400">*</span>
-          </label>
-          <input id="event_date" name="event_date" type="datetime-local" required
-            defaultValue={defaultDate}
-            onChange={e => setLiveDate(e.target.value)}
-            className={`${inputClass} [color-scheme:dark]`} />
-        </div>
-        <div>
-          <label htmlFor="category" className="block text-sm font-medium text-purple-300 mb-1">
-            Categoría <span className="text-orange-400">*</span>
-          </label>
-          <select id="category" name="category" required
-            defaultValue={defaultValues?.category ?? 'otro'}
-            className={`${inputClass} [&>option]:bg-[#1a1035] [&>option]:text-white`}>
-            {CATEGORIES.map(cat => (
-              <option key={cat.value} value={cat.value}>{cat.label}</option>
-            ))}
-          </select>
-        </div>
+      {/* Fecha inicio + Fecha fin */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <DateTimePicker
+          label="Inicio del evento"
+          nameDate="event_date"
+          required
+          minDate={new Date()}
+          defaultValue={defaultValues?.event_date}
+        />
+        <DateTimePicker
+          label="Fin del evento"
+          nameDate="event_end_date"
+          required
+          minDate={new Date()}
+          defaultValue={defaultValues?.event_end_date}
+        />
+      </div>
+
+      {/* Categoría */}
+      <div>
+        <label htmlFor="category" className="block text-sm font-medium text-purple-300 mb-1">
+          Categoría <span className="text-orange-400">*</span>
+        </label>
+        <select id="category" name="category" required
+          defaultValue={defaultValues?.category ?? 'otro'}
+          className={`${inputClass} [&>option]:bg-[#1a1035] [&>option]:text-white`}>
+          {CATEGORIES.map(cat => (
+            <option key={cat.value} value={cat.value}>{cat.label}</option>
+          ))}
+        </select>
       </div>
 
       {/* Ubicación */}
@@ -493,7 +504,7 @@ export default function EventForm({ action, defaultValues }: Props) {
           </p>
         </div>
 
-        {defaultValues?.image_url && !previewUrl && (
+        {defaultValues?.image_url && (
           <p className="text-xs text-purple-400/50 mb-2">Ya tienes una imagen. Sube una nueva para reemplazarla.</p>
         )}
 
