@@ -62,12 +62,11 @@ export async function POST(request: Request) {
   if (fees.unitAmountCentavos < 1000)
     return NextResponse.json({ error: 'El precio es menor al mínimo permitido' }, { status: 400 })
 
-  const expiresAt = Math.floor(Date.now() / 1000) + 600 // 10 minutos
-
-  // Idempotency key: misma combinación dentro de la ventana de 10 min = mismo PaymentIntent.
-  // Evita duplicados de React StrictMode y dobles submits.
-  const bucket = Math.floor(Date.now() / (10 * 60 * 1000))
-  const idempotencyKey = `pi_${user.id}_${tierId}_${eventId}_${quantity}_${bucket}`
+  const nowSecs   = Math.floor(Date.now() / 1000)
+  const expiresAt = nowSecs + 600
+  // Same params within the 10-min window return the same PaymentIntent —
+  // guards against React StrictMode double-renders and form resubmits.
+  const idempotencyKey = `${user.id}_${tierId}_${eventId}_${quantity}_${Math.floor(nowSecs / 600)}`
 
   const paymentIntent = await stripe.paymentIntents.create({
     amount: Math.round(fees.totalAmount * 100),
