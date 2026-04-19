@@ -35,43 +35,44 @@ export default function EventMap({
         container: mapRef.current!,
         style: 'mapbox://styles/mapbox/standard',
         center: [lng, lat],
-        zoom: 1,
+        zoom: 12,          // start close — avoids loading world tiles
         pitch: 0,
         bearing: 0,
         interactive: false,
+        antialias: false,  // disable MSAA — big GPU win on mobile
+        fadeDuration: 100,
+        maxTileCacheSize: 30,
       })
 
       mapInstanceRef.current = map
 
       map.on('load', () => {
-        // Dusk lighting on Standard style
         map.setConfigProperty('basemap', 'lightPreset', 'dusk')
 
-        // Marker
         new mapboxgl.Marker({ color: '#ff6e01' })
           .setLngLat([lng, lat])
           .addTo(map)
 
-        // ── Fase 1: desde el espacio ──────────────────────────────────
+        // ── Fase 1: acercamiento cinematográfico ──────────────────────
         map.flyTo({
           center: [lng, lat],
           zoom: 14.5,
           pitch: 50,
           bearing: -20,
-          duration: 5000,
+          duration: 4000,
           easing: (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t,
         })
 
-        // ── Fase 2: zoom de dron ──────────────────────────────────────
+        // ── Fase 2: vista de dron ─────────────────────────────────────
         timeout2Ref.current = setTimeout(() => {
           if (!mapInstanceRef.current) return
           map.easeTo({
-            zoom: 16.5,
-            pitch: 65,
+            zoom: 16,
+            pitch: 55,   // reduced from 65 — fewer tiles in perspective
             bearing: 0,
             duration: 2000,
           })
-        }, 5200)
+        }, 4200)
 
         // ── Fase 3: órbita 360 ────────────────────────────────────────
         timeout3Ref.current = setTimeout(() => {
@@ -82,19 +83,31 @@ export default function EventMap({
             if (!mapInstanceRef.current) return
             if (!startTime) startTime = timestamp
             const elapsed = timestamp - startTime
-            const bearing = (elapsed / 12000) * 360 // vuelta completa cada 12s
+            const bearing = (elapsed / 15000) * 360 // vuelta completa cada 15s
             map.jumpTo({ bearing: bearing % 360 })
             animFrameRef.current = requestAnimationFrame(rotate)
           }
 
           animFrameRef.current = requestAnimationFrame(rotate)
-        }, 7500)
+        }, 6500)
       })
     }
 
-    initMap()
+    // Defer init until the map container is scrolled into view
+    const el = mapRef.current
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          initMap()
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.1 },
+    )
+    observer.observe(el)
 
     return () => {
+      observer.disconnect()
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
       if (timeout2Ref.current)  clearTimeout(timeout2Ref.current)
       if (timeout3Ref.current)  clearTimeout(timeout3Ref.current)

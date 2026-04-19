@@ -96,6 +96,9 @@ function LocationPicker() {
         center: [selected!.lng, selected!.lat],
         zoom: 15,
         interactive: true,
+        antialias: false,
+        fadeDuration: 100,
+        maxTileCacheSize: 20,
       })
 
       const marker = new mapboxgl.Marker({ color: '#f97316', draggable: true })
