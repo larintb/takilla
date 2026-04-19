@@ -60,9 +60,10 @@ export function calculateFees(ticketPrice: number, quantity: number): FeeBreakdo
     serviceChargePerTicket: Math.round(serviceChargePerTicket * 100) / 100,
     unitTotal:              Math.round(unitTotal              * 100) / 100,
     totalAmount:            Math.round(totalAmount            * 100) / 100,
-    // Stripe transfiere (totalCobrado - stripeFee) al organizador y regresa
-    // applicationFeeAmount a la plataforma. Neto organizer = ticketPrice × qty.
-    applicationFeeAmountCentavos: Math.round(platformFeePerTicket * quantity * 100),
+    // Stripe transfiere (unitTotal - applicationFee) al organizador.
+    // applicationFee = platformFee + stripeFee → organizer recibe exactamente ticketPrice.
+    // Takilla neto = platformFee (stripeFee ya está en applicationFee y Stripe lo cobra).
+    applicationFeeAmountCentavos: Math.round((platformFeePerTicket + stripeFeePerTicket) * quantity * 100),
     unitAmountCentavos:           Math.round(unitTotal * 100),
   }
 }

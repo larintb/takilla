@@ -23,7 +23,7 @@ export default async function OnboardingReturnPage() {
 
   if (profile?.role !== 'organizer') redirect('/dashboard')
   if (!profile?.stripe_account_id) redirect('/dashboard/onboarding')
-  if (profile?.stripe_onboarding_complete) redirect('/dashboard/events')
+  if (profile?.stripe_onboarding_complete) redirect('/dashboard')
 
   // Verificar el estado real de la cuenta en Stripe
   let isComplete = false
