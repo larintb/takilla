@@ -19,7 +19,7 @@ export default function FormButton({
       type="submit"
       disabled={pending}
       style={style}
-      className={`relative overflow-hidden transition-all duration-300 disabled:cursor-not-allowed ${pending ? 'scale-[0.97]' : ''} ${className}`}
+      className={`relative overflow-hidden transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50 disabled:scale-[0.97] ${className}`}
     >
       <span
         className={`flex items-center justify-center gap-1.5 transition-all duration-300 ${

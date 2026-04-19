@@ -76,3 +76,41 @@ export async function logout() {
   revalidatePath('/', 'layout')
   redirect('/')
 }
+
+export async function verifyEmailCode(
+  prevState: { error: string } | null,
+  formData: FormData
+): Promise<{ error: string } | never> {
+  const email = formData.get('email') as string
+  const token = formData.get('code') as string
+
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+
+  const { error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' })
+
+  if (error) {
+    if (error.message.toLowerCase().includes('expired') || error.message.toLowerCase().includes('invalid')) {
+      return { error: 'El código es inválido o ha expirado. Solicita uno nuevo.' }
+    }
+    return { error: error.message }
+  }
+
+  revalidatePath('/', 'layout')
+  redirect('/')
+}
+
+export async function resendSignupCode(
+  prevState: { error: string } | { sent: true } | null,
+  formData: FormData
+): Promise<{ error: string } | { sent: true }> {
+  const email = formData.get('email') as string
+
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+
+  const { error } = await supabase.auth.resend({ type: 'signup', email })
+
+  if (error) return { error: error.message }
+  return { sent: true }
+}
