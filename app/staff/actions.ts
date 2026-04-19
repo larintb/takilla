@@ -26,17 +26,35 @@ export async function validateTicket(hash: string): Promise<ValidationResult> {
     .eq('id', user.id)
     .single()
 
-  const isOrganizerOrAdmin = profile?.role === 'organizer' || profile?.role === 'admin'
+  const role = profile?.role
 
-  // For team members, get their allowed event IDs
-  let allowedEventIds: string[] | null = null
-  if (!isOrganizerOrAdmin) {
+  if (!role || role === 'user') return { success: false, message: 'No autorizado' }
+
+  // Build the set of event IDs this user is allowed to validate
+  let allowedEventIds: string[]
+
+  if (role === 'admin') {
+    // Admins can validate any ticket — no restriction
+    allowedEventIds = []
+  } else if (role === 'organizer') {
+    const { data: ownedEvents } = await supabase
+      .from('events')
+      .select('id')
+      .eq('organizer_id', user.id)
+      .eq('status', 'published')
+
+    allowedEventIds = (ownedEvents ?? []).map(e => e.id)
+
+    if (!allowedEventIds.length) {
+      return { success: false, message: 'No tienes eventos publicados activos' }
+    }
+  } else {
+    // Team member
     const { data: teamEntries } = await supabase
       .from('team_members')
       .select('event_id, events(status)')
       .eq('member_user_id', user.id)
 
-    // Only allow published events
     allowedEventIds = (teamEntries ?? [])
       .filter(e => (e.events as { status?: string } | null)?.status === 'published')
       .map(e => e.event_id)
@@ -60,8 +78,8 @@ export async function validateTicket(hash: string): Promise<ValidationResult> {
     .eq('id', rpc.ticket_id!)
     .single()
 
-  // Team members can only validate tickets for their assigned events
-  if (!isOrganizerOrAdmin && allowedEventIds) {
+  // Admins bypass event restriction; everyone else is scoped to their allowed events
+  if (role !== 'admin') {
     if (!ticket?.event_id || !allowedEventIds.includes(ticket.event_id)) {
       return { success: false, message: 'Este boleto no pertenece a tu evento asignado' }
     }
