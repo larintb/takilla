@@ -2,7 +2,11 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/middleware'
 
 export default async function proxy(request: NextRequest) {
-  if (request.nextUrl.pathname.startsWith('/api/stripe/webhook')) {
+  const { pathname } = request.nextUrl
+  if (
+    pathname.startsWith('/api/stripe/webhook') ||
+    pathname.startsWith('/api/email/receive')
+  ) {
     return NextResponse.next()
   }
 
@@ -12,7 +16,7 @@ export default async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const publicPaths = ['/login', '/signup', '/auth', '/events', '/terminos', '/privacidad']
+  const publicPaths = ['/login', '/signup', '/auth', '/events', '/terminos', '/privacidad', '/convertirse-organizador']
   const isPublic =
     publicPaths.some((p) => request.nextUrl.pathname.startsWith(p)) ||
     request.nextUrl.pathname === '/'
