@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { stripe } from '@/utils/stripe/server'
 import { createAdminClient } from '@/utils/supabase/admin'
+import { sendPurchaseConfirmation } from '@/utils/email/purchase-confirmation'
 
 async function handleAccountUpdated(account: Stripe.Account) {
   if (!account.charges_enabled || !account.payouts_enabled) return
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
 
     if (parsed) {
       const supabaseAdmin = createAdminClient()
-      const { error } = await supabaseAdmin.rpc('fulfill_checkout_session', {
+      const { data: orderId, error } = await supabaseAdmin.rpc('fulfill_checkout_session', {
         p_user_id:           parsed.userId,
         p_tier_id:           parsed.tierId,
         p_quantity:          parsed.quantity,
@@ -102,6 +103,10 @@ export async function POST(request: Request) {
         }
         console.error('[webhook] fulfill error (payment_intent.succeeded):', error.message)
         return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      if (orderId) {
+        void sendPurchaseConfirmation(parsed.userId, orderId)
       }
     }
 
@@ -125,7 +130,7 @@ export async function POST(request: Request) {
         typeof session.payment_intent === 'string' ? session.payment_intent : null
 
       const supabaseAdmin = createAdminClient()
-      const { error } = await supabaseAdmin.rpc('fulfill_checkout_session', {
+      const { data: orderId, error } = await supabaseAdmin.rpc('fulfill_checkout_session', {
         p_user_id: parsed.userId,
         p_tier_id: parsed.tierId,
         p_quantity: parsed.quantity,
@@ -144,6 +149,10 @@ export async function POST(request: Request) {
         console.error('[webhook] fulfill_checkout_session error:', error.message)
         // Return 500 for unexpected errors so Stripe retries
         return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      if (orderId) {
+        void sendPurchaseConfirmation(parsed.userId, orderId)
       }
     }
   }

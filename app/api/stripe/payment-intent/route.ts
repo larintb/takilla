@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   const expiresAt = nowSecs + 600
   // Same params within the 10-min window return the same PaymentIntent —
   // guards against React StrictMode double-renders and form resubmits.
-  const idempotencyKey = `${user.id}_${tierId}_${eventId}_${quantity}_${Math.floor(nowSecs / 600)}`
+  const idempotencyKey = `${user.id}_${tierId}_${eventId}_${quantity}_${fees.totalAmount}_${Math.floor(nowSecs / 600)}`
 
   const paymentIntent = await stripe.paymentIntents.create({
     amount: Math.round(fees.totalAmount * 100),
