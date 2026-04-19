@@ -16,7 +16,6 @@ export default function EventMap({
   const mapRef         = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<mapboxgl.Map | null>(null)
   const animFrameRef   = useRef<number | null>(null)
-  const timeout2Ref    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const timeout3Ref    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [showPrompt, setShowPrompt] = useState(false)
 
@@ -108,10 +107,11 @@ export default function EventMap({
     observer.observe(el)
 
     return () => {
+      const t3 = timeout3Ref.current
+      const frame = animFrameRef.current
       observer.disconnect()
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
-      if (timeout2Ref.current)  clearTimeout(timeout2Ref.current)
-      if (timeout3Ref.current)  clearTimeout(timeout3Ref.current)
+      if (frame) cancelAnimationFrame(frame)
+      if (t3) clearTimeout(t3)
       mapInstanceRef.current?.remove()
       mapInstanceRef.current = null
     }
