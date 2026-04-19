@@ -79,14 +79,14 @@ export default function SignupPage() {
               name="code"
               type="text"
               inputMode="numeric"
-              pattern="\d{6,8}"
+              pattern="\d{6}"
               required
               autoComplete="one-time-code"
               autoFocus
               onKeyDown={(e) => e.key === ' ' && e.preventDefault()}
               onInput={(e) => {
                 const t = e.currentTarget
-                t.value = t.value.replace(/\D/g, '').slice(0, 8)
+                t.value = t.value.replace(/\D/g, '').slice(0, 6)
               }}
               className="w-full rounded-xl px-4 py-3 text-center text-2xl font-bold tracking-widest text-white focus:outline-none transition-all"
               style={{
@@ -95,7 +95,7 @@ export default function SignupPage() {
                 color: 'white',
                 letterSpacing: '0.4em',
               }}
-              placeholder="00000000"
+              placeholder="000000"
             />
           </div>
 

@@ -6,20 +6,22 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 
 export async function login(
-  prevState: { error: string } | null,
+  prevState: { error: string } | { unverified: true; email: string } | null,
   formData: FormData
 ) {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
+  const email = formData.get('email') as string
+
   const { error } = await supabase.auth.signInWithPassword({
-    email: formData.get('email') as string,
+    email,
     password: formData.get('password') as string,
   })
 
   if (error) {
     if (error.message.toLowerCase().includes('email not confirmed')) {
-      return { error: 'Debes verificar tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada.' }
+      return { unverified: true as const, email }
     }
     return { error: error.message }
   }
