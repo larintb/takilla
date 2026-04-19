@@ -27,10 +27,10 @@ export async function POST(request: Request) {
     event = resend.webhooks.verify({
       payload: body,
       headers: {
-        'svix-id':        svixId,
-        'svix-timestamp': svixTimestamp,
-        'svix-signature': svixSignature,
-      } as unknown as Headers,
+        id:        svixId,
+        timestamp: svixTimestamp,
+        signature: svixSignature,
+      },
       webhookSecret,
     }) as typeof event
   } catch {
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true })
   }
 
-  const { email_id, from, to, subject } = event.data
+  const { email_id, from, subject } = event.data
 
   const { data: email, error: fetchError } = await resend.emails.receiving.get(email_id)
   if (fetchError || !email) {
