@@ -3,10 +3,11 @@ import { cookies } from 'next/headers'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/utils/supabase/server'
-import { resolveEventImageUrl } from '@/utils/supabase/storage'
-import { CalendarDays, MapPin, Users, ArrowLeft, Ticket } from 'lucide-react'
+import { resolveEventImageUrl, resolveAvatarUrl } from '@/utils/supabase/storage'
+import { CalendarDays, MapPin, Users, ArrowLeft, Ticket, Store } from 'lucide-react'
 import TicketPanel from './_components/ticket-panel'
 import EventMap from './_components/event-map'
+import Avatar from '@/components/avatar'
 
 type VenueInfo = {
   name?: string | null
@@ -29,15 +30,18 @@ export default async function EventDetailPage({
     { data: tiers },
     { data: { user } },
   ] = await Promise.all([
-    supabase.from('events').select('*, venues(name, city, address, capacity)').eq('id', id).eq('status', 'published').single(),
+    supabase.from('events').select('*, venues(name, city, address, capacity), organizer:profiles!organizer_id(id, business_name, avatar_url, public_slug)').eq('id', id).eq('status', 'published').single(),
     supabase.from('ticket_tiers').select('*').eq('event_id', id).order('price'),
     supabase.auth.getUser(),
   ])
 
   if (!event) notFound()
 
-  const venue    = (event.venues ?? null) as VenueInfo | null
-  const imageUrl = resolveEventImageUrl(supabase, event.image_url)
+  const venue      = (event.venues ?? null) as VenueInfo | null
+  const imageUrl   = resolveEventImageUrl(supabase, event.image_url)
+  const organizerRaw = Array.isArray(event.organizer) ? event.organizer[0] : event.organizer
+  const organizer  = organizerRaw as { id: string; business_name: string | null; avatar_url: string | null; public_slug: string | null } | null
+  const avatarUrl  = resolveAvatarUrl(supabase, organizer?.avatar_url)
 
   const dateFormatted = new Date(event.event_date).toLocaleDateString('es-MX', {
     weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
@@ -132,6 +136,24 @@ export default async function EventDetailPage({
                   style={{ color: 'rgba(255,255,255,0.7)', overflowWrap: 'anywhere' }}>
                   {event.description}
                 </p>
+              </div>
+            )}
+
+            {organizer?.public_slug && organizer?.business_name && (
+              <div className="pt-5 min-w-0" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <Link
+                  href={`/o/${organizer.public_slug}`}
+                  className="flex items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-white/5 -mx-4"
+                >
+                  <Avatar name={organizer.business_name} src={avatarUrl} size={40} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                      Organizado por
+                    </p>
+                    <p className="text-sm font-semibold text-white truncate">{organizer.business_name}</p>
+                  </div>
+                  <Store size={15} style={{ color: 'rgba(255,255,255,0.25)' }} className="shrink-0" />
+                </Link>
               </div>
             )}
 

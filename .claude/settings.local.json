@@ -19,7 +19,8 @@
       "Bash(npx plugins *)",
       "mcp__plugin_vercel_vercel__web_fetch_vercel_url",
       "Bash(pnpm tsc *)",
-      "WebFetch(domain:resend.com)"
+      "WebFetch(domain:resend.com)",
+      "Bash(pnpm build *)"
     ]
   }
 }

@@ -7,8 +7,10 @@ import Image from 'next/image'
 import { createClient } from '@/utils/supabase/client'
 import {
   Ticket, Settings, CalendarDays, MapPin,
-  FileSearch, LogOut, Check, Loader2, Menu, X, Plus, Trash2, Users, ScanLine
+  FileSearch, LogOut, Check, Loader2, Menu, X, Plus, Trash2, Users, ScanLine, Store, ExternalLink
 } from 'lucide-react'
+import AvatarUpload from '@/components/avatar-upload'
+import { AVATARS_BUCKET } from '@/utils/supabase/storage'
 import { VT323 } from 'next/font/google'
 import RetroTicketWallet from '@/app/checkout/success/_components/retro-ticket-wallet'
 
@@ -26,8 +28,11 @@ const SIDEBAR_BG = 'rgba(255,255,255,0.03)'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Section = 'tickets' | 'settings' | 'events' | 'team'
-interface Profile { full_name: string; role: string; terms_accepted_at?: string | null; stripe_onboarding_complete?: boolean | null }
+type Section = 'tickets' | 'settings' | 'events' | 'team' | 'perfil'
+interface Profile {
+  full_name: string; role: string; terms_accepted_at?: string | null; stripe_onboarding_complete?: boolean | null
+  business_name?: string | null; bio?: string | null; avatar_url?: string | null; public_slug?: string | null
+}
 interface TicketRow {
   id: string; qr_hash: string; is_used: boolean; used_at: string | null
   ticket_tiers: { name: string; price: number } | null
@@ -116,10 +121,11 @@ function SidebarContent({ profile, section, onSelect, isTeamMember }: {
   profile: Profile | null; section: Section; onSelect: (s: Section) => void; isTeamMember?: boolean
 }) {
   const baseItems: { id: Section; label: string; icon: React.ReactNode; roles?: string[] }[] = [
-    { id: 'tickets',  label: 'Mis tickets',   icon: <Ticket size={15} /> },
-    { id: 'events',   label: 'Mis eventos',   icon: <CalendarDays size={15} />, roles: ['organizer', 'admin'] },
-    { id: 'team',     label: 'Mi equipo',     icon: <Users size={15} />,        roles: ['organizer', 'admin'] },
-    { id: 'settings', label: 'Configuración', icon: <Settings size={15} /> },
+    { id: 'tickets',  label: 'Mis tickets',    icon: <Ticket size={15} /> },
+    { id: 'events',   label: 'Mis eventos',    icon: <CalendarDays size={15} />, roles: ['organizer', 'admin'] },
+    { id: 'team',     label: 'Mi equipo',      icon: <Users size={15} />,        roles: ['organizer', 'admin'] },
+    { id: 'perfil',   label: 'Perfil público', icon: <Store size={15} />,        roles: ['organizer', 'admin'] },
+    { id: 'settings', label: 'Configuración',  icon: <Settings size={15} /> },
   ]
   const navItems = baseItems.filter(i => !i.roles || (profile && i.roles.includes(profile.role)))
   const showStaffLink = isTeamMember || profile?.role === 'organizer' || profile?.role === 'admin'
@@ -701,6 +707,115 @@ function SettingsSection({ profile, email, onProfileUpdate, onLogout }: {
   )
 }
 
+// ─── Perfil público Section ───────────────────────────────────────────────────
+
+function slugify(str: string) {
+  return str.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60)
+}
+
+function PerfilSection({ profile, userId, onProfileUpdate }: {
+  profile: Profile; userId: string; onProfileUpdate: (p: Profile) => void
+}) {
+  const supabase = createClient()
+  const [businessName, setBusinessName] = useState(profile.business_name ?? '')
+  const [bio,          setBio]          = useState(profile.bio ?? '')
+  const [avatarPath,   setAvatarPath]   = useState(profile.avatar_url ?? '')
+  const [saved,        setSaved]        = useState(false)
+  const [error,        setError]        = useState('')
+  const [saving, startSave] = useTransition()
+
+  const inputClass = "w-full px-3 py-2 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 transition"
+  const inputStyle = { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT }
+  const btnPrimary = "flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-40"
+
+  async function handleSave() {
+    setError(''); setSaved(false)
+    if (!businessName.trim()) { setError('El nombre del negocio es requerido.'); return }
+    const finalSlug = slugify(businessName)
+    if (!finalSlug || finalSlug.length < 3) { setError('El nombre del negocio es demasiado corto para generar una URL.'); return }
+    startSave(async () => {
+      const { error: err } = await supabase.from('profiles').update({
+        business_name: businessName.trim(),
+        bio:           bio.trim() || null,
+        public_slug:   finalSlug,
+        avatar_url:    avatarPath || null,
+      }).eq('id', userId)
+      if (err?.code === '23505') { setError('Ya existe un organizador con ese nombre. Intenta con un nombre ligeramente diferente.'); return }
+      if (err) { setError('Error al guardar. Intenta de nuevo.'); return }
+      onProfileUpdate({ ...profile, business_name: businessName.trim(), bio: bio.trim() || null, public_slug: finalSlug, avatar_url: avatarPath || null })
+      setSaved(true); setTimeout(() => setSaved(false), 2500)
+    })
+  }
+
+  const previewSlug = slugify(businessName)
+  const publicUrl = profile.public_slug ? `/o/${profile.public_slug}` : null
+
+  return (
+    <Fade id="perfil">
+      <div className="space-y-6 max-w-lg">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: TEXT }}>Perfil público</h1>
+          <p className="mt-1 text-sm" style={{ color: TEXT_MUTED }}>
+            Los asistentes verán esta información en tu página pública.
+          </p>
+          {publicUrl && (
+            <a href={publicUrl} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1.5 mt-2 text-xs font-medium transition-opacity hover:opacity-70"
+              style={{ color: 'var(--color-orange)' }}>
+              <ExternalLink size={12} /> Ver mi perfil: takilla.app{publicUrl}
+            </a>
+          )}
+        </div>
+
+        <Card>
+          <h2 className="text-sm font-semibold" style={{ color: TEXT }}>Foto de perfil</h2>
+          <AvatarUpload
+            bucket={AVATARS_BUCKET}
+            currentUrl={profile.avatar_url ?? null}
+            onUpload={path => setAvatarPath(path)}
+            size={80}
+          />
+        </Card>
+
+        <Card>
+          <h2 className="text-sm font-semibold" style={{ color: TEXT }}>Nombre del negocio</h2>
+          <input
+            type="text"
+            value={businessName}
+            onChange={e => setBusinessName(e.target.value)}
+            maxLength={80}
+            placeholder="Ej. Bebidas El Paraíso"
+            className={inputClass} style={inputStyle}
+          />
+          {businessName.trim() && (
+            <p className="text-xs" style={{ color: TEXT_DIM }}>
+              URL: takilla.app/o/<span style={{ color: TEXT_MUTED }}>{previewSlug || '…'}</span>
+            </p>
+          )}
+
+          <h2 className="text-sm font-semibold mt-2" style={{ color: TEXT }}>Descripción (opcional)</h2>
+          <textarea
+            value={bio}
+            onChange={e => setBio(e.target.value)}
+            maxLength={500}
+            rows={3}
+            placeholder="Cuéntales a tus clientes sobre tu negocio..."
+            className={`${inputClass} resize-none`} style={inputStyle}
+          />
+          <p className="text-xs text-right" style={{ color: TEXT_DIM }}>{bio.length}/500</p>
+
+          {error && <p className="text-xs" style={{ color: '#fca5a5' }}>{error}</p>}
+
+          <button onClick={handleSave} disabled={saving} className={btnPrimary} style={{ background: ACCENT }}>
+            {saving ? <Loader2 size={14} className="animate-spin" /> : saved ? <Check size={14} /> : null}
+            {saved ? 'Guardado' : 'Guardar perfil'}
+          </button>
+        </Card>
+      </div>
+    </Fade>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -723,7 +838,7 @@ export default function DashboardPage() {
       setEmail(user.email ?? '')
       setUserId(user.id)
       const [{ data: prof }, { data: tix }] = await Promise.all([
-        supabase.from('profiles').select('full_name, role, terms_accepted_at, stripe_onboarding_complete').eq('id', user.id).single(),
+        supabase.from('profiles').select('full_name, role, terms_accepted_at, stripe_onboarding_complete, business_name, bio, avatar_url, public_slug').eq('id', user.id).single(),
         supabase.from('tickets').select('id, qr_hash, is_used, used_at, ticket_tiers(name, price), events(title, event_date, venues(name, city))').eq('owner_id', user.id).order('id', { ascending: false }),
       ])
       setProfile(prof ?? { full_name: '', role: 'customer' })
@@ -871,6 +986,9 @@ export default function DashboardPage() {
           {section === 'tickets'  && <TicketsSection tickets={tickets} />}
           {section === 'events'   && <EventsSection events={events} loading={eventsLoading} onDeleteEvent={handleDeleteEvent} profile={profile} />}
           {section === 'team'     && userId && <TeamSection userId={userId} />}
+          {section === 'perfil'   && profile && userId && (
+            <PerfilSection profile={profile} userId={userId} onProfileUpdate={p => setProfile(p)} />
+          )}
           {section === 'settings' && profile && (
             <SettingsSection profile={profile} email={email} onProfileUpdate={p => setProfile(p)} onLogout={handleLogout} />
           )}

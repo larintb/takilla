@@ -4,6 +4,7 @@ import { useActionState } from 'react'
 import { addTier } from '../actions'
 import { Plus } from 'lucide-react'
 import FormButton from '@/components/form-button'
+import { TierEffectKeyframes } from '@/components/tier-effects'
 
 const inputClass = "w-full rounded-lg border border-purple-700/40 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-purple-400/50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
 
@@ -144,16 +145,7 @@ export default function TierForm({ eventId, canCharge }: { eventId: string; canC
         </div>
       </div>
 
-      <style>{`
-        @keyframes goldWave {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-        @keyframes diamondWave {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-      `}</style>
+      <TierEffectKeyframes />
 
       {!canCharge && (
         <p className="text-xs px-3 py-2 rounded-lg" style={{ background: 'rgba(249,115,22,0.08)', color: 'rgba(251,146,60,0.9)', border: '1px solid rgba(249,115,22,0.2)' }}>

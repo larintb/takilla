@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { deleteTier, updateTierDescription, updateTierItems, updateTierEffect } from '../actions'
 import { Trash2, Pencil, Check, X, Package } from 'lucide-react'
+import { TierEffectKeyframes, tierEffectBadge } from '@/components/tier-effects'
 
 type Tier = {
   id: string
@@ -19,23 +20,8 @@ const textareaClass = "w-full rounded-lg border border-purple-700/40 bg-white/5 
 
 type EditMode = 'description' | 'items' | 'effect' | null
 
-// ── Estilos de efecto ────────────────────────────────────────────────────────
-const effectBadge: Record<string, React.CSSProperties> = {
-  gold: {
-    backgroundImage: 'linear-gradient(135deg, #78350f, #b45309, #d97706, #fbbf24, #d97706, #b45309)',
-    backgroundSize: '200% 200%',
-    animation: 'goldWave 3s ease infinite',
-    color: '#fef3c7',
-    textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-  },
-  diamond: {
-    backgroundImage: 'linear-gradient(135deg, #0c4a6e, #0369a1, #0ea5e9, #7dd3fc, #0ea5e9, #0369a1)',
-    backgroundSize: '200% 200%',
-    animation: 'diamondWave 3s ease infinite',
-    color: '#e0f2fe',
-    textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-  },
-}
+// effectBadge imported from @/components/tier-effects as tierEffectBadge
+const effectBadge = tierEffectBadge
 
 const effectLabel: Record<string, string> = {
   gold:    '✦ Dorado',
@@ -82,16 +68,7 @@ export default function TierList({ tiers, eventId }: { tiers: Tier[]; eventId: s
 
   return (
     <>
-      <style>{`
-        @keyframes goldWave {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-        @keyframes diamondWave {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-      `}</style>
+      <TierEffectKeyframes />
 
       <div className="space-y-2">
         {tiers.map(tier => {

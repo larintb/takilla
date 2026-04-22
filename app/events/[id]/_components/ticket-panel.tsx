@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Minus, Plus, ArrowRight, CheckCircle2, Loader2, LogIn, Ban } from 'lucide-react'
+import { TierEffectKeyframes, goldStyle, diamondStyle } from '@/components/tier-effects'
 
 type Tier = {
   id: string
@@ -14,34 +15,6 @@ type Tier = {
   description?: string | null
   effect?: string | null
 }
-
-// ── Gold shimmer styles ──────────────────────────────────────────────────────
-const goldBase: React.CSSProperties = {
-  backgroundImage: 'linear-gradient(135deg, #78350f, #b45309, #d97706, #fbbf24, #d97706, #b45309, #78350f)',
-  backgroundSize: '300% 300%',
-  backgroundRepeat: 'no-repeat',
-  animation: 'goldWave 3s ease infinite',
-  color: '#fef3c7',
-  textShadow: '0 1px 3px rgba(0,0,0,0.6)',
-  border: 'none',
-  boxShadow: '0 0 16px rgba(251,191,36,0.35)',
-}
-
-const goldStyle: React.CSSProperties = { ...goldBase }
-
-// ── Diamond shimmer styles ───────────────────────────────────────────────────
-const diamondBase: React.CSSProperties = {
-  backgroundImage: 'linear-gradient(135deg, #0c4a6e, #0369a1, #0ea5e9, #7dd3fc, #0ea5e9, #0369a1, #0c4a6e)',
-  backgroundSize: '300% 300%',
-  backgroundRepeat: 'no-repeat',
-  animation: 'diamondWave 3s ease infinite',
-  color: '#e0f2fe',
-  textShadow: '0 1px 3px rgba(0,0,0,0.6)',
-  border: 'none',
-  boxShadow: '0 0 16px rgba(56,189,248,0.35)',
-}
-
-const diamondStyle: React.CSSProperties = { ...diamondBase }
 
 // ── Availability bar ─────────────────────────────────────────────────────────
 function AvailBar({ available, total }: { available: number; total: number }) {
@@ -182,16 +155,7 @@ export default function TicketPanel({
 
   return (
     <>
-      <style>{`
-        @keyframes goldWave {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-        @keyframes diamondWave {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-      `}</style>
+      <TierEffectKeyframes />
 
       <div className="flex flex-col gap-4">
 
