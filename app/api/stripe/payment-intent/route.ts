@@ -72,7 +72,8 @@ export async function POST(request: Request) {
 
   const totalAmountCentavos = Math.round(fees.totalAmount * 100)
   const nowSecs  = Math.floor(Date.now() / 1000)
-  const expiresAt = nowSecs + 600
+  const windowBucket = Math.floor(nowSecs / 600)
+  const expiresAt = (windowBucket + 1) * 600  // deterministic: end of current 10-min window
 
   // ── LOCK ──────────────────────────────────────────────────────────────────
   const lockKey = `pi_lock_${user.id}_${tierId}_${eventId}`
@@ -116,24 +117,54 @@ export async function POST(request: Request) {
       })
 
       const idempotencyKey =
-        `pi_${user.id}_${tierId}_${quantity}_${totalAmountCentavos}_${Math.floor(nowSecs / 600)}`
+        `pi_${user.id}_${tierId}_${quantity}_${totalAmountCentavos}_${windowBucket}`
 
-      paymentIntent = await stripe.paymentIntents.create(
-        {
-          amount: totalAmountCentavos,
-          currency: 'mxn',
-          application_fee_amount: fees.applicationFeeAmountCentavos,
-          transfer_data: { destination: organizer.stripe_account_id },
-          metadata: {
-            user_id:    user.id,
-            event_id:   eventId,
-            tier_id:    tierId,
-            quantity:   String(quantity),
-            expires_at: String(expiresAt),
+      try {
+        paymentIntent = await stripe.paymentIntents.create(
+          {
+            amount: totalAmountCentavos,
+            currency: 'mxn',
+            application_fee_amount: fees.applicationFeeAmountCentavos,
+            transfer_data: { destination: organizer.stripe_account_id },
+            metadata: {
+              user_id:    user.id,
+              event_id:   eventId,
+              tier_id:    tierId,
+              quantity:   String(quantity),
+              expires_at: String(expiresAt),
+            },
           },
-        },
-        { idempotencyKey }
-      )
+          { idempotencyKey }
+        )
+      } catch (err: unknown) {
+        // Stripe Search has indexing lag — a PI created seconds ago may not appear
+        // in search yet. When the idempotency key already exists, retrieve it directly.
+        if (
+          err instanceof Error &&
+          'type' in err &&
+          (err as { type: string }).type === 'idempotency_error' &&
+          'raw' in err &&
+          typeof (err as { raw?: { requestId?: string } }).raw?.requestId === 'string'
+        ) {
+          const existing = await stripe.paymentIntents.list(
+            { limit: 5 },
+            { stripeAccount: organizer.stripe_account_id }
+          )
+          const match = existing.data.find(
+            (pi) =>
+              pi.metadata?.user_id === user.id &&
+              pi.metadata?.tier_id === tierId &&
+              pi.metadata?.event_id === eventId &&
+              pi.metadata?.quantity === String(quantity) &&
+              pi.amount === totalAmountCentavos &&
+              REUSABLE_STATUSES.includes(pi.status)
+          )
+          if (!match) throw err
+          paymentIntent = match
+        } else {
+          throw err
+        }
+      }
     }
 
     return NextResponse.json({
