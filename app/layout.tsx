@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import PageTransition from "@/components/page-transition";
 import CapacitorInit from "@/components/capacitor-init";
 import "./globals.css";
@@ -39,6 +40,7 @@ export default function RootLayout({
           {children}
         </PageTransition>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
