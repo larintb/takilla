@@ -234,12 +234,22 @@ export async function updateTierEffect(tierId: string, eventId: string, effect: 
   revalidatePath(`/dashboard/events/${eventId}`)
 }
 
-export async function deleteTier(tierId: string, eventId: string) {
+export async function deleteTier(tierId: string, eventId: string): Promise<{ error: string } | null> {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
+  const { count } = await supabase
+    .from('tickets')
+    .select('id', { count: 'exact', head: true })
+    .eq('tier_id', tierId)
+
+  if (count && count > 0) {
+    return { error: `No se puede eliminar: hay ${count} boleto(s) vendido(s) en este tier.` }
+  }
+
   await supabase.from('ticket_tiers').delete().eq('id', tierId)
   revalidatePath(`/dashboard/events/${eventId}`)
+  return null
 }
 
 // ── Perks ────────────────────────────────────────────────────────────────────
