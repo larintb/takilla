@@ -40,12 +40,14 @@ export default function TicketPanel({
   isPast,
   isLoggedIn,
   loginRedirect,
+  onBuy,
 }: {
   eventId: string
   tiers: Tier[]
   isPast: boolean
   isLoggedIn: boolean
   loginRedirect: string
+  onBuy?: (tierId: string, qty: number) => void
 }) {
   const router = useRouter()
 
@@ -72,9 +74,13 @@ export default function TicketPanel({
   function handleBuy() {
     if (loading || isSoldOut || isPast) return
     setLoading(true)
-    setTimeout(() => {
-      router.push(`/checkout?eventId=${eventId}&tierId=${selectedId}&quantity=${qty}`)
-    }, 500)
+    if (onBuy) {
+      onBuy(selectedId, qty)
+    } else {
+      setTimeout(() => {
+        router.push(`/checkout?eventId=${eventId}&tierId=${selectedId}&quantity=${qty}`)
+      }, 500)
+    }
   }
 
   // ── Card border + shadow per effect (only when selected) ─────────────────

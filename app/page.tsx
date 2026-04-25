@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/server'
 import { resolveEventImageUrl } from '@/utils/supabase/storage'
 import { Ticket, CalendarDays, MapPin, QrCode, ShieldCheck, Zap } from 'lucide-react'
 import Navbar from '@/components/navbar'
+import { isEventOver } from '@/utils/event-time'
 import DomeGallery from '@/components/dome-gallery'
 
 const DOME_STOCK = [
@@ -38,16 +39,20 @@ export default async function Home() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1)
+  const cutoff = yesterday.toISOString()
   const [{ data: { user } }, { data: events }] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from('events').select(`
-      id, title, event_date, image_url, category,
+      id, title, event_date, event_end_date, image_url, category,
       venues(name, city),
       ticket_tiers(price)
-    `).eq('status', 'published').gt('event_date', new Date().toISOString()).order('event_date', { ascending: true }).limit(6),
+    `).eq('status', 'published').gt('event_date', cutoff).order('event_date', { ascending: true }).limit(12),
   ])
 
-  const eventDomeImages = (events ?? [])
+  const activeEvents = (events ?? []).filter(e => !isEventOver(e.event_date, e.event_end_date)).slice(0, 6)
+
+  const eventDomeImages = activeEvents
     .filter(e => !!e.image_url)
     .slice(0, 2)
     .map(e => ({ src: resolveEventImageUrl(supabase, e.image_url)!, alt: e.title }))
@@ -158,7 +163,7 @@ export default async function Home() {
       </section>
 
       {/* Upcoming events */}
-      {events && events.length > 0 && (
+      {activeEvents.length > 0 && (
         <section className="max-w-6xl mx-auto px-4 py-16 space-y-6 w-full animate-fade-in-up" style={{ animationDelay: '150ms' }}>
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-white">Próximos eventos</h2>
@@ -172,7 +177,7 @@ export default async function Home() {
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {events.map((event, i) => {
+            {activeEvents.map((event, i) => {
               const venue    = (event.venues ?? null) as VenueInfo | null
               const tiers    = (event.ticket_tiers ?? []) as TierPrice[]
               const prices   = tiers?.map(t => Number(t.price)) ?? []

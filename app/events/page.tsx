@@ -7,6 +7,7 @@ import Image from 'next/image'
 import { createClient } from '@/utils/supabase/client'
 import { resolveEventImageUrl } from '@/utils/supabase/storage'
 import { CalendarDays, MapPin, Ticket } from 'lucide-react'
+import { isEventOver } from '@/utils/event-time'
 
 const CATEGORIES = [
   { value: 'all',         label: 'Todos',         img: null },
@@ -22,6 +23,7 @@ interface Event {
   title: string
   description: string
   event_date: string
+  event_end_date: string | null
   image_url: string | null
   category: string | null
   venues: { name: string; city: string } | null
@@ -131,15 +133,16 @@ export default function EventsPage() {
       setLoading(true)
       let query = supabase
         .from('events')
-        .select(`id, title, description, event_date, image_url, category, venues(name, city), ticket_tiers(price)`)
+        .select(`id, title, description, event_date, event_end_date, image_url, category, venues(name, city), ticket_tiers(price)`)
         .eq('status', 'published')
-        .gt('event_date', new Date().toISOString())
+        .gt('event_date', (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString() })())
         .order('event_date', { ascending: true })
 
       if (activeCategory !== 'all') query = query.eq('category', activeCategory)
 
       const { data } = await query
-      setEvents((data ?? []) as unknown as Event[])
+      const filtered = (data ?? []).filter((e: { event_date: string; event_end_date?: string | null }) => !isEventOver(e.event_date, e.event_end_date))
+      setEvents(filtered as unknown as Event[])
       setLoading(false)
     }
     fetchEvents()

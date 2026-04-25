@@ -22,6 +22,7 @@ type TicketData = {
 
 type PageResult =
   | { status: 'success'; tickets: TicketData[] }
+  | { status: 'perks_success' }
   | { status: 'refunded'; amount: number | null; currency: string | null }
   | { status: 'error' }
 
@@ -33,6 +34,40 @@ export default async function CheckoutSuccessPage({
   const paymentIntentId = params.payment_intent?.trim()
 
   const result = await resolveResult(sessionId, paymentIntentId)
+
+  if (result.status === 'perks_success') {
+    return (
+      <main className="flex-1 px-4 py-12">
+        <ConfettiBurst />
+        <div className="max-w-md mx-auto space-y-6 text-center">
+          <div className="space-y-2 animate-fade-in">
+            <p className="font-bold leading-none"
+              style={{
+                fontSize: 'clamp(2.4rem, 9vw, 3.5rem)',
+                background: 'var(--accent-gradient)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                paddingBottom: '0.15em',
+              }}>
+              ¡Extras listos!
+            </p>
+            <p className="text-base" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Tus extras están en tu billetera digital.
+            </p>
+          </div>
+          <div className="animate-fade-in-up" style={{ animationDelay: '120ms' }}>
+            <Link
+              href="/tickets"
+              className="inline-flex items-center justify-center px-8 h-14 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: 'var(--accent-gradient)', boxShadow: '0 0 32px rgba(249,115,22,0.3)' }}
+            >
+              Ver mis extras
+            </Link>
+          </div>
+        </div>
+      </main>
+    )
+  }
 
   if (result.status === 'refunded') {
     const amount = result.amount != null && result.currency
@@ -193,16 +228,43 @@ async function resolveResult(sessionId: string | undefined, paymentIntentId?: st
       const pi = await stripe.paymentIntents.retrieve(paymentIntentId)
       if (pi.status !== 'succeeded') return { status: 'error' }
 
-      const userId      = pi.metadata?.user_id?.trim()
+      const admin = createAdminClient()
+      const userId = pi.metadata?.user_id?.trim()
+      if (!userId) return { status: 'error' }
+
+      // ── Perks-only purchase ──────────────────────────────────────────────
+      if (pi.metadata?.purchase_kind === 'perks') {
+        const eventId    = pi.metadata?.event_id?.trim()
+        const perkIdsCsv = pi.metadata?.perk_ids?.trim()
+        const perkIds    = perkIdsCsv ? perkIdsCsv.split(',').map(s => s.trim()).filter(Boolean) : []
+
+        if (!eventId || perkIds.length === 0) return { status: 'error' }
+
+        const { data: orderId, error: rpcError } = await admin.rpc('fulfill_perks_order', {
+          p_user_id:      userId,
+          p_event_id:     eventId,
+          p_perk_ids:     perkIds,
+          p_session_id:   pi.id,
+          p_total_amount: pi.amount_received / 100,
+        })
+
+        if (rpcError) {
+          console.error('[checkout/success] fulfill_perks_order error:', rpcError.message)
+          return { status: 'error' }
+        }
+
+        if (orderId) void sendPurchaseConfirmation(userId, orderId)
+        return { status: 'perks_success' }
+      }
+
+      // ── Ticket purchase ──────────────────────────────────────────────────
       const tierId      = pi.metadata?.tier_id?.trim()
       const quantityRaw = Number(pi.metadata?.quantity)
       const quantity    = Number.isInteger(quantityRaw) ? quantityRaw : NaN
 
-      if (!userId || !tierId || !Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
+      if (!tierId || !Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
         return { status: 'error' }
       }
-
-      const admin = createAdminClient()
 
       const { data: profile } = await admin.from('profiles').select('id').eq('id', userId).single()
       if (!profile) {
@@ -215,11 +277,14 @@ async function resolveResult(sessionId: string | undefined, paymentIntentId?: st
         if (profileError) return { status: 'error' }
       }
 
+      const perkIdsCsv = pi.metadata?.perk_ids?.trim() || null
+      const perkIds    = perkIdsCsv ? perkIdsCsv.split(',').map(s => s.trim()).filter(Boolean) : []
+
       const { data: orderId, error: rpcError } = await admin.rpc('fulfill_checkout_session', {
         p_user_id:           userId,
         p_tier_id:           tierId,
         p_quantity:          quantity,
-        p_session_id:        pi.id,   // pi_xxx como clave única de idempotencia
+        p_session_id:        pi.id,
         p_payment_intent_id: pi.id,
       })
 
@@ -235,6 +300,20 @@ async function resolveResult(sessionId: string | undefined, paymentIntentId?: st
           return { status: 'refunded', amount: pi.amount_received, currency: pi.currency }
         }
         return { status: 'error' }
+      }
+
+      // Fulfill bundled perks if present
+      if (orderId && perkIds.length > 0) {
+        const eventId = pi.metadata?.event_id?.trim()
+        if (eventId) {
+          const { error: perkError } = await admin.rpc('fulfill_perk_purchases', {
+            p_order_id: orderId,
+            p_user_id:  userId,
+            p_event_id: eventId,
+            p_perk_ids: perkIds,
+          })
+          if (perkError) console.error('[checkout/success] fulfill_perk_purchases error:', perkError.message)
+        }
       }
 
       if (!orderId) return { status: 'success', tickets: [] }

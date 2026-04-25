@@ -3,7 +3,8 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { stripe } from '@/utils/stripe/server'
-import { calculateFees } from '@/utils/pricing'
+import { calculateFees, calculatePerkFees } from '@/utils/pricing'
+import { isEventOver } from '@/utils/event-time'
 
 export const runtime = 'nodejs'
 
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-  let body: { eventId?: string; tierId?: string; quantity?: number }
+  let body: { eventId?: string; tierId?: string; quantity?: number; perkIds?: string[] }
   try {
     body = await request.json()
   } catch {
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
   const eventId  = body.eventId?.trim()
   const tierId   = body.tierId?.trim()
   const quantity = Number(body.quantity)
+  const perkIds: string[] = Array.isArray(body.perkIds) ? body.perkIds.filter(Boolean) : []
 
   if (!eventId || !tierId)
     return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 })
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
 
   const { data: tier } = await supabase
     .from('ticket_tiers')
-    .select('id, price, available_tickets, event_id, events(title, status, event_date, organizer_id)')
+    .select('id, price, available_tickets, event_id, events(title, status, event_date, event_end_date, organizer_id)')
     .eq('id', tierId)
     .eq('event_id', eventId)
     .single()
@@ -45,11 +47,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No hay boletos suficientes' }, { status: 400 })
 
   const event = (Array.isArray(tier.events) ? tier.events[0] : tier.events) as
-    { title: string; status: string; event_date: string; organizer_id: string } | null
+    { title: string; status: string; event_date: string; event_end_date?: string | null; organizer_id: string } | null
 
   if (!event || event.status !== 'published')
     return NextResponse.json({ error: 'Evento no disponible' }, { status: 400 })
-  if (new Date(event.event_date) < new Date())
+  if (isEventOver(event.event_date, event.event_end_date))
     return NextResponse.json({ error: 'El evento ya pasó' }, { status: 400 })
 
   const price = Number(tier.price)
@@ -70,7 +72,32 @@ export async function POST(request: Request) {
   if (fees.unitAmountCentavos < 1000)
     return NextResponse.json({ error: 'El precio es menor al mínimo permitido' }, { status: 400 })
 
-  const totalAmountCentavos = Math.round(fees.totalAmount * 100)
+  // Add perks (if any) to the total
+  let perkAmountCentavos = 0
+  let perkAppFeeCentavos = 0
+  let perkIdCsv = ''
+  if (perkIds.length > 0) {
+    const uniquePerkIds = [...new Set(perkIds)]
+    const { data: perksData } = await supabase
+      .from('perks')
+      .select('id, price')
+      .in('id', uniquePerkIds)
+      .eq('event_id', eventId)
+    if (perksData) {
+      const priceMap = new Map(perksData.map(p => [p.id, Number(p.price)]))
+      for (const perkId of perkIds) {
+        const perkPrice = priceMap.get(perkId) ?? 0
+        if (perkPrice === 0) continue
+        const pFees = calculatePerkFees(perkPrice, 1)
+        perkAmountCentavos += pFees.unitAmountCentavos
+        perkAppFeeCentavos += pFees.applicationFeeAmountCentavos
+      }
+      perkIdCsv = perkIds.join(',')
+    }
+  }
+
+  const totalAmountCentavos = Math.round(fees.totalAmount * 100) + perkAmountCentavos
+  const totalAppFeeCentavos = fees.applicationFeeAmountCentavos + perkAppFeeCentavos
   const nowSecs   = Math.floor(Date.now() / 1000)
   const expiresAt = nowSecs + 600  // 10 min from now, personal to this user
 
@@ -100,10 +127,19 @@ export async function POST(request: Request) {
     })
 
     if (paymentIntent) {
-      // 2. Reusar: solo actualizar expires_at
+      // 2. Reusar: actualizar expires_at Y perk_ids para que el webhook use la selección actual
+      const updatedMeta: Record<string, string> = {
+        ...paymentIntent.metadata,
+        expires_at: String(expiresAt),
+      }
+      if (perkIdCsv) {
+        updatedMeta.perk_ids = perkIdCsv
+      } else {
+        delete updatedMeta.perk_ids
+      }
       paymentIntent = await stripe.paymentIntents.update(
         paymentIntent.id,
-        { metadata: { ...paymentIntent.metadata, expires_at: String(expiresAt) } },
+        { metadata: updatedMeta },
         { stripeAccount: organizer.stripe_account_id }
       )
     } else {
@@ -119,19 +155,22 @@ export async function POST(request: Request) {
         `pi_${user.id}_${tierId}_${quantity}_${totalAmountCentavos}_${expiresAt}`
 
       try {
-        paymentIntent = await stripe.paymentIntents.create(
+        const metadata: Record<string, string> = {
+            user_id:    user.id,
+            event_id:   eventId,
+            tier_id:    tierId,
+            quantity:   String(quantity),
+            expires_at: String(expiresAt),
+          }
+          if (perkIdCsv) metadata.perk_ids = perkIdCsv
+
+          paymentIntent = await stripe.paymentIntents.create(
           {
             amount: totalAmountCentavos,
             currency: 'mxn',
-            application_fee_amount: fees.applicationFeeAmountCentavos,
+            application_fee_amount: totalAppFeeCentavos,
             transfer_data: { destination: organizer.stripe_account_id },
-            metadata: {
-              user_id:    user.id,
-              event_id:   eventId,
-              tier_id:    tierId,
-              quantity:   String(quantity),
-              expires_at: String(expiresAt),
-            },
+            metadata,
           },
           { idempotencyKey }
         )

@@ -5,6 +5,7 @@ import { loadUserMetrics, loadEventPerformance, loadActivityFeed } from './data'
 import { MetricsCards, MetricsCardsError } from './_components/metrics-cards'
 import { EventsPerformanceTable } from './_components/events-performance-table'
 import { ActivityFeed } from './_components/activity-feed'
+import UserRoleManager from './_components/user-role-manager'
 
 const MUTED = 'rgba(255,255,255,0.45)'
 const DIM   = 'rgba(255,255,255,0.2)'
@@ -68,6 +69,12 @@ export default async function AdminPage() {
           events={performanceRes.data?.events ?? []}
           error={performanceRes.error}
         />
+      </section>
+
+      {/* User role manager */}
+      <section className="space-y-3">
+        <SectionHeading>Gestión de roles</SectionHeading>
+        <UserRoleManager />
       </section>
 
       {/* Realtime events feed */}

@@ -6,15 +6,11 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { stripePromise } from '@/utils/stripe/client'
 import { Loader2, Clock, AlertCircle } from 'lucide-react'
 
-// ── Countdown display ────────────────────────────────────────────────────────
-
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0')
   const s = (seconds % 60).toString().padStart(2, '0')
   return `${m}:${s}`
 }
-
-// ── Inner form (needs Stripe context) ───────────────────────────────────────
 
 function InnerForm({
   totalLabel,
@@ -22,18 +18,18 @@ function InnerForm({
   expired,
   eventId,
 }: {
-  totalLabel: string
+  totalLabel:  string
   secondsLeft: number
-  expired: boolean
-  eventId: string
+  expired:     boolean
+  eventId:     string
 }) {
   const stripe   = useStripe()
   const elements = useElements()
   const router   = useRouter()
 
-  const [submitting, setSubmitting]   = useState(false)
-  const [errorMsg,   setErrorMsg]     = useState<string | null>(null)
-  const [ready,      setReady]        = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMsg,   setErrorMsg]   = useState<string | null>(null)
+  const [ready,      setReady]      = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -44,9 +40,7 @@ function InnerForm({
 
     const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/checkout/success`,
-      },
+      confirmParams: { return_url: `${window.location.origin}/checkout/success` },
       redirect: 'if_required',
     })
 
@@ -69,8 +63,6 @@ function InnerForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-
-      {/* Countdown */}
       <div
         className="flex items-center justify-between rounded-xl px-4 py-2.5"
         style={{
@@ -85,25 +77,18 @@ function InnerForm({
             {expired ? 'Tiempo agotado' : 'Tiempo para completar'}
           </span>
         </div>
-        <span
-          className="font-mono font-bold text-sm tabular-nums"
-          style={{ color: urgent ? '#ef4444' : 'rgba(255,255,255,0.6)' }}
-        >
+        <span className="font-mono font-bold text-sm tabular-nums"
+          style={{ color: urgent ? '#ef4444' : 'rgba(255,255,255,0.6)' }}>
           {expired ? '00:00' : formatTime(secondsLeft)}
         </span>
       </div>
 
-      {/* Expired state */}
       {expired ? (
-        <div
-          className="rounded-xl p-5 text-center space-y-3"
-          style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}
-        >
+        <div className="rounded-xl p-5 text-center space-y-3"
+          style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
           <AlertCircle size={28} className="mx-auto text-red-400" />
           <p className="text-sm font-semibold text-white">El tiempo para pagar expiró</p>
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            Vuelve al evento e intenta de nuevo.
-          </p>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Vuelve al evento e intenta de nuevo.</p>
           <button
             type="button"
             onClick={() => router.push(`/events/${eventId}`)}
@@ -115,47 +100,30 @@ function InnerForm({
         </div>
       ) : (
         <>
-          {/* Payment Element */}
           <div className={ready ? '' : 'opacity-0 h-0 overflow-hidden'}>
-            <PaymentElement
-              onReady={() => setReady(true)}
-              options={{ layout: 'accordion' }}
-            />
+            <PaymentElement onReady={() => setReady(true)} options={{ layout: 'accordion' }} />
           </div>
-
-          {/* Skeleton while loading */}
           {!ready && (
             <div className="space-y-3">
               {[80, 60, 60].map((w, i) => (
-                <div
-                  key={i}
-                  className="h-12 rounded-xl animate-pulse"
-                  style={{ width: `${w}%`, background: 'rgba(255,255,255,0.06)' }}
-                />
+                <div key={i} className="h-12 rounded-xl animate-pulse"
+                  style={{ width: `${w}%`, background: 'rgba(255,255,255,0.06)' }} />
               ))}
             </div>
           )}
-
-          {/* Error */}
           {errorMsg && (
             <p className="text-sm text-red-400 flex items-start gap-2">
               <AlertCircle size={15} className="shrink-0 mt-0.5" />
               {errorMsg}
             </p>
           )}
-
-          {/* Submit */}
           <button
             type="submit"
             disabled={!stripe || !ready || submitting}
             className="w-full h-14 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             style={{ background: 'var(--accent-gradient)', boxShadow: '0 0 28px rgba(249,115,22,0.28)' }}
           >
-            {submitting ? (
-              <Loader2 size={20} className="animate-spin" />
-            ) : (
-              `Pagar ${totalLabel}`
-            )}
+            {submitting ? <Loader2 size={20} className="animate-spin" /> : `Pagar ${totalLabel}`}
           </button>
         </>
       )}
@@ -163,19 +131,13 @@ function InnerForm({
   )
 }
 
-// ── Outer component (fetches client_secret, manages timer) ───────────────────
-
-export default function PaymentForm({
+export default function PerksPaymentForm({
   eventId,
-  tierId,
-  quantity,
-  perkIds = [],
+  perkIds,
   totalLabel,
 }: {
   eventId:    string
-  tierId:     string
-  quantity:   number
-  perkIds?:   string[]
+  perkIds:    string[]
   totalLabel: string
 }) {
   const [clientSecret, setClientSecret] = useState<string | null>(null)
@@ -184,23 +146,18 @@ export default function PaymentForm({
   const [fetchError,   setFetchError]   = useState<string | null>(null)
   const expired = secondsLeft <= 0
 
-  // Stable key for perkIds so the effect re-fires when the selection changes
-  const perkIdsKey = perkIds.slice().sort().join(',')
-
-  // Create PaymentIntent on mount and whenever the cart changes
   useEffect(() => {
     let ignore = false
 
     async function fetchIntent(retriesLeft = 3): Promise<void> {
       try {
-        const r = await fetch('/api/stripe/payment-intent', {
+        const r = await fetch('/api/stripe/payment-intent/perks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ eventId, tierId, quantity, perkIds }),
+          body: JSON.stringify({ eventId, perkIds }),
         })
         if (ignore) return
         if (r.status === 409 && retriesLeft > 0) {
-          // Transient lock — retry after a short delay
           await new Promise(res => setTimeout(res, 2000))
           if (!ignore) return fetchIntent(retriesLeft - 1)
           return
@@ -218,10 +175,8 @@ export default function PaymentForm({
 
     fetchIntent()
     return () => { ignore = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, tierId, quantity, perkIdsKey])
+  }, [eventId, perkIds])
 
-  // Countdown ticker
   useEffect(() => {
     if (!expiresAt) return
     const id = setInterval(() => {
@@ -230,23 +185,17 @@ export default function PaymentForm({
     return () => clearInterval(id)
   }, [expiresAt])
 
-  // Warn before leaving while a payment window is open
   useEffect(() => {
     if (!clientSecret || expired) return
-    function handleBeforeUnload(e: BeforeUnloadEvent) {
-      e.preventDefault()
-      e.returnValue = ''
-    }
+    function handleBeforeUnload(e: BeforeUnloadEvent) { e.preventDefault(); e.returnValue = '' }
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [clientSecret, expired])
 
   if (fetchError) {
     return (
-      <div
-        className="rounded-xl p-5 text-center space-y-2"
-        style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}
-      >
+      <div className="rounded-xl p-5 text-center space-y-2"
+        style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
         <AlertCircle size={24} className="mx-auto text-red-400" />
         <p className="text-sm text-red-400">{fetchError}</p>
       </div>
@@ -270,12 +219,12 @@ export default function PaymentForm({
         appearance: {
           theme: 'night',
           variables: {
-            colorPrimary:     '#f97316',
-            colorBackground:  '#1a1025',
-            colorText:        'rgba(255,255,255,0.9)',
+            colorPrimary:       '#f97316',
+            colorBackground:    '#1a1025',
+            colorText:          'rgba(255,255,255,0.9)',
             colorTextSecondary: 'rgba(255,255,255,0.45)',
-            borderRadius:     '12px',
-            fontFamily:       'inherit',
+            borderRadius:       '12px',
+            fontFamily:         'inherit',
           },
         },
         locale: 'es-419',

@@ -3,9 +3,10 @@ import { cookies } from 'next/headers'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/utils/supabase/server'
-import { resolveEventImageUrl, resolveAvatarUrl, resolveReviewPhotoUrl } from '@/utils/supabase/storage'
+import { resolveEventImageUrl, resolveAvatarUrl, resolveBannerUrl, resolveReviewPhotoUrl } from '@/utils/supabase/storage'
 import { CalendarDays, ArrowLeft, Star } from 'lucide-react'
 import Avatar from '@/components/avatar'
+import { isEventOver } from '@/utils/event-time'
 import StarRating from '@/components/star-rating'
 import ReviewsClient from './_components/reviews-client'
 
@@ -24,7 +25,7 @@ export default async function OrganizerProfilePage({
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, business_name, bio, avatar_url, public_slug')
+      .select('id, business_name, bio, avatar_url, banner_url, public_slug')
       .eq('public_slug', slug)
       .eq('role', 'organizer')
       .single(),
@@ -36,7 +37,7 @@ export default async function OrganizerProfilePage({
   const [{ data: events }, { data: reviews }] = await Promise.all([
     supabase
       .from('events')
-      .select('id, title, event_date, image_url, status')
+      .select('id, title, event_date, event_end_date, image_url, status')
       .eq('organizer_id', organizer.id)
       .eq('status', 'published')
       .order('event_date', { ascending: false }),
@@ -47,15 +48,15 @@ export default async function OrganizerProfilePage({
       .order('created_at', { ascending: false }),
   ])
 
-  const now = new Date()
-  const upcoming = (events ?? []).filter(e => new Date(e.event_date) >= now)
-  const past     = (events ?? []).filter(e => new Date(e.event_date) < now)
+  const upcoming = (events ?? []).filter(e => !isEventOver(e.event_date, e.event_end_date))
+  const past     = (events ?? []).filter(e =>  isEventOver(e.event_date, e.event_end_date))
 
   const avgRating = reviews?.length
     ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
     : null
 
   const avatarUrl = resolveAvatarUrl(supabase, organizer.avatar_url)
+  const bannerUrl = resolveBannerUrl(supabase, organizer.banner_url)
 
   // Resolve review photo URLs
   const reviewsWithPhotos = (reviews ?? []).map(r => ({
@@ -67,36 +68,72 @@ export default async function OrganizerProfilePage({
 
   return (
     <div className="w-full min-h-screen" style={{ background: 'var(--background)' }}>
-      <div className="w-full max-w-4xl mx-auto px-4 py-8">
 
-        <Link
-          href="/events"
-          className="inline-flex items-center gap-1.5 text-sm font-medium mb-8 transition-opacity hover:opacity-70"
-          style={{ color: 'rgba(255,255,255,0.4)' }}
-        >
-          <ArrowLeft size={14} />
-          Explorar eventos
-        </Link>
+      {/* ── Banner ─────────────────────────────────────────────────────── */}
+      {/* outer: NO overflow-hidden so avatar can bleed out freely */}
+      <div className="relative w-full" style={{ height: 200 }}>
 
-        {/* ── Hero ───────────────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 mb-10">
-          <Avatar name={organizer.business_name} src={avatarUrl} size={80} />
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold text-white break-words">{organizer.business_name}</h1>
-            {organizer.bio && (
-              <p className="text-sm mt-1 break-words" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                {organizer.bio}
-              </p>
-            )}
-            {avgRating !== null && (
-              <div className="flex items-center gap-2 mt-2">
-                <StarRating value={Math.round(avgRating)} />
-                <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                  {avgRating.toFixed(1)} · {reviews?.length} reseña{reviews?.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-            )}
+        {/* inner image container: overflow-hidden keeps images clipped */}
+        <div className="absolute inset-0 overflow-hidden" style={{ background: '#140a2a' }}>
+          {bannerUrl && (
+            <>
+              <Image src={bannerUrl} alt="" fill unoptimized aria-hidden
+                className="object-cover blur-xl opacity-40 scale-110" />
+              <Image src={bannerUrl} alt="" fill unoptimized
+                className="object-cover" />
+              <div className="absolute inset-0" style={{
+                background: 'linear-gradient(to bottom, rgba(20,10,42,0.2) 0%, transparent 40%, rgba(20,10,42,0.3) 100%)',
+              }} />
+            </>
+          )}
+        </div>
+
+        {/* Back button */}
+        <div className="absolute top-4 left-0 right-0 max-w-4xl mx-auto px-4 z-10">
+          <Link
+            href="/events"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold active:opacity-70"
+            style={{
+              color: 'rgba(255,255,255,0.9)',
+              background: 'rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,255,255,0.1)',
+            }}
+          >
+            <ArrowLeft size={15} />
+            Explorar eventos
+          </Link>
+        </div>
+
+        {/* Avatar — half inside banner, half below, fully visible */}
+        <div className="absolute bottom-0 left-0 right-0 max-w-4xl mx-auto px-4 z-20">
+          <div style={{ transform: 'translateY(50%)' }}>
+            <div className="inline-block rounded-full"
+              style={{ boxShadow: '0 6px 28px rgba(0,0,0,0.7)' }}>
+              <Avatar name={organizer.business_name} src={avatarUrl} size={96} />
+            </div>
           </div>
+        </div>
+      </div>
+
+      {/* ── Hero info (name, bio, stars) ───────────────────────────────── */}
+      <div className="w-full max-w-4xl mx-auto px-4" style={{ paddingTop: 64 }}>
+        <div className="mb-10">
+          <h1 className="text-2xl font-bold text-white break-words">{organizer.business_name}</h1>
+          {organizer.bio && (
+            <p className="text-sm mt-1.5 break-words" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              {organizer.bio}
+            </p>
+          )}
+          {avgRating !== null && (
+            <div className="flex items-center gap-2 mt-2">
+              <StarRating value={Math.round(avgRating)} />
+              <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                {avgRating.toFixed(1)} · {reviews?.length} reseña{reviews?.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* ── Events ─────────────────────────────────────────────────── */}
@@ -156,6 +193,8 @@ export default async function OrganizerProfilePage({
             <ReviewsClient reviews={reviewsWithPhotos} />
           )}
         </section>
+
+        <div className="pb-16" />
       </div>
     </div>
   )

@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const EVENT_IMAGES_BUCKET  = 'event-images'
 export const AVATARS_BUCKET        = 'profile-avatars'
+export const BANNERS_BUCKET        = 'profile-banners'
 export const REVIEW_PHOTOS_BUCKET  = 'review-photos'
 
 function normalizeStoragePath(rawValue: string, bucket: string): string | null {
@@ -47,6 +48,10 @@ export function resolveEventImageUrl(supabase: SupabaseClient, imageValue?: stri
 
 export function resolveAvatarUrl(supabase: SupabaseClient, avatarValue?: string | null) {
   return resolveStorageUrl(supabase, AVATARS_BUCKET, avatarValue)
+}
+
+export function resolveBannerUrl(supabase: SupabaseClient, bannerValue?: string | null) {
+  return resolveStorageUrl(supabase, AVATARS_BUCKET, bannerValue)
 }
 
 export function resolveReviewPhotoUrl(supabase: SupabaseClient, photoValue?: string | null) {
