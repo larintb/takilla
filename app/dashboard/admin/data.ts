@@ -70,6 +70,20 @@ export type FeedItem = {
 
 export type ActivityItem = FeedItem
 
+export type TicketBuyerPurchase = {
+  event_title: string
+  tier_name: string
+  count: number
+}
+
+export type TicketBuyerRow = {
+  owner_id: string
+  full_name: string | null
+  email: string | null
+  ticket_count: number
+  purchases: TicketBuyerPurchase[]
+}
+
 type Result<T> = { data: T; error: null } | { data: null; error: string }
 
 export async function loadUserMetrics(): Promise<Result<UserMetrics>> {
@@ -138,6 +152,55 @@ export async function loadEventPerformance(): Promise<Result<EventPerformanceSum
       },
       error: null,
     }
+  } catch (e) {
+    return { data: null, error: (e as Error).message }
+  }
+}
+
+export async function loadTicketBuyers(): Promise<Result<TicketBuyerRow[]>> {
+  try {
+    const supabase = createAdminClient()
+    const { data, error } = await supabase
+      .from('tickets')
+      .select('owner_id, profiles!owner_id(full_name, email), events(title), ticket_tiers(name)')
+
+    if (error) throw new Error(error.message)
+
+    const map = new Map<string, TicketBuyerRow>()
+    for (const t of data ?? []) {
+      const profile = t.profiles && !Array.isArray(t.profiles)
+        ? (t.profiles as { full_name: string | null; email: string | null })
+        : null
+      const event = t.events && !Array.isArray(t.events)
+        ? (t.events as { title: string })
+        : null
+      const tier = t.ticket_tiers && !Array.isArray(t.ticket_tiers)
+        ? (t.ticket_tiers as { name: string })
+        : null
+
+      const event_title = event?.title ?? 'Evento desconocido'
+      const tier_name   = tier?.name   ?? 'Sin tier'
+      const purchaseKey = `${event_title}__${tier_name}`
+
+      const existing = map.get(t.owner_id)
+      if (existing) {
+        existing.ticket_count++
+        const purchase = existing.purchases.find(p => `${p.event_title}__${p.tier_name}` === purchaseKey)
+        if (purchase) purchase.count++
+        else existing.purchases.push({ event_title, tier_name, count: 1 })
+      } else {
+        map.set(t.owner_id, {
+          owner_id: t.owner_id,
+          full_name: profile?.full_name ?? null,
+          email: profile?.email ?? null,
+          ticket_count: 1,
+          purchases: [{ event_title, tier_name, count: 1 }],
+        })
+      }
+    }
+
+    const buyers = Array.from(map.values()).sort((a, b) => b.ticket_count - a.ticket_count)
+    return { data: buyers, error: null }
   } catch (e) {
     return { data: null, error: (e as Error).message }
   }

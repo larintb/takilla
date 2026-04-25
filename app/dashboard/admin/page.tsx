@@ -1,11 +1,12 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
-import { loadUserMetrics, loadEventPerformance, loadActivityFeed } from './data'
+import { loadUserMetrics, loadEventPerformance, loadActivityFeed, loadTicketBuyers } from './data'
 import { MetricsCards, MetricsCardsError } from './_components/metrics-cards'
 import { EventsPerformanceTable } from './_components/events-performance-table'
 import { ActivityFeed } from './_components/activity-feed'
 import UserRoleManager from './_components/user-role-manager'
+import { TicketBuyers } from './_components/ticket-buyers'
 
 const MUTED = 'rgba(255,255,255,0.45)'
 const DIM   = 'rgba(255,255,255,0.2)'
@@ -33,10 +34,11 @@ export default async function AdminPage() {
 
   if (profile?.role !== 'admin') redirect('/dashboard')
 
-  const [usersRes, performanceRes, feedRes] = await Promise.all([
+  const [usersRes, performanceRes, feedRes, buyersRes] = await Promise.all([
     loadUserMetrics(),
     loadEventPerformance(),
     loadActivityFeed(),
+    loadTicketBuyers(),
   ])
 
   const now = new Date().toLocaleString('es-MX', {
@@ -69,6 +71,12 @@ export default async function AdminPage() {
           events={performanceRes.data?.events ?? []}
           error={performanceRes.error}
         />
+      </section>
+
+      {/* Ticket buyers */}
+      <section className="space-y-3">
+        <SectionHeading>Clientes con boletos</SectionHeading>
+        <TicketBuyers buyers={buyersRes.data ?? []} error={buyersRes.error} />
       </section>
 
       {/* User role manager */}
