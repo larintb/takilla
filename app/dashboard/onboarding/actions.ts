@@ -56,7 +56,7 @@ export async function startStripeOnboarding() {
 
   if (profile?.role !== 'organizer') redirect('/dashboard')
   if (!profile?.terms_accepted_at) redirect('/dashboard/onboarding')
-  if (profile?.stripe_onboarding_complete) redirect('/dashboard/events')
+  if (profile?.stripe_onboarding_complete) redirect('/dashboard')
 
   const supabaseAdmin = createAdminClient()
   let stripeAccountId = profile.stripe_account_id

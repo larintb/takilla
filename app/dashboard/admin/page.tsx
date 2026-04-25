@@ -1,22 +1,21 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
-import { approveApplication, rejectApplication } from './actions'
-import { CheckCircle, XCircle, Clock } from 'lucide-react'
-import FormButton from '@/components/form-button'
+import { loadUserMetrics, loadEventPerformance, loadActivityFeed } from './data'
+import { MetricsCards, MetricsCardsError } from './_components/metrics-cards'
+import { EventsPerformanceTable } from './_components/events-performance-table'
+import { ActivityFeed } from './_components/activity-feed'
+import UserRoleManager from './_components/user-role-manager'
 
-type ApplicationProfile = {
-  full_name: string | null
-  email: string | null
-}
+const MUTED = 'rgba(255,255,255,0.45)'
+const DIM   = 'rgba(255,255,255,0.2)'
 
-function getApplicationProfile(value: unknown): ApplicationProfile | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
-  const profile = value as Record<string, unknown>
-  return {
-    full_name: typeof profile.full_name === 'string' ? profile.full_name : null,
-    email: typeof profile.email === 'string' ? profile.email : null,
-  }
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: MUTED }}>
+      {children}
+    </h2>
+  )
 }
 
 export default async function AdminPage() {
@@ -34,102 +33,65 @@ export default async function AdminPage() {
 
   if (profile?.role !== 'admin') redirect('/dashboard')
 
-  const { data: applications } = await supabase
-    .from('organizer_applications')
-    .select('id, business_name, tax_id, status, created_at, profiles(full_name, email)')
-    .order('created_at', { ascending: false })
+  const [usersRes, performanceRes, feedRes] = await Promise.all([
+    loadUserMetrics(),
+    loadEventPerformance(),
+    loadActivityFeed(),
+  ])
 
-  const pending   = applications?.filter(a => a.status === 'pending')   ?? []
-  const processed = applications?.filter(a => a.status !== 'pending')   ?? []
+  const now = new Date().toLocaleString('es-MX', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10 pb-16" style={{ color: '#fff' }}>
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Solicitudes de organizador</h1>
-        <p className="text-zinc-500 mt-1">Aprueba o rechaza solicitudes para crear eventos</p>
+        <h1 className="text-2xl font-bold text-white">Panel de administración</h1>
+        <p className="text-sm mt-1" style={{ color: MUTED }}>Takilla · Actualizado {now}</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: 'Pendientes', value: pending.length,   color: 'text-amber-600' },
-          { label: 'Aprobadas',  value: applications?.filter(a => a.status === 'approved').length ?? 0, color: 'text-green-600' },
-          { label: 'Rechazadas', value: applications?.filter(a => a.status === 'rejected').length ?? 0, color: 'text-red-600' },
-        ].map(stat => (
-          <div key={stat.label} className="bg-white rounded-xl border border-zinc-200 p-4">
-            <p className="text-sm text-zinc-500">{stat.label}</p>
-            <p className={`text-3xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Pending */}
-      <section>
-        <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">
-          Pendientes ({pending.length})
-        </h2>
-
-        {pending.length === 0 ? (
-          <div className="bg-white rounded-xl border border-zinc-200 p-8 text-center text-zinc-400">
-            <Clock size={32} className="mx-auto mb-2 opacity-50" />
-            No hay solicitudes pendientes
-          </div>
+      {/* Metrics */}
+      <section className="space-y-3">
+        <SectionHeading>Métricas globales</SectionHeading>
+        {usersRes.error || performanceRes.error ? (
+          <MetricsCardsError error={usersRes.error ?? performanceRes.error!} />
         ) : (
-          <div className="space-y-3">
-            {pending.map(app => (
-              <div key={app.id} className="bg-white rounded-xl border border-zinc-200 p-5 flex items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-zinc-900">{app.business_name}</p>
-                  <p className="text-sm text-zinc-500 mt-0.5">
-                    {getApplicationProfile(app.profiles)?.full_name} · {getApplicationProfile(app.profiles)?.email}
-                  </p>
-                  <p className="text-xs text-zinc-400 mt-0.5">RFC: {app.tax_id}</p>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <form action={approveApplication.bind(null, app.id)}>
-                    <FormButton className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700">
-                      <CheckCircle size={14} />
-                      Aprobar
-                    </FormButton>
-                  </form>
-                  <form action={rejectApplication.bind(null, app.id)}>
-                    <FormButton className="px-3 py-1.5 rounded-lg bg-white text-red-600 text-sm font-medium border border-red-200 hover:bg-red-50">
-                      <XCircle size={14} />
-                      Rechazar
-                    </FormButton>
-                  </form>
-                </div>
-              </div>
-            ))}
-          </div>
+          <MetricsCards users={usersRes.data!} performance={performanceRes.data!} />
         )}
       </section>
 
-      {/* Processed */}
-      {processed.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">
-            Procesadas ({processed.length})
-          </h2>
-          <div className="space-y-2">
-            {processed.map(app => (
-              <div key={app.id} className="bg-white rounded-xl border border-zinc-200 px-5 py-3 flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-zinc-800">{app.business_name}</p>
-                  <p className="text-sm text-zinc-400">{getApplicationProfile(app.profiles)?.email}</p>
-                </div>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                  app.status === 'approved'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-red-100 text-red-700'
-                }`}>
-                  {app.status === 'approved' ? 'Aprobada' : 'Rechazada'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Events performance */}
+      <section className="space-y-3">
+        <SectionHeading>Rendimiento por evento</SectionHeading>
+        <EventsPerformanceTable
+          events={performanceRes.data?.events ?? []}
+          error={performanceRes.error}
+        />
+      </section>
+
+      {/* User role manager */}
+      <section className="space-y-3">
+        <SectionHeading>Gestión de roles</SectionHeading>
+        <UserRoleManager />
+      </section>
+
+      {/* Realtime events feed */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <SectionHeading>Realtime Events</SectionHeading>
+          <span
+            className="w-1.5 h-1.5 rounded-full animate-pulse"
+            style={{ background: '#4ade80' }}
+            title="Live feed"
+          />
+          {feedRes.data && (
+            <span className="text-xs" style={{ color: DIM }}>{feedRes.data.length} eventos</span>
+          )}
+        </div>
+        <ActivityFeed items={feedRes.data ?? []} error={feedRes.error} />
+      </section>
     </div>
   )
 }

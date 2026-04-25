@@ -1,9 +1,35 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
-import { createAdminClient } from '@/utils/supabase/admin'
 import { resolveEventImageUrl } from '@/utils/supabase/storage'
+import { ChevronLeft } from 'lucide-react'
+import { isEventOver } from '@/utils/event-time'
 import TicketsClient from './_components/tickets-client'
+
+type TicketRow = {
+  id: string; qr_hash: string; is_used: boolean
+  tierName: string; price: number; index: number
+}
+
+type PerkPurchaseRow = {
+  id: string; qr_hash: string; is_used: boolean; perkName: string
+}
+
+type EventGroup = {
+  eventId: string
+  eventData: {
+    title: string; date: string
+    venueName: string | null; venueCity: string | null
+    imageUrl: string | null
+    totalCount: number; validCount: number
+    hasAvailablePerks: boolean
+  }
+  tickets: TicketRow[]
+  perkPurchases: PerkPurchaseRow[]
+  eventDate: string
+  eventEndDate: string | null
+}
 
 export default async function TicketsPage() {
   const cookieStore = await cookies()
@@ -12,78 +38,101 @@ export default async function TicketsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const admin = createAdminClient()
-
-  const { data: tickets, error: ticketsError } = await admin
-    .from('tickets')
-    .select('id, qr_hash, is_used, tier_id, event_id')
-    .eq('owner_id', user.id)
-    .order('id', { ascending: false })
-
-  if (ticketsError) throw new Error(ticketsError.message)
-
-  const tierIds  = [...new Set((tickets ?? []).map(t => t.tier_id))]
-  const eventIds = [...new Set((tickets ?? []).map(t => t.event_id))]
-
-  const [{ data: tiers }, { data: events }] = await Promise.all([
-    tierIds.length
-      ? admin.from('ticket_tiers').select('id, name, price').in('id', tierIds)
-      : Promise.resolve({ data: [] }),
-    eventIds.length
-      ? admin.from('events').select('id, title, event_date, image_url, venue_id').in('id', eventIds)
-      : Promise.resolve({ data: [] }),
+  const [{ data: rows, error }, { data: perkPurchaseRows }] = await Promise.all([
+    supabase
+      .from('ticket_details')
+      .select('id, qr_hash, is_used, event_id, tier_name, tier_price, event_title, event_date, image_url, venue_name, venue_city')
+      .eq('owner_id', user.id)
+      .order('event_date', { ascending: true }),
+    supabase
+      .from('perk_purchases')
+      .select('id, qr_hash, is_used, event_id, perks(name)')
+      .eq('owner_id', user.id),
   ])
 
-  const venueIds = [...new Set((events ?? []).map(e => e.venue_id).filter(Boolean))] as string[]
-  const { data: venues } = venueIds.length
-    ? await admin.from('venues').select('id, name, city').in('id', venueIds)
-    : { data: [] as { id: string; name: string; city: string }[] }
+  if (error) throw new Error(error.message)
 
-  const tierById  = new Map((tiers  ?? []).map(t => [t.id, t]))
-  const venueById = new Map((venues ?? []).map(v => [v.id, v]))
+  // Build a set of event_ids that have perks available for purchase
+  const userEventIds = [...new Set((rows ?? []).map(r => r.event_id))]
+  const eventIdsWithPerks = new Set<string>()
+  const eventEndDateMap = new Map<string, string | null>()
+  if (userEventIds.length > 0) {
+    const [{ data: availPerks }, { data: eventDates }] = await Promise.all([
+      supabase.from('perks').select('event_id').in('event_id', userEventIds),
+      supabase.from('events').select('id, event_end_date').in('id', userEventIds),
+    ])
+    for (const p of availPerks ?? []) eventIdsWithPerks.add(p.event_id)
+    for (const e of eventDates ?? []) eventEndDateMap.set(e.id, e.event_end_date ?? null)
+  }
 
-  const eventGroups = (events ?? [])
-    .map(event => {
-      const venue      = event.venue_id ? (venueById.get(event.venue_id) ?? null) : null
-      const imageUrl   = resolveEventImageUrl(admin, event.image_url)
-      const groupTickets = (tickets ?? [])
-        .filter(t => t.event_id === event.id)
-        .map((t, i) => ({
-          id:       t.id,
-          qr_hash:  t.qr_hash,
-          is_used:  t.is_used,
-          tierName: tierById.get(t.tier_id)?.name ?? 'Boleto',
-          price:    Number(tierById.get(t.tier_id)?.price ?? 0),
-          index:    i + 1,
-        }))
+  // Group perk purchases by event_id
+  type RawPerkPurchase = { id: string; qr_hash: string; is_used: boolean; event_id: string; perks: { name?: string | null } | { name?: string | null }[] | null }
+  const perksByEvent = new Map<string, PerkPurchaseRow[]>()
+  for (const pp of (perkPurchaseRows ?? []) as RawPerkPurchase[]) {
+    if (!perksByEvent.has(pp.event_id)) perksByEvent.set(pp.event_id, [])
+    const perkInfo = Array.isArray(pp.perks) ? pp.perks[0] : pp.perks
+    perksByEvent.get(pp.event_id)!.push({
+      id:       pp.id,
+      qr_hash:  pp.qr_hash,
+      is_used:  pp.is_used,
+      perkName: perkInfo?.name ?? 'Extra',
+    })
+  }
 
-      return {
+  const groupMap = new Map<string, EventGroup>()
+
+  for (const row of rows ?? []) {
+    if (!groupMap.has(row.event_id)) {
+      groupMap.set(row.event_id, {
+        eventId: row.event_id,
         eventData: {
-          title:      event.title,
-          date:       new Date(event.event_date).toLocaleDateString('es-MX', {
+          title:      row.event_title,
+          date:       new Date(row.event_date).toLocaleDateString('es-MX', {
             weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
           }),
-          venueName:  venue?.name ?? null,
-          venueCity:  venue?.city ?? null,
-          imageUrl,
-          totalCount: groupTickets.length,
-          validCount: groupTickets.filter(t => !t.is_used).length,
+          venueName:  row.venue_name ?? null,
+          venueCity:  row.venue_city ?? null,
+          imageUrl:   resolveEventImageUrl(supabase, row.image_url),
+          totalCount: 0,
+          validCount: 0,
+          hasAvailablePerks: eventIdsWithPerks.has(row.event_id) && !isEventOver(row.event_date, eventEndDateMap.get(row.event_id)),
         },
-        tickets: groupTickets,
-        eventDate: event.event_date,
-      }
-    })
-    .filter(g => g.tickets.length > 0)
-    .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())
+        tickets:       [],
+        perkPurchases: perksByEvent.get(row.event_id) ?? [],
+        eventDate:     row.event_date,
+        eventEndDate:  eventEndDateMap.get(row.event_id) ?? null,
+      })
+    }
 
-  const totalTickets  = tickets?.length ?? 0
-  const totalEvents   = eventGroups.length
+    const group = groupMap.get(row.event_id)!
+    group.tickets.push({
+      id:       row.id,
+      qr_hash:  row.qr_hash,
+      is_used:  row.is_used,
+      tierName: row.tier_name ?? 'Boleto',
+      price:    Number(row.tier_price ?? 0),
+      index:    group.tickets.length + 1,
+    })
+    group.eventData.totalCount++
+    if (!row.is_used) group.eventData.validCount++
+  }
+
+  const eventGroups  = [...groupMap.values()]
+  const totalTickets = (rows ?? []).length
+  const totalEvents  = eventGroups.length
 
   return (
     <>
-      {/* Banner */}
       <section style={{ background: 'var(--hero-gradient)' }} className="animate-fade-in">
-        <div className="max-w-2xl mx-auto px-4 py-12 space-y-1">
+        <div className="max-w-2xl mx-auto px-4 pt-6">
+          <Link href="/dashboard"
+            className="inline-flex items-center gap-1 text-sm font-medium transition-opacity hover:opacity-70"
+            style={{ color: 'rgba(255,255,255,0.4)' }}>
+            <ChevronLeft size={16} />
+            Dashboard
+          </Link>
+        </div>
+        <div className="max-w-2xl mx-auto px-4 py-8 space-y-1">
           <p className="text-sm font-medium uppercase tracking-widest animate-fade-in-up"
             style={{ color: 'rgba(255,255,255,0.5)', animationDelay: '60ms' }}>
             Tu billetera digital

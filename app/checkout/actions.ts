@@ -5,7 +5,8 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { stripe } from '@/utils/stripe/server'
-import { calculateFees } from '@/utils/pricing'
+import { calculateFees, calculatePerkFees } from '@/utils/pricing'
+import { isEventOver } from '@/utils/event-time'
 
 function getBaseUrl(headerStore: Awaited<ReturnType<typeof headers>>) {
   const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim()
@@ -24,17 +25,19 @@ export async function startStripeCheckout(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const tierId = (formData.get('tierId') as string | null)?.trim()
-  const eventId = (formData.get('eventId') as string | null)?.trim()
+  const tierId   = (formData.get('tierId') as string | null)?.trim()
+  const eventId  = (formData.get('eventId') as string | null)?.trim()
   const quantityRaw = Number(formData.get('quantity'))
   const quantity = Number.isInteger(quantityRaw) ? quantityRaw : 1
+  const perksCsv = (formData.get('perks') as string | null)?.trim() || ''
+  const perkIds  = perksCsv ? perksCsv.split(',').map(s => s.trim()).filter(Boolean) : []
 
   if (!tierId || !eventId) throw new Error('Faltan datos del checkout')
   if (quantity < 1 || quantity > 10) throw new Error('Cantidad inválida')
 
   const { data: tier } = await supabase
     .from('ticket_tiers')
-    .select('id, name, price, available_tickets, event_id, events(title, status, event_date, organizer_id)')
+    .select('id, name, price, available_tickets, event_id, events(title, status, event_date, event_end_date, organizer_id)')
     .eq('id', tierId)
     .eq('event_id', eventId)
     .single()
@@ -43,10 +46,10 @@ export async function startStripeCheckout(formData: FormData) {
   if (tier.available_tickets < quantity) throw new Error('No hay boletos suficientes')
 
   const event = Array.isArray(tier.events)
-    ? (tier.events[0] as { title: string; status: string; event_date: string; organizer_id: string } | undefined)
-    : (tier.events as { title: string; status: string; event_date: string; organizer_id: string } | null)
+    ? (tier.events[0] as { title: string; status: string; event_date: string; event_end_date?: string | null; organizer_id: string } | undefined)
+    : (tier.events as { title: string; status: string; event_date: string; event_end_date?: string | null; organizer_id: string } | null)
   if (!event || event.status !== 'published') throw new Error('El evento no está disponible')
-  if (new Date(event.event_date) < new Date()) throw new Error('El evento ya pasó')
+  if (isEventOver(event.event_date, event.event_end_date)) throw new Error('El evento ya pasó')
 
   const priceNumber = Number(tier.price)
 
@@ -56,6 +59,18 @@ export async function startStripeCheckout(formData: FormData) {
         tier_id_input: tierId,
       })
       if (error) throw new Error(error.message)
+    }
+    // Handle bundled free perks
+    if (perkIds.length > 0) {
+      const supabaseAdmin = createAdminClient()
+      const { error: perkError } = await supabaseAdmin.rpc('purchase_perks_free', {
+        p_user_id:  user.id,
+        p_event_id: eventId,
+        p_perk_ids: perkIds,
+      })
+      if (perkError) {
+        console.error('[checkout] purchase_perks_free error:', perkError.message)
+      }
     }
     redirect('/tickets')
   }
@@ -80,9 +95,57 @@ export async function startStripeCheckout(formData: FormData) {
     throw new Error('El precio del boleto es menor al mínimo permitido por Stripe para pagos en MXN')
   }
 
+  // Validar y calcular perks si los hay
+  type PerkFeeRow = { id: string; name: string; unitAmountCentavos: number; appFeeCentavos: number }
+  const perkFeeRows: PerkFeeRow[] = []
+  let totalPerkAppFeeCentavos = 0
+  let perkIdCsv = ''
+
+  if (perkIds.length > 0) {
+    const uniqueIds = [...new Set(perkIds)]
+    const supabaseAdmin2 = createAdminClient()
+    const { data: perksData } = await supabaseAdmin2
+      .from('perks')
+      .select('id, name, price')
+      .in('id', uniqueIds)
+      .eq('event_id', eventId)
+
+    if (perksData) {
+      const priceMap = new Map(perksData.map(p => [p.id, { name: p.name, price: Number(p.price) }]))
+      for (const perkId of perkIds) {
+        const perk = priceMap.get(perkId)
+        if (!perk || perk.price === 0) continue
+        const pFees = calculatePerkFees(perk.price, 1)
+        perkFeeRows.push({ id: perkId, name: perk.name, unitAmountCentavos: pFees.unitAmountCentavos, appFeeCentavos: pFees.applicationFeeAmountCentavos })
+        totalPerkAppFeeCentavos += pFees.applicationFeeAmountCentavos
+      }
+      perkIdCsv = perkIds.join(',')
+    }
+  }
+
   const baseUrl = getBaseUrl(headerStore)
   const successUrl = `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
   const cancelUrl = `${baseUrl}/checkout?eventId=${eventId}&tierId=${tierId}&quantity=${quantity}`
+
+  // Agrupar perks por línea (misma id → mismo line_item con quantity)
+  const perkLineItems: { quantity: number; price_data: { currency: string; unit_amount: number; product_data: { name: string } } }[] = []
+  const perkQtyMap = new Map<string, { qty: number; unitCents: number; name: string }>()
+  for (const row of perkFeeRows) {
+    const existing = perkQtyMap.get(row.id)
+    if (existing) existing.qty++
+    else perkQtyMap.set(row.id, { qty: 1, unitCents: row.unitAmountCentavos, name: row.name })
+  }
+  for (const { qty, unitCents, name } of perkQtyMap.values()) {
+    perkLineItems.push({ quantity: qty, price_data: { currency: 'mxn', unit_amount: unitCents, product_data: { name } } })
+  }
+
+  const metadata: Record<string, string> = {
+    user_id:  user.id,
+    event_id: eventId,
+    tier_id:  tierId,
+    quantity: String(quantity),
+  }
+  if (perkIdCsv) metadata.perk_ids = perkIdCsv
 
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
@@ -101,23 +164,15 @@ export async function startStripeCheckout(formData: FormData) {
           },
         },
       },
+      ...perkLineItems,
     ],
     payment_intent_data: {
-      // Stripe transfiere (totalCobrado - stripeFee) al organizador, luego
-      // application_fee_amount regresa a la plataforma.
-      // Neto organizador = totalCobrado - stripeFee - applicationFee = ticketPrice × qty ✓
-      // transfer_data.amount es mutuamente exclusivo con application_fee_amount en API 2026.
-      application_fee_amount: fees.applicationFeeAmountCentavos,
+      application_fee_amount: fees.applicationFeeAmountCentavos + totalPerkAppFeeCentavos,
       transfer_data: {
         destination: organizer.stripe_account_id,
       },
     },
-    metadata: {
-      user_id: user.id,
-      event_id: eventId,
-      tier_id: tierId,
-      quantity: String(quantity),
-    },
+    metadata,
   })
 
   if (!session.url) {

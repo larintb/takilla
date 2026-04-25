@@ -5,9 +5,47 @@ const STRIPE_FLAT = 3.00
 // IVA mexicano sobre la comisión de Stripe (16%)
 const STRIPE_IVA = 0.16
 
-// Tarifa de plataforma Takilla: 5% + $5.00 MXN
+// Tarifa de plataforma Takilla: boletos 5% + $5.00 MXN | perks solo 5%
 const PLATFORM_PCT  = 0.05
 const PLATFORM_FLAT = 5.00
+
+export interface PerkFeeBreakdown {
+  perkPrice:   number
+  platformFee: number  // 5% del precio del perk por unidad
+  unitTotal:   number  // perkPrice × 1.05
+  totalAmount: number  // unitTotal × quantity
+  applicationFeeAmountCentavos: number  // 5% en centavos × quantity
+  unitAmountCentavos: number
+}
+
+/**
+ * Calcula el costo de un perk para el comprador: 5% de plataforma (sin $5 flat),
+ * más gross-up del fee de Stripe para que el organizador reciba exactamente perkPrice
+ * y Takilla nete exactamente el 5%.
+ *
+ * Misma ecuación circular que calculateFees pero con PLATFORM_FLAT = 0:
+ *   T = (perkPrice + 5%×perkPrice + STRIPE_FLAT×1.16) / (1 - STRIPE_PCT×1.16)
+ */
+export function calculatePerkFees(perkPrice: number, quantity: number): PerkFeeBreakdown {
+  const platformFeePerPerk = perkPrice * PLATFORM_PCT  // 5%, sin flat
+
+  const stripeIvaFactor = 1 + STRIPE_IVA
+  const numerator   = perkPrice + platformFeePerPerk + STRIPE_FLAT * stripeIvaFactor
+  const denominator = 1 - STRIPE_PCT * stripeIvaFactor
+  const unitTotal   = numerator / denominator
+
+  const stripeFeePerPerk = (unitTotal * STRIPE_PCT + STRIPE_FLAT) * stripeIvaFactor
+  const totalAmount      = unitTotal * quantity
+
+  return {
+    perkPrice,
+    platformFee:   Math.round(platformFeePerPerk * 100) / 100,
+    unitTotal:     Math.round(unitTotal           * 100) / 100,
+    totalAmount:   Math.round(totalAmount         * 100) / 100,
+    applicationFeeAmountCentavos: Math.round((platformFeePerPerk + stripeFeePerPerk) * quantity * 100),
+    unitAmountCentavos:           Math.round(unitTotal * 100),
+  }
+}
 
 export interface FeeBreakdown {
   ticketPrice:          number  // precio que fijó el organizador
@@ -60,9 +98,10 @@ export function calculateFees(ticketPrice: number, quantity: number): FeeBreakdo
     serviceChargePerTicket: Math.round(serviceChargePerTicket * 100) / 100,
     unitTotal:              Math.round(unitTotal              * 100) / 100,
     totalAmount:            Math.round(totalAmount            * 100) / 100,
-    // Stripe transfiere (totalCobrado - stripeFee) al organizador y regresa
-    // applicationFeeAmount a la plataforma. Neto organizer = ticketPrice × qty.
-    applicationFeeAmountCentavos: Math.round(platformFeePerTicket * quantity * 100),
+    // Stripe transfiere (unitTotal - applicationFee) al organizador.
+    // applicationFee = platformFee + stripeFee → organizer recibe exactamente ticketPrice.
+    // Takilla neto = platformFee (stripeFee ya está en applicationFee y Stripe lo cobra).
+    applicationFeeAmountCentavos: Math.round((platformFeePerTicket + stripeFeePerTicket) * quantity * 100),
     unitAmountCentavos:           Math.round(unitTotal * 100),
   }
 }

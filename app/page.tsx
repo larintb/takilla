@@ -5,7 +5,19 @@ import { createClient } from '@/utils/supabase/server'
 import { resolveEventImageUrl } from '@/utils/supabase/storage'
 import { Ticket, CalendarDays, MapPin, QrCode, ShieldCheck, Zap } from 'lucide-react'
 import Navbar from '@/components/navbar'
+import { isEventOver } from '@/utils/event-time'
 import DomeGallery from '@/components/dome-gallery'
+
+const DOME_STOCK = [
+  { src: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=600&auto=format&fit=crop', alt: 'Concert' },
+  { src: 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=600&auto=format&fit=crop', alt: 'Festival' },
+  { src: 'https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=600&auto=format&fit=crop', alt: 'Event' },
+  { src: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=600&auto=format&fit=crop', alt: 'Music' },
+  { src: 'https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?w=600&auto=format&fit=crop', alt: 'DJ' },
+  { src: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=600&auto=format&fit=crop', alt: 'Stage' },
+  { src: 'https://images.unsplash.com/photo-1549213783-8284d0336c4f?w=600&auto=format&fit=crop', alt: 'Crowd' },
+  { src: 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=600&auto=format&fit=crop', alt: 'Live music' },
+]
 
 const CATEGORY_LABELS: Record<string, string> = {
   musica:   'Música',
@@ -27,14 +39,26 @@ export default async function Home() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1)
+  const cutoff = yesterday.toISOString()
   const [{ data: { user } }, { data: events }] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from('events').select(`
-      id, title, event_date, image_url, category,
+      id, title, event_date, event_end_date, image_url, category,
       venues(name, city),
       ticket_tiers(price)
-    `).eq('status', 'published').gt('event_date', new Date().toISOString()).order('event_date', { ascending: true }).limit(6),
+    `).eq('status', 'published').gt('event_date', cutoff).order('event_date', { ascending: true }).limit(12),
   ])
+
+  const activeEvents = (events ?? []).filter(e => !isEventOver(e.event_date, e.event_end_date)).slice(0, 6)
+
+  const eventDomeImages = activeEvents
+    .filter(e => !!e.image_url)
+    .slice(0, 2)
+    .map(e => ({ src: resolveEventImageUrl(supabase, e.image_url)!, alt: e.title }))
+    .filter(e => !!e.src)
+
+  const domeImages = [...eventDomeImages, ...DOME_STOCK.slice(eventDomeImages.length)]
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--background)' }}>
@@ -49,6 +73,7 @@ export default async function Home() {
         {/* Dome gallery background */}
         <div className="absolute inset-0 z-0" style={{ opacity: 0.45 }}>
           <DomeGallery
+            images={domeImages}
             fit={1.2}
             minRadius={750}
             segments={30}
@@ -138,7 +163,7 @@ export default async function Home() {
       </section>
 
       {/* Upcoming events */}
-      {events && events.length > 0 && (
+      {activeEvents.length > 0 && (
         <section className="max-w-6xl mx-auto px-4 py-16 space-y-6 w-full animate-fade-in-up" style={{ animationDelay: '150ms' }}>
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-white">Próximos eventos</h2>
@@ -152,7 +177,7 @@ export default async function Home() {
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {events.map((event, i) => {
+            {activeEvents.map((event, i) => {
               const venue    = (event.venues ?? null) as VenueInfo | null
               const tiers    = (event.ticket_tiers ?? []) as TierPrice[]
               const prices   = tiers?.map(t => Number(t.price)) ?? []

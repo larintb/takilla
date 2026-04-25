@@ -169,11 +169,13 @@ export default function PaymentForm({
   eventId,
   tierId,
   quantity,
+  perkIds = [],
   totalLabel,
 }: {
   eventId:    string
   tierId:     string
   quantity:   number
+  perkIds?:   string[]
   totalLabel: string
 }) {
   const [clientSecret, setClientSecret] = useState<string | null>(null)
@@ -182,22 +184,42 @@ export default function PaymentForm({
   const [fetchError,   setFetchError]   = useState<string | null>(null)
   const expired = secondsLeft <= 0
 
-  // Create PaymentIntent on mount
+  // Stable key for perkIds so the effect re-fires when the selection changes
+  const perkIdsKey = perkIds.slice().sort().join(',')
+
+  // Create PaymentIntent on mount and whenever the cart changes
   useEffect(() => {
-    fetch('/api/stripe/payment-intent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ eventId, tierId, quantity }),
-    })
-      .then(r => r.json())
-      .then(data => {
+    let ignore = false
+
+    async function fetchIntent(retriesLeft = 3): Promise<void> {
+      try {
+        const r = await fetch('/api/stripe/payment-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eventId, tierId, quantity, perkIds }),
+        })
+        if (ignore) return
+        if (r.status === 409 && retriesLeft > 0) {
+          // Transient lock — retry after a short delay
+          await new Promise(res => setTimeout(res, 2000))
+          if (!ignore) return fetchIntent(retriesLeft - 1)
+          return
+        }
+        const data = await r.json()
+        if (ignore) return
         if (data.error) { setFetchError(data.error); return }
         setClientSecret(data.clientSecret)
         setExpiresAt(data.expiresAt)
         setSecondsLeft(data.expiresAt - Math.floor(Date.now() / 1000))
-      })
-      .catch(() => setFetchError('No se pudo iniciar el pago. Intenta de nuevo.'))
-  }, [eventId, tierId, quantity])
+      } catch {
+        if (!ignore) setFetchError('No se pudo iniciar el pago. Intenta de nuevo.')
+      }
+    }
+
+    fetchIntent()
+    return () => { ignore = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, tierId, quantity, perkIdsKey])
 
   // Countdown ticker
   useEffect(() => {

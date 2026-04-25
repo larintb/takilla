@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { stripe } from '@/utils/stripe/server'
 import { createAdminClient } from '@/utils/supabase/admin'
+import { sendPurchaseConfirmation } from '@/utils/email/purchase-confirmation'
 
 async function handleAccountUpdated(account: Stripe.Account) {
   if (!account.charges_enabled || !account.payouts_enabled) return
@@ -31,7 +32,24 @@ function asRequiredMetadata(metadata: Stripe.Metadata | null) {
     return null
   }
 
-  return { userId, tierId, quantity }
+  // perk_ids is optional — present when perks are bundled with ticket purchase
+  const perkIdsCsv = metadata?.perk_ids?.trim() || null
+  const perkIds: string[] = perkIdsCsv ? perkIdsCsv.split(',').map(s => s.trim()).filter(Boolean) : []
+
+  return { userId, tierId, quantity, perkIds }
+}
+
+function asPerksOnlyMetadata(metadata: Stripe.Metadata | null) {
+  if (metadata?.purchase_kind !== 'perks') return null
+
+  const userId = metadata?.user_id?.trim()
+  const eventId = metadata?.event_id?.trim()
+  const perkIdsCsv = metadata?.perk_ids?.trim() || null
+  const perkIds: string[] = perkIdsCsv ? perkIdsCsv.split(',').map(s => s.trim()).filter(Boolean) : []
+
+  if (!userId || !eventId || perkIds.length === 0) return null
+
+  return { userId, eventId, perkIds }
 }
 
 async function tryRefund(paymentIntentId: string | null, context: string) {
@@ -81,12 +99,32 @@ export async function POST(request: Request) {
 
   // ── PaymentIntent (flujo embebido, sin redirect) ──────────────────────────
   if (event.type === 'payment_intent.succeeded') {
-    const pi     = event.data.object as Stripe.PaymentIntent
-    const parsed = asRequiredMetadata(pi.metadata)
+    const pi = event.data.object as Stripe.PaymentIntent
+    const supabaseAdmin = createAdminClient()
 
+    // ── Perks-only purchase ───────────────────────────────────────────────
+    const perksOnly = asPerksOnlyMetadata(pi.metadata)
+    if (perksOnly) {
+      const totalAmount = pi.amount / 100
+      const { data: orderId, error } = await supabaseAdmin.rpc('fulfill_perks_order', {
+        p_user_id:     perksOnly.userId,
+        p_event_id:    perksOnly.eventId,
+        p_perk_ids:    perksOnly.perkIds,
+        p_session_id:  pi.id,
+        p_total_amount: totalAmount,
+      })
+      if (error) {
+        console.error('[webhook] fulfill_perks_order error:', error.message)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      if (orderId) void sendPurchaseConfirmation(perksOnly.userId, orderId)
+      return NextResponse.json({ received: true })
+    }
+
+    // ── Ticket purchase (+ optional bundled perks) ────────────────────────
+    const parsed = asRequiredMetadata(pi.metadata)
     if (parsed) {
-      const supabaseAdmin = createAdminClient()
-      const { error } = await supabaseAdmin.rpc('fulfill_checkout_session', {
+      const { data: orderId, error } = await supabaseAdmin.rpc('fulfill_checkout_session', {
         p_user_id:           parsed.userId,
         p_tier_id:           parsed.tierId,
         p_quantity:          parsed.quantity,
@@ -103,6 +141,24 @@ export async function POST(request: Request) {
         console.error('[webhook] fulfill error (payment_intent.succeeded):', error.message)
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
+
+      // Fulfill bundled perks if present
+      if (orderId && parsed.perkIds.length > 0) {
+        const eventId = pi.metadata?.event_id?.trim()
+        if (eventId) {
+          const { error: perkError } = await supabaseAdmin.rpc('fulfill_perk_purchases', {
+            p_order_id: orderId,
+            p_user_id:  parsed.userId,
+            p_event_id: eventId,
+            p_perk_ids: parsed.perkIds,
+          })
+          if (perkError) {
+            console.error('[webhook] fulfill_perk_purchases error:', perkError.message)
+          }
+        }
+      }
+
+      if (orderId) void sendPurchaseConfirmation(parsed.userId, orderId)
     }
 
     return NextResponse.json({ received: true })
@@ -125,7 +181,7 @@ export async function POST(request: Request) {
         typeof session.payment_intent === 'string' ? session.payment_intent : null
 
       const supabaseAdmin = createAdminClient()
-      const { error } = await supabaseAdmin.rpc('fulfill_checkout_session', {
+      const { data: orderId, error } = await supabaseAdmin.rpc('fulfill_checkout_session', {
         p_user_id: parsed.userId,
         p_tier_id: parsed.tierId,
         p_quantity: parsed.quantity,
@@ -144,6 +200,25 @@ export async function POST(request: Request) {
         console.error('[webhook] fulfill_checkout_session error:', error.message)
         // Return 500 for unexpected errors so Stripe retries
         return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      if (orderId && parsed.perkIds.length > 0) {
+        const eventId = session.metadata?.event_id?.trim()
+        if (eventId) {
+          const { error: perkError } = await supabaseAdmin.rpc('fulfill_perk_purchases', {
+            p_order_id: orderId,
+            p_user_id:  parsed.userId,
+            p_event_id: eventId,
+            p_perk_ids: parsed.perkIds,
+          })
+          if (perkError) {
+            console.error('[webhook] fulfill_perk_purchases (checkout.session) error:', perkError.message)
+          }
+        }
+      }
+
+      if (orderId) {
+        void sendPurchaseConfirmation(parsed.userId, orderId)
       }
     }
   }

@@ -108,7 +108,7 @@ export default function Scanner() {
             <Camera size={40} className="text-zinc-400" />
           </div>
           <div className="space-y-1">
-            <p className="text-white font-semibold text-lg">Escanear boleto</p>
+            <p className="text-white font-semibold text-lg">Escanear boleto o extra</p>
             <p className="text-zinc-500 text-sm">Se necesita acceso a la cámara</p>
           </div>
           <button
@@ -172,7 +172,7 @@ export default function Scanner() {
             </p>
             <p className="text-white/80 text-sm">{result.message}</p>
 
-            {result.success && (
+            {result.success && result.kind === 'ticket' && (
               <div className="w-full bg-white/15 rounded-xl p-4 text-sm space-y-2 text-white">
                 <p><span className="text-white/60">Evento</span><br />{result.ticket.eventTitle}</p>
                 <p><span className="text-white/60">Tier</span><br />{result.ticket.tierName}</p>
@@ -193,6 +193,15 @@ export default function Scanner() {
               </div>
             )}
 
+            {result.success && result.kind === 'perk' && (
+              <div className="w-full bg-white/15 rounded-xl p-4 text-sm space-y-2 text-white">
+                <p className="text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Extra canjeado</p>
+                <p className="text-xl font-bold">{result.perk.perkName}</p>
+                <p><span className="text-white/60">Evento</span><br />{result.perk.eventTitle}</p>
+                <p><span className="text-white/60">Titular</span><br />{result.perk.ownerName}</p>
+              </div>
+            )}
+
             <button
               onClick={reset}
               className="mt-2 flex items-center gap-2 bg-white text-zinc-900 px-6 py-2.5 rounded-xl text-sm font-semibold"
@@ -205,7 +214,7 @@ export default function Scanner() {
       </div>
 
       <p className="mt-6 text-sm text-zinc-500 text-center px-4">
-        {state === 'scanning' && 'Apunta la cámara al QR del boleto'}
+        {state === 'scanning' && 'Apunta la cámara al QR del boleto o extra'}
         {state === 'loading'  && 'Validando...'}
       </p>
     </div>

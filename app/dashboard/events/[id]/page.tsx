@@ -3,14 +3,18 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import {
   CalendarDays, MapPin, Ticket, Globe,
-  TrendingUp, Users, DollarSign, Pencil, Lock
+  TrendingUp, Users, DollarSign, Pencil, Lock, Gift
 } from 'lucide-react'
 import TierForm from './_components/tier-form'
 import TierList from './_components/tier-list'
+import PerkForm from './_components/perk-form'
+import PerkList from './_components/perk-list'
 import StatusActions from './_components/status-actions'
 import EventEditForm from './_components/event-edit-form'
-import { updateEvent } from './actions'
+import { updateEvent, duplicateEvent } from './actions'
+import { isEventOver } from '@/utils/event-time'
 import Link from 'next/link'
+import { Copy } from 'lucide-react'
 
 type VenueInfo = { name?: string | null; city?: string | null }
 
@@ -26,10 +30,11 @@ export default async function EventDetailPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: event }, { data: profile }, { data: tiers }] = await Promise.all([
+  const [{ data: event }, { data: profile }, { data: tiers }, { data: perks }] = await Promise.all([
     supabase.from('events').select('*, venues(name, city)').eq('id', id).single(),
     supabase.from('profiles').select('role, stripe_onboarding_complete').eq('id', user.id).single(),
     supabase.from('ticket_tiers').select('*').eq('event_id', id).order('price'),
+    supabase.from('perks').select('*').eq('event_id', id).order('price'),
   ])
 
   if (!event) notFound()
@@ -39,7 +44,7 @@ export default async function EventDetailPage({
   if (!isOwner && !isAdmin) redirect('/dashboard')
 
   const venue = (event.venues ?? null) as VenueInfo | null
-  const isFinished = event.status === 'published' && new Date(event.event_date) < new Date()
+  const isFinished = event.status === 'published' && isEventOver(event.event_date, event.event_end_date)
   const isDraft = event.status === 'draft'
   const isPublished = event.status === 'published' && !isFinished
 
@@ -213,8 +218,55 @@ export default async function EventDetailPage({
         )}
       </section>
 
+      {/* Perks (extras) */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Gift size={16} className="text-orange-400" />
+          <h2 className="text-base font-semibold text-white">Extras del evento</h2>
+          <span className="text-sm text-purple-400/60">({perks?.length ?? 0})</span>
+        </div>
+
+        <PerkList perks={perks ?? []} eventId={id} />
+
+        {isDraft && (
+          <div>
+            <h3 className="text-sm font-medium text-purple-300 mb-3">Agregar extra</h3>
+            <PerkForm eventId={id} canCharge={!!profile?.stripe_onboarding_complete} />
+          </div>
+        )}
+
+        {isPublished && (
+          <p className="text-xs text-purple-400/60 flex items-center gap-1.5 bg-white/5 border border-purple-700/30 px-3 py-2 rounded-lg">
+            <Lock size={11} /> Regresa el evento a borrador para agregar o eliminar extras.
+          </p>
+        )}
+      </section>
+
       {/* Status actions */}
       {!isFinished && <StatusActions eventId={id} currentStatus={event.status} />}
+
+      {/* Duplicate — only for finished events */}
+      {isFinished && (
+        <section className="rounded-2xl border border-purple-700/40 bg-white/5 p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Copy size={15} className="text-orange-400" />
+            <h2 className="text-sm font-semibold text-white">Crear nueva edición</h2>
+          </div>
+          <p className="text-sm text-purple-300/70">
+            Genera un borrador idéntico a este evento con todos sus tiers y extras. Solo tendrás que actualizar la fecha.
+          </p>
+          <form action={duplicateEvent.bind(null, id)}>
+            <button
+              type="submit"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-opacity hover:opacity-80"
+              style={{ background: 'var(--accent-gradient)' }}
+            >
+              <Copy size={14} />
+              Duplicar evento
+            </button>
+          </form>
+        </section>
+      )}
       {event.status === 'published' && (
   <div className="flex items-center gap-2 text-sm text-purple-300/70 bg-white/5 border border-purple-700/30 rounded-lg px-4 py-3">
     <Globe size={14} className="text-orange-400" />

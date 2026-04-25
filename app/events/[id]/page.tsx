@@ -3,10 +3,12 @@ import { cookies } from 'next/headers'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/utils/supabase/server'
-import { resolveEventImageUrl } from '@/utils/supabase/storage'
-import { CalendarDays, MapPin, Users, ArrowLeft, Ticket } from 'lucide-react'
-import TicketPanel from './_components/ticket-panel'
+import { resolveEventImageUrl, resolveAvatarUrl } from '@/utils/supabase/storage'
+import { CalendarDays, MapPin, Users, ArrowLeft, Ticket, Store } from 'lucide-react'
+import EventPurchasePanel from './_components/event-purchase-panel'
 import EventMap from './_components/event-map'
+import Avatar from '@/components/avatar'
+import { isEventOver } from '@/utils/event-time'
 
 type VenueInfo = {
   name?: string | null
@@ -28,16 +30,25 @@ export default async function EventDetailPage({
     { data: event },
     { data: tiers },
     { data: { user } },
+    { data: perks },
   ] = await Promise.all([
-    supabase.from('events').select('*, venues(name, city, address, capacity)').eq('id', id).eq('status', 'published').single(),
+    supabase.from('events').select('*, venues(name, city, address, capacity), organizer:profiles!organizer_id(id, business_name, avatar_url, public_slug)').eq('id', id).eq('status', 'published').single(),
     supabase.from('ticket_tiers').select('*').eq('event_id', id).order('price'),
     supabase.auth.getUser(),
+    supabase.from('perks').select('id, name, price, description, image_url').eq('event_id', id).order('price'),
   ])
 
   if (!event) notFound()
 
-  const venue    = (event.venues ?? null) as VenueInfo | null
-  const imageUrl = resolveEventImageUrl(supabase, event.image_url)
+  const hasExistingTicket = user
+    ? ((await supabase.from('tickets').select('id').eq('owner_id', user.id).eq('event_id', id).limit(1).maybeSingle()).data !== null)
+    : false
+
+  const venue      = (event.venues ?? null) as VenueInfo | null
+  const imageUrl   = resolveEventImageUrl(supabase, event.image_url)
+  const organizerRaw = Array.isArray(event.organizer) ? event.organizer[0] : event.organizer
+  const organizer  = organizerRaw as { id: string; business_name: string | null; avatar_url: string | null; public_slug: string | null } | null
+  const avatarUrl  = resolveAvatarUrl(supabase, organizer?.avatar_url)
 
   const dateFormatted = new Date(event.event_date).toLocaleDateString('es-MX', {
     weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
@@ -46,7 +57,7 @@ export default async function EventDetailPage({
     hour: '2-digit', minute: '2-digit',
   })
 
-  const isPast = new Date(event.event_date) < new Date()
+  const isPast = isEventOver(event.event_date, event.event_end_date)
   const hasLocation = !!(event.location_lat && event.location_lng)
   const locationLabel = event.location_name
     ?? (venue?.name ? `${venue.name}${venue.city ? `, ${venue.city}` : ''}` : null)
@@ -135,6 +146,24 @@ export default async function EventDetailPage({
               </div>
             )}
 
+            {organizer?.public_slug && organizer?.business_name && (
+              <div className="pt-5 min-w-0" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <Link
+                  href={`/o/${organizer.public_slug}`}
+                  className="flex items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-white/5 -mx-4"
+                >
+                  <Avatar name={organizer.business_name} src={avatarUrl} size={40} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                      Organizado por
+                    </p>
+                    <p className="text-sm font-semibold text-white truncate">{organizer.business_name}</p>
+                  </div>
+                  <Store size={15} style={{ color: 'rgba(255,255,255,0.25)' }} className="shrink-0" />
+                </Link>
+              </div>
+            )}
+
             {hasLocation && (
               <div className="pt-5 min-w-0 space-y-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                 <h2 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5"
@@ -176,7 +205,7 @@ export default async function EventDetailPage({
                 </p>
               </div>
             ) : (
-              <TicketPanel
+              <EventPurchasePanel
                 eventId={id}
                 tiers={tiers.map(t => ({
                   id: t.id,
@@ -187,9 +216,17 @@ export default async function EventDetailPage({
                   description: t.description ?? null,
                   effect: t.effect ?? null,
                 }))}
+                perks={(perks ?? []).map(p => ({
+                  id: p.id,
+                  name: p.name,
+                  price: Number(p.price),
+                  description: p.description ?? null,
+                  imageUrl: p.image_url ? resolveEventImageUrl(supabase, p.image_url) : null,
+                }))}
                 isPast={isPast}
                 isLoggedIn={!!user}
                 loginRedirect={`/login?next=/events/${id}`}
+                hasExistingTicket={hasExistingTicket}
               />
             )}
           </div>

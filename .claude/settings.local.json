@@ -15,7 +15,12 @@
       "Bash(node -e \"const pkg = require\\(''./node_modules/next/package.json''\\); console.log\\(pkg.version\\)\")",
       "Bash(node -e \":*)",
       "Bash(find .next -name *.html)",
-      "Bash(pnpm install:*)"
+      "Bash(pnpm install:*)",
+      "Bash(npx plugins *)",
+      "mcp__plugin_vercel_vercel__web_fetch_vercel_url",
+      "Bash(pnpm tsc *)",
+      "WebFetch(domain:resend.com)",
+      "Bash(pnpm build *)"
     ]
   }
 }

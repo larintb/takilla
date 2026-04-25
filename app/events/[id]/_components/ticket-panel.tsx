@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronUp, ChevronDown, Loader2, LogIn, Ban } from 'lucide-react'
+import { Minus, Plus, ArrowRight, CheckCircle2, Loader2, LogIn, Ban } from 'lucide-react'
+import { TierEffectKeyframes, goldStyle, diamondStyle } from '@/components/tier-effects'
 
 type Tier = {
   id: string
@@ -15,45 +16,6 @@ type Tier = {
   effect?: string | null
 }
 
-// ── Gold shimmer styles ──────────────────────────────────────────────────────
-const goldBase: React.CSSProperties = {
-  backgroundImage: 'linear-gradient(135deg, #78350f, #b45309, #d97706, #fbbf24, #d97706, #b45309, #78350f)',
-  backgroundSize: '300% 300%',
-  backgroundRepeat: 'no-repeat',
-  animation: 'goldWave 3s ease infinite',
-  color: '#fef3c7',
-  textShadow: '0 1px 3px rgba(0,0,0,0.6)',
-  border: 'none',
-  boxShadow: '0 0 16px rgba(251,191,36,0.35)',
-  // No overflow here — let each element control its own border-radius
-}
-
-const goldStyle: React.CSSProperties = { ...goldBase }
-const goldActiveStyle: React.CSSProperties = {
-  ...goldBase,
-  boxShadow: '0 0 28px rgba(251,191,36,0.6)',
-  outline: '2px solid rgba(251,191,36,0.5)',
-}
-
-// ── Diamond shimmer styles ───────────────────────────────────────────────────
-const diamondBase: React.CSSProperties = {
-  backgroundImage: 'linear-gradient(135deg, #0c4a6e, #0369a1, #0ea5e9, #7dd3fc, #0ea5e9, #0369a1, #0c4a6e)',
-  backgroundSize: '300% 300%',
-  backgroundRepeat: 'no-repeat',
-  animation: 'diamondWave 3s ease infinite',
-  color: '#e0f2fe',
-  textShadow: '0 1px 3px rgba(0,0,0,0.6)',
-  border: 'none',
-  boxShadow: '0 0 16px rgba(56,189,248,0.35)',
-}
-
-const diamondStyle: React.CSSProperties = { ...diamondBase }
-const diamondActiveStyle: React.CSSProperties = {
-  ...diamondBase,
-  boxShadow: '0 0 28px rgba(56,189,248,0.6)',
-  outline: '2px solid rgba(56,189,248,0.5)',
-}
-
 // ── Availability bar ─────────────────────────────────────────────────────────
 function AvailBar({ available, total }: { available: number; total: number }) {
   if (total <= 0) return null
@@ -63,7 +25,7 @@ function AvailBar({ available, total }: { available: number; total: number }) {
     pct <= 25       ? 'rgba(234,179,8,0.8)'  :
                       'var(--accent-gradient)'
   return (
-    <div className="h-1 w-full rounded-full overflow-hidden mt-2"
+    <div className="h-1 w-full rounded-full overflow-hidden"
       style={{ background: 'rgba(255,255,255,0.07)' }}>
       <div className="h-full rounded-full transition-all duration-500"
         style={{ width: `${pct}%`, background: color }} />
@@ -78,12 +40,14 @@ export default function TicketPanel({
   isPast,
   isLoggedIn,
   loginRedirect,
+  onBuy,
 }: {
   eventId: string
   tiers: Tier[]
   isPast: boolean
   isLoggedIn: boolean
   loginRedirect: string
+  onBuy?: (tierId: string, qty: number) => void
 }) {
   const router = useRouter()
 
@@ -100,68 +64,80 @@ export default function TicketPanel({
   const total     = unitPrice * qty
   const effect    = selectedTier?.effect ?? 'none'
 
-  const incIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const decIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  function stopAll() {
-    if (incIntervalRef.current) { clearInterval(incIntervalRef.current); incIntervalRef.current = null }
-    if (decIntervalRef.current) { clearInterval(decIntervalRef.current); decIntervalRef.current = null }
-  }
-  useEffect(() => () => stopAll(), [])
-
-  function startInc() {
-    setQty(q => Math.min(max, q + 1))
-    incIntervalRef.current = setInterval(() => setQty(q => Math.min(max, q + 1)), 140)
-  }
-  function startDec() {
-    setQty(q => Math.max(1, q - 1))
-    decIntervalRef.current = setInterval(() => setQty(q => Math.max(1, q - 1)), 140)
-  }
-
-  function handleSelectTier(id: string) {
-    setSelectedId(id)
+  function handleSelectTier(tier: Tier) {
+    if (tier.available_tickets === 0) return
+    if (selectedId === tier.id) return
+    setSelectedId(tier.id)
     setQty(1)
   }
 
   function handleBuy() {
     if (loading || isSoldOut || isPast) return
     setLoading(true)
-    setTimeout(() => {
-      router.push(`/checkout?eventId=${eventId}&tierId=${selectedId}&quantity=${qty}`)
-    }, 500)
+    if (onBuy) {
+      onBuy(selectedId, qty)
+    } else {
+      setTimeout(() => {
+        router.push(`/checkout?eventId=${eventId}&tierId=${selectedId}&quantity=${qty}`)
+      }, 500)
+    }
   }
 
-  const disabled = loading || isSoldOut || isPast
-
-  // ── Tier button style helper ─────────────────────────────────────────────
-  function tierButtonStyle(tier: Tier): React.CSSProperties {
-    const active = tier.id === selectedId
-    const sold   = tier.available_tickets === 0
-    const e      = tier.effect ?? 'none'
-
+  // ── Card border + shadow per effect (only when selected) ─────────────────
+  function cardBorderStyle(tier: Tier): React.CSSProperties {
+    const isSelected = tier.id === selectedId
+    const soldOut = tier.available_tickets === 0
+    if (!isSelected) {
+      return {
+        border: '1px solid var(--color-deep-purple)',
+        opacity: soldOut ? 0.45 : 0.8,
+        boxShadow: 'none',
+      }
+    }
+    const e = tier.effect ?? 'none'
     if (e === 'gold') return {
-      ...(active ? goldActiveStyle : { ...goldStyle, opacity: sold ? 0.4 : 0.75 }),
-      borderRadius: '0.75rem', // rounded-xl — asegura que el gradiente no se salga
+      border: '1px solid rgba(251,191,36,0.6)',
+      boxShadow: '0 4px 20px rgba(251,191,36,0.2)',
+      opacity: 1,
     }
     if (e === 'diamond') return {
-      ...(active ? diamondActiveStyle : { ...diamondStyle, opacity: sold ? 0.4 : 0.75 }),
-      borderRadius: '0.75rem',
+      border: '1px solid rgba(56,189,248,0.6)',
+      boxShadow: '0 4px 20px rgba(56,189,248,0.2)',
+      opacity: 1,
     }
-
     return {
-      background: active ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.06)',
-      color: active ? '#fff' : sold ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.55)',
-      border: active ? 'none' : '1px solid rgba(255,255,255,0.09)',
-      boxShadow: active ? '0 0 18px rgba(249,115,22,0.25)' : 'none',
+      border: '1px solid var(--color-pink)',
+      boxShadow: '0 4px 20px rgba(250,20,146,0.15)',
+      opacity: 1,
     }
   }
 
-  // ── Price block color based on effect ───────────────────────────────────
-  const priceStyle: React.CSSProperties = effect === 'gold'
-    ? { background: 'linear-gradient(90deg, #fbbf24, #f59e0b, #d97706)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }
-    : effect === 'diamond'
-    ? { background: 'linear-gradient(90deg, #7dd3fc, #38bdf8, #0ea5e9)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }
-    : { color: 'white' }
+  // ── Price text in card header per effect ─────────────────────────────────
+  function headerPriceStyle(tier: Tier): React.CSSProperties {
+    const isSelected = tier.id === selectedId
+    if (!isSelected) return { color: 'rgba(255,255,255,0.4)' }
+    const e = tier.effect ?? 'none'
+    if (e === 'gold') return {
+      background: 'linear-gradient(90deg, #fbbf24, #f59e0b, #d97706)',
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+    }
+    if (e === 'diamond') return {
+      background: 'linear-gradient(90deg, #7dd3fc, #38bdf8, #0ea5e9)',
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+    }
+    return { color: 'var(--color-orange)' }
+  }
+
+  // ── CheckCircle2 color per effect ─────────────────────────────────────────
+  function checkColor(tier: Tier): string {
+    if (tier.id !== selectedId) return 'var(--color-deep-purple)'
+    const e = tier.effect ?? 'none'
+    if (e === 'gold')    return '#fbbf24'
+    if (e === 'diamond') return '#7dd3fc'
+    return 'var(--color-pink)'
+  }
 
   // ── CTA button style ─────────────────────────────────────────────────────
   function ctaStyle(): React.CSSProperties {
@@ -181,146 +157,141 @@ export default function TicketPanel({
     }
   }
 
+  const disabled = loading || isSoldOut || isPast
+
   return (
     <>
-      <style>{`
-        @keyframes goldWave {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-        @keyframes diamondWave {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-      `}</style>
+      <TierEffectKeyframes />
 
-      <div className="space-y-0 rounded-2xl overflow-hidden"
-        style={{ background: 'var(--surface-panel)', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="flex flex-col gap-4">
 
-        {/* ── Header ──────────────────────────────────────────────────────── */}
-        <div className="px-5 pt-5 pb-4">
-          <p className="text-xs font-bold uppercase tracking-widest mb-3"
+        {/* ── Header ─────────────────────────────────────────────────────── */}
+        <div className="px-1">
+          <p className="text-xs font-bold uppercase tracking-widest"
             style={{ color: 'rgba(255,255,255,0.35)' }}>
             Boletos
           </p>
+          <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.38)' }}>
+            Elige una opción para continuar.
+          </p>
+        </div>
 
-          {/* Tier rail */}
-          {tiers.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-              {tiers.map(tier => (
+        {/* ── Tier cards (acordeón) ────────────────────────────────────────── */}
+        <div className="flex flex-col gap-3">
+          {tiers.map(tier => {
+            const isSelected = tier.id === selectedId
+            const soldOut    = tier.available_tickets === 0
+            const tierFree   = Number(tier.price) === 0
+
+            return (
+              <div
+                key={tier.id}
+                onClick={() => handleSelectTier(tier)}
+                className="relative overflow-hidden rounded-2xl transition-all duration-300"
+                style={{
+                  background: 'var(--surface-panel)',
+                  cursor: soldOut ? 'not-allowed' : 'pointer',
+                  ...cardBorderStyle(tier),
+                }}
+              >
+                {/* Card header row */}
+                <div className="p-5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className="shrink-0 transition-colors duration-300"
+                      style={{ color: checkColor(tier) }}
+                    >
+                      <CheckCircle2
+                        className="w-5 h-5"
+                        fill={isSelected ? 'currentColor' : 'none'}
+                      />
+                    </div>
+                    <span
+                      className="font-medium text-base leading-tight truncate"
+                      style={{ color: isSelected ? 'var(--foreground)' : 'rgba(255,255,255,0.65)' }}
+                    >
+                      {tier.name}
+                      {soldOut && (
+                        <span className="ml-1.5 text-xs font-normal" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                          · agotado
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <span className="font-bold text-sm shrink-0" style={headerPriceStyle(tier)}>
+                    {tierFree ? 'FREE' : `$${Number(tier.price).toLocaleString('es-MX')}`}
+                  </span>
+                </div>
+
+                {/* Expandable body */}
                 <div
-                  key={tier.id}
-                  className="shrink-0 rounded-xl overflow-hidden"
-                  style={{ borderRadius: '0.75rem' }}
+                  className={`grid transition-all duration-300 ease-in-out ${isSelected ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
                 >
-                  <button
-                    onClick={() => handleSelectTier(tier.id)}
-                    className="px-4 h-10 w-full text-sm font-semibold transition-all duration-200 active:scale-95"
-                    style={tierButtonStyle(tier)}
-                  >
-                    {tier.name}
-                    {tier.available_tickets === 0 && (
-                      <span className="ml-1.5 opacity-60 text-xs">·&nbsp;agotado</span>
-                    )}
-                  </button>
+                  <div className="overflow-hidden">
+                    <div className="px-5 pb-5 pt-0 flex flex-col gap-4">
+
+                      {tier.description && (
+                        <p className="text-sm leading-relaxed pl-8"
+                          style={{ color: 'rgba(255,255,255,0.5)' }}>
+                          {tier.description}
+                        </p>
+                      )}
+
+                      <div className="pl-8">
+                        <AvailBar
+                          available={tier.available_tickets}
+                          total={tier.total_capacity}
+                        />
+                      </div>
+
+                      {!isPast && !soldOut && isLoggedIn && (
+                        <div className="pl-8 flex items-center justify-between">
+                          <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                            Cantidad
+                          </span>
+                          <div
+                            className="flex items-center gap-4 rounded-full p-1"
+                            style={{ background: 'var(--background)', border: '1px solid var(--color-deep-purple)' }}
+                          >
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); setQty(q => Math.max(1, q - 1)) }}
+                              disabled={qty <= 1 || disabled}
+                              className="w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-40"
+                              style={{ background: 'var(--surface-panel)', color: 'var(--foreground)' }}
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            <span
+                              key={qty}
+                              className="w-6 text-center font-semibold tabular-nums drum-pop"
+                              style={{ color: 'var(--foreground)' }}
+                            >
+                              {qty}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); setQty(q => Math.min(max, q + 1)) }}
+                              disabled={qty >= max || disabled}
+                              className="w-8 h-8 flex items-center justify-center rounded-full transition-colors disabled:opacity-40"
+                              style={{ background: 'var(--surface-panel)', color: 'var(--foreground)' }}
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {tiers.length === 1 && (
-            <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              {tiers[0].name}
-            </p>
-          )}
-
-          {/* Tier description */}
-          {selectedTier?.description && (
-            <p className="text-xs mt-2.5 leading-relaxed whitespace-pre-wrap"
-              style={{ color: 'rgba(255,255,255,0.45)' }}>
-              {selectedTier.description}
-            </p>
-          )}
-        </div>
-
-        {/* ── Price block ─────────────────────────────────────────────────── */}
-        <div className="px-5 pb-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-          <div key={selectedId} className="drum-pop">
-            <p className="font-bold leading-none"
-              style={{ fontSize: 'clamp(2.4rem, 9vw, 3.5rem)', ...priceStyle }}>
-              {isFree ? 'FREE' : `$${unitPrice.toFixed(2)}`}
-            </p>
-            {(isPast || isSoldOut) && (
-              <p className="text-xs mt-1.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                {isPast ? 'Evento finalizado' : 'Sin disponibilidad'}
-              </p>
-            )}
-            {!isFree && !isPast && !isSoldOut && (
-              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.28)' }}>
-                + cargos por servicio
-              </p>
-            )}
-            {selectedTier && !isPast && (
-              <AvailBar
-                available={selectedTier.available_tickets}
-                total={selectedTier.total_capacity}
-              />
-            )}
-          </div>
-        </div>
-
-        {/* ── Quantity drum ────────────────────────────────────────────────── */}
-        {!isPast && !isSoldOut && isLoggedIn && (
-          <div className="px-5 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <div className="flex items-center justify-between gap-4">
-              <button
-                type="button"
-                onPointerDown={startDec}
-                onPointerUp={stopAll}
-                onPointerLeave={stopAll}
-                disabled={qty <= 1 || disabled}
-                className="w-14 h-14 flex items-center justify-center transition-opacity duration-150 active:scale-90 disabled:opacity-20 select-none hover:opacity-60"
-                style={{ color: 'rgba(255,255,255,0.7)', background: 'none', border: 'none' }}
-              >
-                <ChevronDown size={26} />
-              </button>
-
-              <div className="flex-1 flex flex-col items-center select-none">
-                <div key={qty} className="drum-pop tabular-nums font-bold text-white leading-none"
-                  style={{ fontSize: 'clamp(2.8rem, 11vw, 4rem)' }}>
-                  {qty}
-                </div>
-                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                  {qty === 1 ? 'boleto' : 'boletos'}
-                </p>
               </div>
+            )
+          })}
+        </div>
 
-              <button
-                type="button"
-                onPointerDown={startInc}
-                onPointerUp={stopAll}
-                onPointerLeave={stopAll}
-                disabled={qty >= max || disabled}
-                className="w-14 h-14 flex items-center justify-center transition-opacity duration-150 active:scale-90 disabled:opacity-20 select-none hover:opacity-60"
-                style={{ color: 'rgba(255,255,255,0.7)', background: 'none', border: 'none' }}
-              >
-                <ChevronUp size={26} />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Total + CTA ──────────────────────────────────────────────────── */}
-        <div className="px-5 py-5 space-y-4">
-          {!isPast && !isSoldOut && isLoggedIn && !isFree && qty > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.38)' }}>Total</p>
-              <p key={total} className="price-bump text-xl font-bold text-white tabular-nums">
-                ${total.toFixed(2)}
-              </p>
-            </div>
-          )}
-
+        {/* ── CTA ─────────────────────────────────────────────────────────── */}
+        <div className="space-y-3">
           {isPast ? (
             <div className="w-full h-14 rounded-2xl flex items-center justify-center gap-2"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -354,22 +325,33 @@ export default function TicketPanel({
               type="button"
               onClick={handleBuy}
               disabled={loading}
-              className="relative w-full h-14 rounded-2xl overflow-hidden font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed"
+              className="relative w-full h-14 rounded-2xl overflow-hidden font-semibold text-base text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed px-5 flex items-center justify-between"
               style={ctaStyle()}
             >
-              <span className={`flex items-center justify-center gap-2 transition-all duration-250 ${loading ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
+              <span className={`transition-all duration-200 ${loading ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
                 {isFree
                   ? `Reservar${qty > 1 ? ` ${qty} boletos` : ''} · FREE`
-                  : `Comprar ${qty > 1 ? `${qty} boletos` : 'boleto'}${!isFree ? ` · $${total.toFixed(2)}` : ''}`
+                  : `Comprar ${qty > 1 ? `${qty} boletos` : 'boleto'}`
                 }
               </span>
+              <span className={`flex items-center gap-2 transition-all duration-200 ${loading ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
+                {!isFree && <span className="font-bold">${total.toFixed(2)}</span>}
+                <ArrowRight className="w-5 h-5 opacity-80" />
+              </span>
               <span aria-hidden
-                className={`absolute inset-0 flex items-center justify-center transition-all duration-250 ${loading ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
+                className={`absolute inset-0 flex items-center justify-center transition-all duration-200 ${loading ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
                 <Loader2 size={22} className="animate-spin" />
               </span>
             </button>
           )}
+
+          {!isPast && !isSoldOut && isLoggedIn && !isFree && (
+            <p className="text-center text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              Los cargos por servicio se calcularán en el siguiente paso.
+            </p>
+          )}
         </div>
+
       </div>
     </>
   )
