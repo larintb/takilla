@@ -9,7 +9,6 @@ import UserRoleManager from './_components/user-role-manager'
 import { TicketBuyers } from './_components/ticket-buyers'
 
 const MUTED = 'rgba(255,255,255,0.45)'
-const DIM   = 'rgba(255,255,255,0.2)'
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
@@ -64,42 +63,44 @@ export default async function AdminPage() {
         )}
       </section>
 
-      {/* Events performance */}
-      <section className="space-y-3">
-        <SectionHeading>Rendimiento por evento</SectionHeading>
-        <EventsPerformanceTable
-          events={performanceRes.data?.events ?? []}
-          error={performanceRes.error}
-        />
-      </section>
+      {/* Grid CRM: 2 columnas */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-      {/* Ticket buyers */}
-      <section className="space-y-3">
-        <SectionHeading>Clientes con boletos</SectionHeading>
-        <TicketBuyers buyers={buyersRes.data ?? []} error={buyersRes.error} />
-      </section>
-
-      {/* User role manager */}
-      <section className="space-y-3">
-        <SectionHeading>Gestión de roles</SectionHeading>
-        <UserRoleManager />
-      </section>
-
-      {/* Realtime events feed */}
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <SectionHeading>Realtime Events</SectionHeading>
-          <span
-            className="w-1.5 h-1.5 rounded-full animate-pulse"
-            style={{ background: '#4ade80' }}
-            title="Live feed"
+        {/* Rendimiento por evento */}
+        <section className="space-y-3 lg:col-span-2">
+          <SectionHeading>Rendimiento por evento</SectionHeading>
+          <EventsPerformanceTable
+            events={performanceRes.data?.events ?? []}
+            error={performanceRes.error}
           />
-          {feedRes.data && (
-            <span className="text-xs" style={{ color: DIM }}>{feedRes.data.length} eventos</span>
-          )}
-        </div>
-        <ActivityFeed items={feedRes.data ?? []} error={feedRes.error} />
-      </section>
+        </section>
+
+        {/* Clientes con boletos */}
+        <section className="space-y-3">
+          <SectionHeading>Clientes con boletos</SectionHeading>
+          <TicketBuyers buyers={buyersRes.data ?? []} error={buyersRes.error} />
+        </section>
+
+        {/* Actividad reciente */}
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <SectionHeading>Actividad reciente</SectionHeading>
+            <span
+              className="w-1.5 h-1.5 rounded-full animate-pulse"
+              style={{ background: '#4ade80' }}
+              title="Live feed"
+            />
+          </div>
+          <ActivityFeed items={feedRes.data ?? []} error={feedRes.error} />
+        </section>
+
+        {/* Gestión de roles */}
+        <section className="space-y-3 lg:col-span-2">
+          <SectionHeading>Gestión de roles</SectionHeading>
+          <UserRoleManager />
+        </section>
+
+      </div>
     </div>
   )
 }

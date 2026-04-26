@@ -50,9 +50,9 @@ export function EventsPerformanceTable({ events, error }: Props) {
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: CARD, border: BORDER }}>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 320 }}>
         <table className="w-full text-sm">
-          <thead>
+          <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: '#1b1233' }}>
             <tr style={{ borderBottom: BORDER }}>
               {['Evento', 'Organizador', 'Fecha', 'Boletos', 'Aforo', 'Ingresos', 'Estado'].map((h) => (
                 <th

@@ -49,16 +49,19 @@ export default function PerksCheckoutClient({
   }, [selection])
 
   // Compute totals
-  const { totalAmount, isFree } = useMemo(() => {
+  const { subtotal, serviceCharge, totalAmount, isFree } = useMemo(() => {
+    let sub = 0
     let total = 0
     for (const [id, qty] of selection.entries()) {
       const perk = perks.find(p => p.id === id)
       if (!perk) continue
       const price = Number(perk.price)
       if (price === 0) continue
-      total += calculatePerkFees(price, qty).totalAmount
+      const fees = calculatePerkFees(price, qty)
+      sub   += price * qty
+      total += fees.totalAmount
     }
-    return { totalAmount: total, isFree: total === 0 }
+    return { subtotal: sub, serviceCharge: total - sub, totalAmount: total, isFree: total === 0 }
   }, [selection, perks])
 
   const hasSelection = perkIds.length > 0
@@ -93,12 +96,21 @@ export default function PerksCheckoutClient({
                 )
               })}
             </ul>
-            <div className="flex justify-between items-center mt-4 pt-4"
-              style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-              <span className="text-base font-semibold text-white">Total</span>
-              <span className="font-bold text-white" style={{ fontSize: '1.5rem' }}>
-                ${totalAmount.toFixed(2)}
-              </span>
+            <div className="mt-4 pt-4 space-y-1.5" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="flex justify-between text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                <span>Subtotal</span>
+                <span>${subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                <span>Cargo por servicio</span>
+                <span>${serviceCharge.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                <span className="text-base font-semibold text-white">Total</span>
+                <span className="font-bold text-white" style={{ fontSize: '1.5rem' }}>
+                  ${totalAmount.toFixed(2)}
+                </span>
+              </div>
             </div>
           </div>
           <div className="p-6">
@@ -130,14 +142,27 @@ export default function PerksCheckoutClient({
 
         {hasSelection && (
           <div className="px-6 pb-6 space-y-3">
-            <div className="flex justify-between items-center pt-4"
-              style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-              <span className="text-base font-semibold text-white">
-                {perkIds.length} {perkIds.length === 1 ? 'extra' : 'extras'}
-              </span>
-              <span className="font-bold text-white" style={{ fontSize: '1.5rem' }}>
-                {isFree ? 'FREE' : `$${totalAmount.toFixed(2)}`}
-              </span>
+            <div className="pt-4 space-y-1.5" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+              {!isFree && (
+                <>
+                  <div className="flex justify-between text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    <span>Subtotal ({perkIds.length} {perkIds.length === 1 ? 'extra' : 'extras'})</span>
+                    <span>${subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    <span>Cargo por servicio</span>
+                    <span>${serviceCharge.toFixed(2)}</span>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between items-center pt-2" style={{ borderTop: isFree ? 'none' : '1px solid rgba(255,255,255,0.07)' }}>
+                <span className="text-base font-semibold text-white">
+                  {isFree ? `${perkIds.length} ${perkIds.length === 1 ? 'extra' : 'extras'}` : 'Total'}
+                </span>
+                <span className="font-bold text-white" style={{ fontSize: '1.5rem' }}>
+                  {isFree ? 'FREE' : `$${totalAmount.toFixed(2)}`}
+                </span>
+              </div>
             </div>
 
             {isFree ? (

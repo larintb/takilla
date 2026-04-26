@@ -44,6 +44,7 @@ export type EventPerformanceSummary = {
 
 export type FeedEventType =
   | 'purchase'
+  | 'perk_purchase'
   | 'signup'
   | 'event_created'
   | 'event_published'
@@ -71,8 +72,9 @@ export type FeedItem = {
 export type ActivityItem = FeedItem
 
 export type TicketBuyerPurchase = {
+  kind: 'ticket' | 'perk'
   event_title: string
-  tier_name: string
+  item_name: string
   count: number
 }
 
@@ -81,6 +83,7 @@ export type TicketBuyerRow = {
   full_name: string | null
   email: string | null
   ticket_count: number
+  perk_count: number
   purchases: TicketBuyerPurchase[]
 }
 
@@ -160,46 +163,64 @@ export async function loadEventPerformance(): Promise<Result<EventPerformanceSum
 export async function loadTicketBuyers(): Promise<Result<TicketBuyerRow[]>> {
   try {
     const supabase = createAdminClient()
-    const { data, error } = await supabase
-      .from('tickets')
-      .select('owner_id, profiles!owner_id(full_name, email), events(title), ticket_tiers(name)')
 
-    if (error) throw new Error(error.message)
+    const [ticketsRes, perksRes] = await Promise.all([
+      supabase.from('tickets').select('owner_id, profiles!owner_id(full_name, email), events(title), ticket_tiers(name)'),
+      supabase.from('perk_purchases').select('owner_id, profiles!owner_id(full_name, email), events(title), perks(name)'),
+    ])
+
+    if (ticketsRes.error) throw new Error(ticketsRes.error.message)
+    if (perksRes.error)   throw new Error(perksRes.error.message)
 
     const map = new Map<string, TicketBuyerRow>()
-    for (const t of data ?? []) {
-      const profile = t.profiles && !Array.isArray(t.profiles)
-        ? (t.profiles as { full_name: string | null; email: string | null })
-        : null
-      const event = t.events && !Array.isArray(t.events)
-        ? (t.events as { title: string })
-        : null
-      const tier = t.ticket_tiers && !Array.isArray(t.ticket_tiers)
-        ? (t.ticket_tiers as { name: string })
-        : null
 
-      const event_title = event?.title ?? 'Evento desconocido'
-      const tier_name   = tier?.name   ?? 'Sin tier'
-      const purchaseKey = `${event_title}__${tier_name}`
-
-      const existing = map.get(t.owner_id)
-      if (existing) {
-        existing.ticket_count++
-        const purchase = existing.purchases.find(p => `${p.event_title}__${p.tier_name}` === purchaseKey)
-        if (purchase) purchase.count++
-        else existing.purchases.push({ event_title, tier_name, count: 1 })
-      } else {
-        map.set(t.owner_id, {
-          owner_id: t.owner_id,
+    function upsertRow(ownerId: string, profile: { full_name: string | null; email: string | null } | null) {
+      if (!map.has(ownerId)) {
+        map.set(ownerId, {
+          owner_id: ownerId,
           full_name: profile?.full_name ?? null,
           email: profile?.email ?? null,
-          ticket_count: 1,
-          purchases: [{ event_title, tier_name, count: 1 }],
+          ticket_count: 0,
+          perk_count: 0,
+          purchases: [],
         })
       }
+      return map.get(ownerId)!
     }
 
-    const buyers = Array.from(map.values()).sort((a, b) => b.ticket_count - a.ticket_count)
+    for (const t of ticketsRes.data ?? []) {
+      const profile = t.profiles && !Array.isArray(t.profiles) ? (t.profiles as { full_name: string | null; email: string | null }) : null
+      const event   = t.events && !Array.isArray(t.events) ? (t.events as { title: string }) : null
+      const tier    = t.ticket_tiers && !Array.isArray(t.ticket_tiers) ? (t.ticket_tiers as { name: string }) : null
+
+      const event_title = event?.title ?? 'Evento desconocido'
+      const item_name   = tier?.name   ?? 'Sin tier'
+      const key         = `ticket__${event_title}__${item_name}`
+
+      const row = upsertRow(t.owner_id, profile)
+      row.ticket_count++
+      const existing = row.purchases.find(p => p.kind === 'ticket' && p.event_title === event_title && p.item_name === item_name)
+      if (existing) existing.count++
+      else row.purchases.push({ kind: 'ticket', event_title, item_name, count: 1 })
+      void key
+    }
+
+    for (const p of perksRes.data ?? []) {
+      const profile = p.profiles && !Array.isArray(p.profiles) ? (p.profiles as { full_name: string | null; email: string | null }) : null
+      const event   = p.events && !Array.isArray(p.events) ? (p.events as { title: string }) : null
+      const perk    = p.perks && !Array.isArray(p.perks) ? (p.perks as { name: string }) : null
+
+      const event_title = event?.title ?? 'Evento desconocido'
+      const item_name   = perk?.name   ?? 'Extra'
+
+      const row = upsertRow(p.owner_id, profile)
+      row.perk_count++
+      const existing = row.purchases.find(q => q.kind === 'perk' && q.event_title === event_title && q.item_name === item_name)
+      if (existing) existing.count++
+      else row.purchases.push({ kind: 'perk', event_title, item_name, count: 1 })
+    }
+
+    const buyers = Array.from(map.values()).sort((a, b) => (b.ticket_count + b.perk_count) - (a.ticket_count + a.perk_count))
     return { data: buyers, error: null }
   } catch (e) {
     return { data: null, error: (e as Error).message }
@@ -210,7 +231,7 @@ export async function loadActivityFeed(): Promise<Result<FeedItem[]>> {
   try {
     const supabase = createAdminClient()
 
-    const [ordersRes, profilesRes, eventsRes, appsRes] = await Promise.all([
+    const [ordersRes, profilesRes, eventsRes, appsRes, perkPurchasesRes] = await Promise.all([
       supabase
         .from('orders')
         .select('id, created_at, total_amount, buyer:profiles!user_id(full_name, email), events(title), tickets(id)')
@@ -229,6 +250,11 @@ export async function loadActivityFeed(): Promise<Result<FeedItem[]>> {
       supabase
         .from('organizer_applications')
         .select('id, business_name, status, created_at, profiles(full_name, email)')
+        .order('created_at', { ascending: false })
+        .limit(25),
+      supabase
+        .from('perk_purchases')
+        .select('id, created_at, buyer:profiles!owner_id(full_name, email), events(title), perks(name, price)')
         .order('created_at', { ascending: false })
         .limit(25),
     ])
@@ -324,6 +350,33 @@ export async function loadActivityFeed(): Promise<Result<FeedItem[]>> {
         tierName: null,
         eventTitle: null,
         tierPrice: 0,
+      })
+    }
+
+    // Perk purchases
+    for (const pp of perkPurchasesRes.data ?? []) {
+      const buyer = pp.buyer && !Array.isArray(pp.buyer)
+        ? (pp.buyer as { full_name: string | null; email: string | null }) : null
+      const ev   = pp.events && !Array.isArray(pp.events)
+        ? (pp.events as { title: string }) : null
+      const perk = pp.perks && !Array.isArray(pp.perks)
+        ? (pp.perks as { name: string; price: number }) : null
+      items.push({
+        id: `perk-${pp.id}`,
+        created_at: pp.created_at,
+        type: 'perk_purchase',
+        actorName: buyer?.full_name ?? null,
+        actorEmail: buyer?.email ?? null,
+        subtitle: ev?.title ?? null,
+        amount: perk ? Number(perk.price) : null,
+        quantity: 1,
+        appStatus: null,
+        tierEffect: null,
+        buyerName: buyer?.full_name ?? null,
+        buyerEmail: buyer?.email ?? null,
+        tierName: perk?.name ?? null,
+        eventTitle: ev?.title ?? null,
+        tierPrice: perk ? Number(perk.price) : 0,
       })
     }
 

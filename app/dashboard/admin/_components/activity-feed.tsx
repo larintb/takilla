@@ -1,5 +1,5 @@
 import type { FeedItem, FeedEventType } from '../data'
-import { Ticket, UserPlus, CalendarDays, Star, Building2 } from 'lucide-react'
+import { Ticket, Gift, UserPlus, CalendarDays, Star, Building2 } from 'lucide-react'
 
 const CARD   = 'rgba(255,255,255,0.04)'
 const BORDER = '1px solid rgba(255,255,255,0.08)'
@@ -63,6 +63,14 @@ const TYPE_CONFIG: Record<FeedEventType, TypeConfig> = {
     badgeBg: 'rgba(250,20,146,0.12)',
     badgeColor: '#fa1492',
   },
+  perk_purchase: {
+    icon: <Gift size={14} />,
+    label: 'Extra comprado',
+    iconBg: 'rgba(96,165,250,0.15)',
+    iconColor: '#60a5fa',
+    badgeBg: 'rgba(96,165,250,0.12)',
+    badgeColor: '#60a5fa',
+  },
 }
 
 function mxn(amount: number) {
@@ -96,6 +104,8 @@ function buildDescription(item: FeedItem): { main: string; sub: string | null } 
       return { main: `${actor} solicitó ser organizador`, sub: item.subtitle }
     case 'org_approved':
       return { main: `${actor} fue aprobado como organizador`, sub: item.subtitle }
+    case 'perk_purchase':
+      return { main: `${actor} compró un extra${item.tierName ? `: ${item.tierName}` : ''}`, sub: item.subtitle }
   }
 }
 
@@ -123,6 +133,7 @@ export function ActivityFeed({ items, error }: Props) {
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: CARD, border: BORDER }}>
+      <div className="overflow-y-auto" style={{ maxHeight: 320 }}>
       {items.map((item, i) => {
         const cfg = TYPE_CONFIG[item.type]
         const { main, sub } = buildDescription(item)
@@ -170,6 +181,7 @@ export function ActivityFeed({ items, error }: Props) {
           </div>
         )
       })}
+      </div>
     </div>
   )
 }
