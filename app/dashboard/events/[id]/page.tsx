@@ -43,6 +43,16 @@ export default async function EventDetailPage({
   const isAdmin = profile?.role === 'admin'
   if (!isOwner && !isAdmin) redirect('/dashboard')
 
+  let canCharge = !!profile?.stripe_onboarding_complete
+  if (isAdmin && !isOwner) {
+    const { data: orgProfile } = await supabase
+      .from('profiles')
+      .select('stripe_onboarding_complete')
+      .eq('id', event.organizer_id)
+      .single()
+    canCharge = !!orgProfile?.stripe_onboarding_complete
+  }
+
   const venue = (event.venues ?? null) as VenueInfo | null
   const isFinished = event.status === 'published' && isEventOver(event.event_date, event.event_end_date)
   const isDraft = event.status === 'draft'
@@ -207,7 +217,7 @@ export default async function EventDetailPage({
         {isDraft && (
           <div>
             <h3 className="text-sm font-medium text-purple-300 mb-3">Agregar tier</h3>
-            <TierForm eventId={id} canCharge={!!profile?.stripe_onboarding_complete} />
+            <TierForm eventId={id} canCharge={canCharge} />
           </div>
         )}
 
@@ -231,7 +241,7 @@ export default async function EventDetailPage({
         {isDraft && (
           <div>
             <h3 className="text-sm font-medium text-purple-300 mb-3">Agregar extra</h3>
-            <PerkForm eventId={id} canCharge={!!profile?.stripe_onboarding_complete} />
+            <PerkForm eventId={id} canCharge={canCharge} />
           </div>
         )}
 

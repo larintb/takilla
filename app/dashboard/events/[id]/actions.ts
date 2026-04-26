@@ -116,10 +116,16 @@ export async function updateEventStatus(eventId: string, status: string) {
     const hasPaidTiers = (tiers ?? []).some(t => Number(t.price) > 0)
 
     if (hasPaidTiers) {
+      const { data: ev } = await supabase
+        .from('events')
+        .select('organizer_id')
+        .eq('id', eventId)
+        .single()
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('stripe_onboarding_complete')
-        .eq('id', user.id)
+        .eq('id', ev?.organizer_id ?? user.id)
         .single()
 
       if (!profile?.stripe_onboarding_complete) {
@@ -160,14 +166,20 @@ export async function addTier(
   if (total_capacity > 999)                  return { error: 'La capacidad máxima es 999' }
 
   if (price > 0) {
+    const { data: ev } = await supabase
+      .from('events')
+      .select('organizer_id')
+      .eq('id', event_id)
+      .single()
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('stripe_onboarding_complete')
-      .eq('id', user.id)
+      .eq('id', ev?.organizer_id ?? user.id)
       .single()
 
     if (!profile?.stripe_onboarding_complete) {
-      return { error: 'Para cobrar por boletos, primero configura tu cuenta de pagos en el onboarding.' }
+      return { error: 'El organizador del evento aún no ha configurado su cuenta de pagos.' }
     }
   }
 
@@ -275,14 +287,20 @@ export async function addPerk(
   if (price > 0 && price < 20)   return { error: 'El precio debe ser $0 (gratis) o mínimo $20 MXN' }
 
   if (price > 0) {
+    const { data: ev } = await supabase
+      .from('events')
+      .select('organizer_id')
+      .eq('id', event_id)
+      .single()
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('stripe_onboarding_complete')
-      .eq('id', user.id)
+      .eq('id', ev?.organizer_id ?? user.id)
       .single()
 
     if (!profile?.stripe_onboarding_complete) {
-      return { error: 'Para cobrar por extras, primero configura tu cuenta de pagos en el onboarding.' }
+      return { error: 'El organizador del evento aún no ha configurado su cuenta de pagos.' }
     }
   }
 
