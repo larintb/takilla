@@ -33,7 +33,15 @@ export default function Scanner() {
     setState('loading')
     scannerRef.current?.pause()
 
-    const res = await validateTicket(hash)
+    let res: ValidationResult
+    try {
+      res = await validateTicket(hash)
+    } catch {
+      // Network or server error — show error result so staff can tap "Escanear otro" to retry
+      setResult({ success: false, message: 'Error de red. Intenta de nuevo.' })
+      setState('result')
+      return
+    }
     setResult(res)
     setState('result')
 

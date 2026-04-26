@@ -5,8 +5,9 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { stripe } from '@/utils/stripe/server'
-import { calculateFees, calculatePerkFees } from '@/utils/pricing'
+import { calculateFees, calculatePerkFees, applyDiscount } from '@/utils/pricing'
 import { isEventOver } from '@/utils/event-time'
+import { validateDiscountCode, discountToInput, type DiscountRow } from '@/utils/discounts'
 
 function getBaseUrl(headerStore: Awaited<ReturnType<typeof headers>>) {
   const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim()
@@ -31,6 +32,8 @@ export async function startStripeCheckout(formData: FormData) {
   const quantity = Number.isInteger(quantityRaw) ? quantityRaw : 1
   const perksCsv = (formData.get('perks') as string | null)?.trim() || ''
   const perkIds  = perksCsv ? perksCsv.split(',').map(s => s.trim()).filter(Boolean) : []
+  const codeParam = (formData.get('code') as string | null)?.trim().toUpperCase() || null
+  const discountIdParam = (formData.get('discountId') as string | null)?.trim() || null
 
   if (!tierId || !eventId) throw new Error('Faltan datos del checkout')
   if (quantity < 1 || quantity > 10) throw new Error('Cantidad inválida')
@@ -53,13 +56,48 @@ export async function startStripeCheckout(formData: FormData) {
 
   const priceNumber = Number(tier.price)
 
-  if (priceNumber === 0) {
+  // ── Resolve discount (server-side re-validation) ──────────────────────────
+  let activeDiscount: DiscountRow | null = null
+
+  if (codeParam) {
+    const result = await validateDiscountCode(supabase, eventId, tierId, codeParam)
+    if (result.ok) activeDiscount = result.discount
+  } else if (discountIdParam) {
+    // Auto-applied public discount — fetch by ID (admin bypasses RLS to read any is_active)
+    const supabaseAdmin = createAdminClient()
+    const { data: d } = await supabaseAdmin
+      .from('discounts')
+      .select('*')
+      .eq('id', discountIdParam)
+      .eq('event_id', eventId)
+      .eq('is_active', true)
+      .single()
+    if (d && (d.tier_id === null || d.tier_id === tierId)) {
+      activeDiscount = d as DiscountRow
+    }
+  }
+
+  const applied     = activeDiscount ? applyDiscount(priceNumber, quantity, discountToInput(activeDiscount)) : null
+  const effectPrice = applied?.effectivePrice ?? priceNumber
+
+  if (effectPrice === 0) {
+    // Free path (original free tier OR 100%-discounted paid tier)
     for (let i = 0; i < quantity; i++) {
       const { error } = await supabase.rpc('purchase_ticket', {
         tier_id_input: tierId,
       })
       if (error) throw new Error(error.message)
     }
+
+    // Redeem discount after all tickets created
+    if (activeDiscount) {
+      const supabaseAdmin = createAdminClient()
+      await supabaseAdmin.rpc('redeem_discount', {
+        p_discount_id: activeDiscount.id,
+        p_event_id:    eventId,
+      })
+    }
+
     // Handle bundled free perks
     if (perkIds.length > 0) {
       const supabaseAdmin = createAdminClient()
@@ -75,8 +113,7 @@ export async function startStripeCheckout(formData: FormData) {
     redirect('/tickets')
   }
 
-  // Obtener cuenta de Stripe del organizador — usa admin client para saltar RLS,
-  // ya que un customer no puede leer el perfil de otro usuario.
+  // ── Paid path via Stripe Checkout Session (legacy fallback) ──────────────────
   const supabaseAdmin = createAdminClient()
   const { data: organizer } = await supabaseAdmin
     .from('profiles')
@@ -88,14 +125,12 @@ export async function startStripeCheckout(formData: FormData) {
     throw new Error('El organizador aún no ha configurado su cuenta de pagos')
   }
 
-  const fees = calculateFees(priceNumber, quantity)
+  const fees = calculateFees(effectPrice, quantity)
 
-  // Stripe MXN: mínimo 10 MXN (1000 centavos) por transacción
   if (fees.unitAmountCentavos < 1000) {
     throw new Error('El precio del boleto es menor al mínimo permitido por Stripe para pagos en MXN')
   }
 
-  // Validar y calcular perks si los hay
   type PerkFeeRow = { id: string; name: string; unitAmountCentavos: number; appFeeCentavos: number }
   const perkFeeRows: PerkFeeRow[] = []
   let totalPerkAppFeeCentavos = 0
@@ -123,11 +158,10 @@ export async function startStripeCheckout(formData: FormData) {
     }
   }
 
-  const baseUrl = getBaseUrl(headerStore)
+  const baseUrl    = getBaseUrl(headerStore)
   const successUrl = `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
-  const cancelUrl = `${baseUrl}/checkout?eventId=${eventId}&tierId=${tierId}&quantity=${quantity}`
+  const cancelUrl  = `${baseUrl}/checkout?eventId=${eventId}&tierId=${tierId}&quantity=${quantity}`
 
-  // Agrupar perks por línea (misma id → mismo line_item con quantity)
   const perkLineItems: { quantity: number; price_data: { currency: string; unit_amount: number; product_data: { name: string } } }[] = []
   const perkQtyMap = new Map<string, { qty: number; unitCents: number; name: string }>()
   for (const row of perkFeeRows) {
@@ -146,6 +180,10 @@ export async function startStripeCheckout(formData: FormData) {
     quantity: String(quantity),
   }
   if (perkIdCsv) metadata.perk_ids = perkIdCsv
+  if (activeDiscount) {
+    metadata.discount_id     = activeDiscount.id
+    metadata.discount_amount = (applied?.totalDiscount ?? 0).toFixed(2)
+  }
 
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',

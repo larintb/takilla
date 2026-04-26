@@ -105,3 +105,57 @@ export function calculateFees(ticketPrice: number, quantity: number): FeeBreakdo
     unitAmountCentavos:           Math.round(unitTotal * 100),
   }
 }
+
+// ─── Discount helpers ─────────────────────────────────────────────────────────
+
+export type DiscountInput =
+  | { kind: 'percent'; percentOff: number }
+  | { kind: 'fixed';   amountOff: number }
+  | { kind: 'bogo';    buyQuantity: number; getQuantity: number }
+
+export interface DiscountApplied {
+  effectivePrice: number  // precio por boleto ya descontado, para pasar a calculateFees
+  freeTickets:    number  // solo BOGO: cuántos boletos no se cobran
+  totalDiscount:  number  // ahorro total en MXN (para mostrar al comprador)
+  label:          string  // "20% OFF" / "$50 OFF" / "2x1"
+}
+
+export function applyDiscount(price: number, quantity: number, d: DiscountInput): DiscountApplied {
+  if (d.kind === 'percent') {
+    const effectivePrice = price * (1 - d.percentOff / 100)
+    return {
+      effectivePrice,
+      freeTickets: 0,
+      totalDiscount: (price - effectivePrice) * quantity,
+      label: `${d.percentOff}% OFF`,
+    }
+  }
+
+  if (d.kind === 'fixed') {
+    const effectivePrice = Math.max(0, price - d.amountOff)
+    return {
+      effectivePrice,
+      freeTickets: 0,
+      totalDiscount: Math.min(d.amountOff, price) * quantity,
+      label: `$${d.amountOff} OFF`,
+    }
+  }
+
+  // bogo: every (buy + get) group, user pays for `buy` tickets
+  const groupSize   = d.buyQuantity + d.getQuantity
+  const fullGroups  = Math.floor(quantity / groupSize)
+  const remainder   = quantity % groupSize
+  const paidTickets = fullGroups * d.buyQuantity + Math.min(remainder, d.buyQuantity)
+  const freeTickets = quantity - paidTickets
+  const effectivePrice = freeTickets > 0 ? (price * paidTickets) / quantity : price
+  const label =
+    d.buyQuantity === 1 && d.getQuantity === 1
+      ? '2x1'
+      : `${d.buyQuantity + d.getQuantity}x${d.buyQuantity}`
+  return {
+    effectivePrice,
+    freeTickets,
+    totalDiscount: price * freeTickets,
+    label,
+  }
+}
