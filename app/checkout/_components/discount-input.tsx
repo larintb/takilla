@@ -11,6 +11,7 @@ export default function DiscountInput({
   perksCsv,
   currentCode,
   codeError,
+  locked = false,
 }: {
   eventId:     string
   tierId:      string
@@ -18,6 +19,7 @@ export default function DiscountInput({
   perksCsv:    string
   currentCode: string | null
   codeError:   string | null
+  locked?:     boolean
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(!!currentCode)
@@ -47,7 +49,7 @@ export default function DiscountInput({
   return (
     <div className="space-y-2">
       {/* Toggle */}
-      {!currentCode && (
+      {!currentCode && !locked && (
         <button
           type="button"
           onClick={() => setOpen(o => !o)}
@@ -80,15 +82,17 @@ export default function DiscountInput({
               </span>
             )}
           </div>
-          <button
-            type="button"
-            onClick={handleRemove}
-            disabled={isPending}
-            className="p-1 rounded-lg transition-opacity hover:opacity-70 disabled:opacity-40"
-            style={{ color: 'rgba(255,255,255,0.4)' }}
-          >
-            {isPending ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
-          </button>
+          {!locked && (
+            <button
+              type="button"
+              onClick={handleRemove}
+              disabled={isPending}
+              className="p-1 rounded-lg transition-opacity hover:opacity-70 disabled:opacity-40"
+              style={{ color: 'rgba(255,255,255,0.4)' }}
+            >
+              {isPending ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+            </button>
+          )}
         </div>
       )}
 

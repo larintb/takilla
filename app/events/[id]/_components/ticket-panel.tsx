@@ -5,12 +5,15 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Minus, Plus, ArrowRight, CheckCircle2, Loader2, LogIn, Ban } from 'lucide-react'
 import { TierEffectKeyframes, goldStyle, diamondStyle, discountFlagStyle } from '@/components/tier-effects'
+import { applyDiscount, type DiscountInput } from '@/utils/pricing'
 
 type TierDiscount = {
-  id:    string
-  label: string
-  kind:  'percent' | 'fixed' | 'bogo'
-  code:  string | null
+  id:      string
+  label:   string
+  kind:    'percent' | 'fixed' | 'bogo'
+  code:    string | null
+  min_qty: number
+  input:   DiscountInput
 }
 
 type Tier = {
@@ -165,6 +168,11 @@ export default function TicketPanel({
     }
   }
 
+  const activeDiscount = (!isFree && selectedTier?.discount) ? selectedTier.discount : null
+  const applied        = activeDiscount ? applyDiscount(unitPrice, qty, activeDiscount.input) : null
+  const saving         = applied && applied.totalDiscount > 0 ? applied.totalDiscount : 0
+  const displayTotal   = total - saving
+
   const disabled = loading || isSoldOut || isPast
 
   return (
@@ -300,6 +308,15 @@ export default function TicketPanel({
                         </div>
                       )}
 
+                      {tier.discount?.kind === 'bogo' && !soldOut && (
+                        <p className="pl-8 text-xs font-bold" style={{ color: qty >= tier.discount.min_qty ? '#4ade80' : 'var(--color-orange)' }}>
+                          {qty >= tier.discount.min_qty
+                            ? `¡Descuento ${tier.discount.label} aplicado!`
+                            : `Agrega ${tier.discount.min_qty - qty} boleto${tier.discount.min_qty - qty === 1 ? ' más' : 's más'} para el ${tier.discount.label}`
+                          }
+                        </p>
+                      )}
+
                     </div>
                   </div>
                 </div>
@@ -349,11 +366,16 @@ export default function TicketPanel({
               <span className={`transition-all duration-200 ${loading ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
                 {isFree
                   ? `Reservar${qty > 1 ? ` ${qty} boletos` : ''} · FREE`
-                  : `Comprar ${qty > 1 ? `${qty} boletos` : 'boleto'}`
+                  : `Ir al checkout`
                 }
               </span>
               <span className={`flex items-center gap-2 transition-all duration-200 ${loading ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
-                {!isFree && <span className="font-bold">${total.toFixed(2)}</span>}
+                {!isFree && saving > 0 && (
+                  <span className="text-sm font-medium line-through opacity-50">${total.toFixed(2)}</span>
+                )}
+                {!isFree && (
+                  <span className="font-bold">${displayTotal.toFixed(2)}</span>
+                )}
                 <ArrowRight className="w-5 h-5 opacity-80" />
               </span>
               <span aria-hidden
