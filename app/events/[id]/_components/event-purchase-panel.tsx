@@ -6,6 +6,13 @@ import { ArrowRight, Gift } from 'lucide-react'
 import TicketPanel from './ticket-panel'
 import PerkPanel from '@/components/perk-panel'
 
+type TierDiscount = {
+  id:    string
+  label: string
+  kind:  'percent' | 'fixed' | 'bogo'
+  code:  string | null
+}
+
 type Tier = {
   id: string
   name: string
@@ -14,6 +21,7 @@ type Tier = {
   total_capacity: number
   description?: string | null
   effect?: string | null
+  discount?: TierDiscount | null
 }
 
 type Perk = {

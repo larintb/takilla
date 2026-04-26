@@ -4,7 +4,14 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Minus, Plus, ArrowRight, CheckCircle2, Loader2, LogIn, Ban } from 'lucide-react'
-import { TierEffectKeyframes, goldStyle, diamondStyle } from '@/components/tier-effects'
+import { TierEffectKeyframes, goldStyle, diamondStyle, discountFlagStyle } from '@/components/tier-effects'
+
+type TierDiscount = {
+  id:    string
+  label: string
+  kind:  'percent' | 'fixed' | 'bogo'
+  code:  string | null
+}
 
 type Tier = {
   id: string
@@ -14,6 +21,7 @@ type Tier = {
   total_capacity: number
   description?: string | null
   effect?: string | null
+  discount?: TierDiscount | null
 }
 
 // ── Availability bar ─────────────────────────────────────────────────────────
@@ -194,6 +202,16 @@ export default function TicketPanel({
                   ...cardBorderStyle(tier),
                 }}
               >
+                {/* Discount corner flag */}
+                {tier.discount && (
+                  <span
+                    className="absolute top-0 right-0 px-3 py-1 rounded-bl-xl rounded-tr-2xl text-[10px] font-bold uppercase tracking-widest z-10 pointer-events-none"
+                    style={discountFlagStyle}
+                  >
+                    {tier.discount.label}
+                  </span>
+                )}
+
                 {/* Card header row */}
                 <div className="p-5 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">

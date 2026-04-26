@@ -3,8 +3,14 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { stripe } from '@/utils/stripe/server'
-import { calculateFees, calculatePerkFees } from '@/utils/pricing'
+import { calculateFees, calculatePerkFees, applyDiscount } from '@/utils/pricing'
 import { isEventOver } from '@/utils/event-time'
+import {
+  validateDiscountCode,
+  getPublicDiscountForTier,
+  discountToInput,
+  type DiscountRow,
+} from '@/utils/discounts'
 
 export const runtime = 'nodejs'
 
@@ -17,17 +23,22 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-  let body: { eventId?: string; tierId?: string; quantity?: number; perkIds?: string[] }
+  let body: {
+    eventId?: string; tierId?: string; quantity?: number; perkIds?: string[]
+    discountCode?: string; autoDiscountId?: string
+  }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
   }
 
-  const eventId  = body.eventId?.trim()
-  const tierId   = body.tierId?.trim()
-  const quantity = Number(body.quantity)
+  const eventId       = body.eventId?.trim()
+  const tierId        = body.tierId?.trim()
+  const quantity      = Number(body.quantity)
   const perkIds: string[] = Array.isArray(body.perkIds) ? body.perkIds.filter(Boolean) : []
+  const discountCode  = body.discountCode?.trim().toUpperCase() || null
+  const autoDiscountId = body.autoDiscountId?.trim() || null
 
   if (!eventId || !tierId)
     return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 })
@@ -58,6 +69,35 @@ export async function POST(request: Request) {
   if (price === 0)
     return NextResponse.json({ error: 'Usa el flujo de boletos gratis' }, { status: 400 })
 
+  // ── Resolve discount ──────────────────────────────────────────────────────────
+  let activeDiscount: DiscountRow | null = null
+
+  if (discountCode) {
+    const result = await validateDiscountCode(supabase, eventId, tierId, discountCode)
+    if (result.ok) activeDiscount = result.discount
+  } else if (autoDiscountId) {
+    const supabaseAdmin = createAdminClient()
+    const { data: d } = await supabaseAdmin
+      .from('discounts')
+      .select('*')
+      .eq('id', autoDiscountId)
+      .eq('event_id', eventId)
+      .eq('is_active', true)
+      .single()
+    if (d && (d.tier_id === null || d.tier_id === tierId)) {
+      activeDiscount = d as DiscountRow
+    }
+  } else {
+    // No code provided: apply public discount if one exists
+    activeDiscount = await getPublicDiscountForTier(supabase, eventId, tierId)
+  }
+
+  const applied      = activeDiscount ? applyDiscount(price, quantity, discountToInput(activeDiscount)) : null
+  const effectPrice  = applied?.effectivePrice ?? price
+
+  if (effectPrice === 0)
+    return NextResponse.json({ error: 'Usa el flujo de boletos gratis' }, { status: 400 })
+
   const supabaseAdmin = createAdminClient()
   const { data: organizer } = await supabaseAdmin
     .from('profiles')
@@ -68,7 +108,7 @@ export async function POST(request: Request) {
   if (!organizer?.stripe_onboarding_complete || !organizer?.stripe_account_id)
     return NextResponse.json({ error: 'El organizador aún no ha configurado su cuenta de pagos' }, { status: 400 })
 
-  const fees = calculateFees(price, quantity)
+  const fees = calculateFees(effectPrice, quantity)
   if (fees.unitAmountCentavos < 1000)
     return NextResponse.json({ error: 'El precio es menor al mínimo permitido' }, { status: 400 })
 
@@ -99,7 +139,7 @@ export async function POST(request: Request) {
   const totalAmountCentavos = Math.round(fees.totalAmount * 100) + perkAmountCentavos
   const totalAppFeeCentavos = fees.applicationFeeAmountCentavos + perkAppFeeCentavos
   const nowSecs   = Math.floor(Date.now() / 1000)
-  const expiresAt = nowSecs + 600  // 10 min from now, personal to this user
+  const expiresAt = nowSecs + 600
 
   // ── LOCK ──────────────────────────────────────────────────────────────────
   const lockKey = `pi_lock_${user.id}_${tierId}_${eventId}`
@@ -127,16 +167,22 @@ export async function POST(request: Request) {
     })
 
     if (paymentIntent) {
-      // 2. Reusar: actualizar expires_at Y perk_ids para que el webhook use la selección actual
+      // 2. Reusar: actualizar expires_at, perk_ids y discount info
       const updatedMeta: Record<string, string> = {
         ...paymentIntent.metadata,
         expires_at: String(expiresAt),
       }
-      if (perkIdCsv) {
-        updatedMeta.perk_ids = perkIdCsv
+      if (perkIdCsv) updatedMeta.perk_ids = perkIdCsv
+      else delete updatedMeta.perk_ids
+
+      if (activeDiscount) {
+        updatedMeta.discount_id     = activeDiscount.id
+        updatedMeta.discount_amount = (applied?.totalDiscount ?? 0).toFixed(2)
       } else {
-        delete updatedMeta.perk_ids
+        delete updatedMeta.discount_id
+        delete updatedMeta.discount_amount
       }
+
       paymentIntent = await stripe.paymentIntents.update(
         paymentIntent.id,
         { metadata: updatedMeta },
@@ -151,20 +197,25 @@ export async function POST(request: Request) {
         connectedAccountId: organizer.stripe_account_id,
       })
 
+      const discountSuffix = activeDiscount ? `_d${activeDiscount.id.slice(0, 8)}` : ''
       const idempotencyKey =
-        `pi_${user.id}_${tierId}_${quantity}_${totalAmountCentavos}_${expiresAt}`
+        `pi_${user.id}_${tierId}_${quantity}_${totalAmountCentavos}_${expiresAt}${discountSuffix}`
 
       try {
         const metadata: Record<string, string> = {
-            user_id:    user.id,
-            event_id:   eventId,
-            tier_id:    tierId,
-            quantity:   String(quantity),
-            expires_at: String(expiresAt),
-          }
-          if (perkIdCsv) metadata.perk_ids = perkIdCsv
+          user_id:    user.id,
+          event_id:   eventId,
+          tier_id:    tierId,
+          quantity:   String(quantity),
+          expires_at: String(expiresAt),
+        }
+        if (perkIdCsv) metadata.perk_ids = perkIdCsv
+        if (activeDiscount) {
+          metadata.discount_id     = activeDiscount.id
+          metadata.discount_amount = (applied?.totalDiscount ?? 0).toFixed(2)
+        }
 
-          paymentIntent = await stripe.paymentIntents.create(
+        paymentIntent = await stripe.paymentIntents.create(
           {
             amount: totalAmountCentavos,
             currency: 'mxn',
@@ -175,8 +226,6 @@ export async function POST(request: Request) {
           { idempotencyKey }
         )
       } catch (err: unknown) {
-        // Stripe Search has indexing lag — a PI created seconds ago may not appear
-        // in search yet. When the idempotency key already exists, retrieve it directly.
         if (
           err instanceof Error &&
           'type' in err &&
@@ -211,7 +260,6 @@ export async function POST(request: Request) {
     })
 
   } finally {
-    // Se ejecuta siempre, incluso si hay un throw arriba
     await supabaseAdmin.rpc('release_purchase_lock', { p_lock_key: lockKey })
   }
 }
@@ -235,9 +283,9 @@ async function findExistingPaymentIntent({
   const nowSecs = Math.floor(Date.now() / 1000)
 
   return results.data.find((pi) => {
-    const notExpired = Number(pi.metadata?.expires_at ?? 0) > nowSecs
+    const notExpired  = Number(pi.metadata?.expires_at ?? 0) > nowSecs
     const rightAmount = pi.amount === expectedAmount
-    const reusable = REUSABLE_STATUSES.includes(pi.status)
+    const reusable    = REUSABLE_STATUSES.includes(pi.status)
     return notExpired && rightAmount && reusable
   }) ?? null
 }

@@ -171,12 +171,16 @@ export default function PaymentForm({
   quantity,
   perkIds = [],
   totalLabel,
+  discountCode = null,
+  autoDiscountId = null,
 }: {
-  eventId:    string
-  tierId:     string
-  quantity:   number
-  perkIds?:   string[]
-  totalLabel: string
+  eventId:         string
+  tierId:          string
+  quantity:        number
+  perkIds?:        string[]
+  totalLabel:      string
+  discountCode?:   string | null
+  autoDiscountId?: string | null
 }) {
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [expiresAt,    setExpiresAt]    = useState<number>(0)
@@ -196,7 +200,11 @@ export default function PaymentForm({
         const r = await fetch('/api/stripe/payment-intent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ eventId, tierId, quantity, perkIds }),
+          body: JSON.stringify({
+            eventId, tierId, quantity, perkIds,
+            ...(discountCode   ? { discountCode }   : {}),
+            ...(autoDiscountId ? { autoDiscountId } : {}),
+          }),
         })
         if (ignore) return
         if (r.status === 409 && retriesLeft > 0) {
@@ -219,7 +227,7 @@ export default function PaymentForm({
     fetchIntent()
     return () => { ignore = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, tierId, quantity, perkIdsKey])
+  }, [eventId, tierId, quantity, perkIdsKey, discountCode, autoDiscountId])
 
   // Countdown ticker
   useEffect(() => {

@@ -299,20 +299,27 @@ async function resolveResult(sessionId: string | undefined, paymentIntentId?: st
         if (profileError) return { status: 'error' }
       }
 
-      const perkIdsCsv = pi.metadata?.perk_ids?.trim() || null
-      const perkIds    = perkIdsCsv ? perkIdsCsv.split(',').map(s => s.trim()).filter(Boolean) : []
+      const perkIdsCsv    = pi.metadata?.perk_ids?.trim() || null
+      const perkIds       = perkIdsCsv ? perkIdsCsv.split(',').map(s => s.trim()).filter(Boolean) : []
+      const discountId    = pi.metadata?.discount_id?.trim() || null
+      const discountAmount = pi.metadata?.discount_amount ? Number(pi.metadata.discount_amount) : 0
 
       const { data: orderId, error: rpcError } = await admin.rpc('fulfill_checkout_session', {
-        p_user_id:           userId,
-        p_tier_id:           tierId,
-        p_quantity:          quantity,
-        p_session_id:        pi.id,
-        p_payment_intent_id: pi.id,
+        p_user_id:            userId,
+        p_tier_id:            tierId,
+        p_quantity:           quantity,
+        p_session_id:         pi.id,
+        p_payment_intent_id:  pi.id,
+        p_discount_id:        discountId,
+        p_discount_amount:    discountAmount,
       })
 
       if (rpcError) {
         console.error('[checkout/success] PaymentIntent fulfillment error:', rpcError.message)
-        if (rpcError.message.includes('No hay boletos suficientes')) {
+        if (
+          rpcError.message.includes('No hay boletos suficientes') ||
+          rpcError.message.includes('discount_exhausted')
+        ) {
           try {
             await stripe.refunds.create({ payment_intent: pi.id, reverse_transfer: true })
           } catch (refundErr: unknown) {
@@ -393,18 +400,26 @@ async function resolveResult(sessionId: string | undefined, paymentIntentId?: st
       }
     }
 
+    const sessionDiscountId     = session.metadata?.discount_id?.trim() || null
+    const sessionDiscountAmount = session.metadata?.discount_amount ? Number(session.metadata.discount_amount) : 0
+
     const { data: orderId, error: rpcError } = await admin.rpc('fulfill_checkout_session', {
-      p_user_id: userId,
-      p_tier_id: tierId,
-      p_quantity: quantity,
-      p_session_id: session.id,
+      p_user_id:           userId,
+      p_tier_id:           tierId,
+      p_quantity:          quantity,
+      p_session_id:        session.id,
       p_payment_intent_id: paymentIntentId,
+      p_discount_id:       sessionDiscountId,
+      p_discount_amount:   sessionDiscountAmount,
     })
 
     if (rpcError) {
       console.error('[checkout/success] fulfill_checkout_session error:', rpcError.message)
 
-      if (rpcError.message.includes('No hay boletos suficientes') && paymentIntentId) {
+      if (
+        (rpcError.message.includes('No hay boletos suficientes') || rpcError.message.includes('discount_exhausted')) &&
+        paymentIntentId
+      ) {
         try {
           // reverse_transfer: true returns the funds from the connected account back to
           // the platform. Required for destination charges — without it the platform

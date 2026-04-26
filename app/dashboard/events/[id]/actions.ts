@@ -371,6 +371,103 @@ export async function deletePerk(perkId: string, eventId: string) {
   revalidatePath(`/dashboard/events/${eventId}`)
 }
 
+// ── Discounts ─────────────────────────────────────────────────────────────────
+
+export async function addDiscount(
+  prevState: { error: string } | null,
+  formData: FormData
+) {
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autorizado' }
+
+  const event_id    = formData.get('event_id') as string
+  const name        = (formData.get('name') as string | null)?.trim()
+  const codeRaw     = (formData.get('code') as string | null)?.trim().toUpperCase() || null
+  const kind        = formData.get('kind') as string
+  const tier_id     = (formData.get('tier_id') as string | null)?.trim() || null
+  const max_uses_raw = formData.get('max_uses') as string | null
+  const expires_at_raw = formData.get('expires_at') as string | null
+
+  if (!name) return { error: 'El nombre es requerido' }
+  if (!['percent', 'fixed', 'bogo'].includes(kind)) return { error: 'Tipo de descuento inválido' }
+  if (codeRaw && !/^[A-Z0-9_-]{3,32}$/.test(codeRaw)) {
+    return { error: 'El código debe tener entre 3 y 32 caracteres (A-Z, 0-9, _ -)' }
+  }
+
+  // Verify ownership
+  const { data: ev } = await supabase
+    .from('events')
+    .select('organizer_id, status')
+    .eq('id', event_id)
+    .single()
+  if (!ev) return { error: 'Evento no encontrado' }
+  if (ev.organizer_id !== user.id) return { error: 'No tienes permiso' }
+  if (ev.status !== 'draft') return { error: 'El evento debe estar en borrador para agregar descuentos' }
+
+  const insert: Record<string, unknown> = {
+    event_id,
+    name,
+    code: codeRaw,
+    kind,
+    tier_id,
+    max_uses: max_uses_raw ? Number(max_uses_raw) : null,
+    expires_at: expires_at_raw || null,
+  }
+
+  if (kind === 'percent') {
+    const v = Number(formData.get('percent_off'))
+    if (isNaN(v) || v < 1 || v > 100) return { error: 'Porcentaje debe ser entre 1 y 100' }
+    insert.percent_off = v
+  } else if (kind === 'fixed') {
+    const v = Number(formData.get('amount_off'))
+    if (isNaN(v) || v < 1) return { error: 'Monto debe ser al menos $1' }
+    insert.amount_off = v
+  } else {
+    const buy = Number(formData.get('buy_quantity'))
+    const get = Number(formData.get('get_quantity'))
+    if (!Number.isInteger(buy) || buy < 1) return { error: 'buy_quantity inválido' }
+    if (!Number.isInteger(get) || get < 1) return { error: 'get_quantity inválido' }
+    insert.buy_quantity = buy
+    insert.get_quantity = get
+  }
+
+  const { error } = await supabase.from('discounts').insert(insert)
+  if (error) return { error: error.message }
+
+  revalidatePath(`/dashboard/events/${event_id}`)
+  return null
+}
+
+export async function toggleDiscountActive(discountId: string, eventId: string, active: boolean) {
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+
+  await supabase.from('discounts').update({ is_active: active }).eq('id', discountId)
+  revalidatePath(`/dashboard/events/${eventId}`)
+}
+
+export async function deleteDiscount(discountId: string, eventId: string) {
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  // Only delete if no redemptions
+  const { data: d } = await supabase
+    .from('discounts')
+    .select('used_count')
+    .eq('id', discountId)
+    .single()
+  if (d && d.used_count > 0) return
+
+  await supabase.from('discounts').delete().eq('id', discountId)
+  revalidatePath(`/dashboard/events/${eventId}`)
+}
+
 // ── Duplicate event ───────────────────────────────────────────────────────────
 
 export async function duplicateEvent(eventId: string) {
