@@ -14,6 +14,7 @@ type TicketData = {
   qr_hash: string
   eventTitle: string
   eventDate: string | null
+  locationName: string | null
   venueName: string | null
   venueCity: string | null
   tierName: string | null
@@ -21,7 +22,7 @@ type TicketData = {
 }
 
 type PageResult =
-  | { status: 'success'; tickets: TicketData[] }
+  | { status: 'success'; tickets: TicketData[]; hasBundledPerks: boolean }
   | { status: 'perks_success' }
   | { status: 'refunded'; amount: number | null; currency: string | null }
   | { status: 'error' }
@@ -52,7 +53,16 @@ export default async function CheckoutSuccessPage({
               ¡Extras listos!
             </p>
             <p className="text-base" style={{ color: 'rgba(255,255,255,0.45)' }}>
-              Tus extras están en tu billetera digital.
+              Tus extras fueron confirmados exitosamente.
+            </p>
+          </div>
+          <div className="rounded-2xl px-5 py-4 text-left animate-fade-in-up"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <p className="text-sm font-semibold text-white mb-1">¿Dónde están mis QR?</p>
+            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Los QR de tus extras los encuentras en{' '}
+              <span className="text-orange-400 font-medium">Mis boletos</span>{' '}
+              → sección <span className="text-orange-400 font-medium">Extras</span> al final de la página.
             </p>
           </div>
           <div className="animate-fade-in-up" style={{ animationDelay: '120ms' }}>
@@ -61,7 +71,7 @@ export default async function CheckoutSuccessPage({
               className="inline-flex items-center justify-center px-8 h-14 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
               style={{ background: 'var(--accent-gradient)', boxShadow: '0 0 32px rgba(249,115,22,0.3)' }}
             >
-              Ver mis extras
+              Ver mis boletos y extras
             </Link>
           </div>
         </div>
@@ -159,10 +169,11 @@ export default async function CheckoutSuccessPage({
   }
 
   // status === 'success'
-  const { tickets } = result
+  const { tickets, hasBundledPerks } = result
 
   const walletsTickets = tickets.map(t => ({
     ...t,
+    locationName:  t.locationName,
     displayNumber: ticketDisplayNumber(t.id),
   }))
 
@@ -202,17 +213,30 @@ export default async function CheckoutSuccessPage({
           </div>
         )}
 
+        {/* Perks bundled notice */}
+        {hasBundledPerks && (
+          <div className="rounded-2xl px-5 py-4 animate-fade-in-up"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', animationDelay: '180ms' }}>
+            <p className="text-sm font-semibold text-white mb-1">🎁 También compraste extras</p>
+            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Los QR de tus extras los encuentras en{' '}
+              <span className="text-orange-400 font-medium">Mis boletos</span>{' '}
+              → sección <span className="text-orange-400 font-medium">Extras</span> al final de la página.
+            </p>
+          </div>
+        )}
+
         {/* CTA */}
         <div className="text-center animate-fade-in-up" style={{ animationDelay: '240ms' }}>
           <Link
-            href="/dashboard"
+            href="/tickets"
             className="inline-flex items-center justify-center px-8 h-14 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
             style={{
               background: 'var(--accent-gradient)',
               boxShadow: '0 0 32px rgba(249,115,22,0.3)',
             }}
           >
-            Ir a mis boletos
+            Ver mis boletos
           </Link>
         </div>
 
@@ -277,20 +301,27 @@ async function resolveResult(sessionId: string | undefined, paymentIntentId?: st
         if (profileError) return { status: 'error' }
       }
 
-      const perkIdsCsv = pi.metadata?.perk_ids?.trim() || null
-      const perkIds    = perkIdsCsv ? perkIdsCsv.split(',').map(s => s.trim()).filter(Boolean) : []
+      const perkIdsCsv    = pi.metadata?.perk_ids?.trim() || null
+      const perkIds       = perkIdsCsv ? perkIdsCsv.split(',').map(s => s.trim()).filter(Boolean) : []
+      const discountId    = pi.metadata?.discount_id?.trim() || null
+      const discountAmount = pi.metadata?.discount_amount ? Number(pi.metadata.discount_amount) : 0
 
       const { data: orderId, error: rpcError } = await admin.rpc('fulfill_checkout_session', {
-        p_user_id:           userId,
-        p_tier_id:           tierId,
-        p_quantity:          quantity,
-        p_session_id:        pi.id,
-        p_payment_intent_id: pi.id,
+        p_user_id:            userId,
+        p_tier_id:            tierId,
+        p_quantity:           quantity,
+        p_session_id:         pi.id,
+        p_payment_intent_id:  pi.id,
+        p_discount_id:        discountId,
+        p_discount_amount:    discountAmount,
       })
 
       if (rpcError) {
         console.error('[checkout/success] PaymentIntent fulfillment error:', rpcError.message)
-        if (rpcError.message.includes('No hay boletos suficientes')) {
+        if (
+          rpcError.message.includes('No hay boletos suficientes') ||
+          rpcError.message.includes('discount_exhausted')
+        ) {
           try {
             await stripe.refunds.create({ payment_intent: pi.id, reverse_transfer: true })
           } catch (refundErr: unknown) {
@@ -316,9 +347,9 @@ async function resolveResult(sessionId: string | undefined, paymentIntentId?: st
         }
       }
 
-      if (!orderId) return { status: 'success', tickets: [] }
+      if (!orderId) return { status: 'success', tickets: [], hasBundledPerks: false }
       void sendPurchaseConfirmation(userId, orderId)
-      return resolveTickets(admin, orderId)
+      return resolveTickets(admin, orderId, perkIds.length > 0)
     } catch (err) {
       console.error('[checkout/success] PaymentIntent error:', err)
       return { status: 'error' }
@@ -371,18 +402,26 @@ async function resolveResult(sessionId: string | undefined, paymentIntentId?: st
       }
     }
 
+    const sessionDiscountId     = session.metadata?.discount_id?.trim() || null
+    const sessionDiscountAmount = session.metadata?.discount_amount ? Number(session.metadata.discount_amount) : 0
+
     const { data: orderId, error: rpcError } = await admin.rpc('fulfill_checkout_session', {
-      p_user_id: userId,
-      p_tier_id: tierId,
-      p_quantity: quantity,
-      p_session_id: session.id,
+      p_user_id:           userId,
+      p_tier_id:           tierId,
+      p_quantity:          quantity,
+      p_session_id:        session.id,
       p_payment_intent_id: paymentIntentId,
+      p_discount_id:       sessionDiscountId,
+      p_discount_amount:   sessionDiscountAmount,
     })
 
     if (rpcError) {
       console.error('[checkout/success] fulfill_checkout_session error:', rpcError.message)
 
-      if (rpcError.message.includes('No hay boletos suficientes') && paymentIntentId) {
+      if (
+        (rpcError.message.includes('No hay boletos suficientes') || rpcError.message.includes('discount_exhausted')) &&
+        paymentIntentId
+      ) {
         try {
           // reverse_transfer: true returns the funds from the connected account back to
           // the platform. Required for destination charges — without it the platform
@@ -411,9 +450,11 @@ async function resolveResult(sessionId: string | undefined, paymentIntentId?: st
       return { status: 'error' }
     }
 
-    if (!orderId) return { status: 'success', tickets: [] }
+    if (!orderId) return { status: 'success', tickets: [], hasBundledPerks: false }
     void sendPurchaseConfirmation(userId, orderId)
-    return resolveTickets(admin, orderId)
+    const perkIdsCsv = session.metadata?.perk_ids?.trim() || null
+    const perkIds    = perkIdsCsv ? perkIdsCsv.split(',').filter(Boolean) : []
+    return resolveTickets(admin, orderId, perkIds.length > 0)
   } catch (err) {
     console.error('[checkout/success] Error inesperado:', err)
     return { status: 'error' }
@@ -424,20 +465,20 @@ async function resolveResult(sessionId: string | undefined, paymentIntentId?: st
 
 type AdminClient = ReturnType<typeof createAdminClient>
 
-async function resolveTickets(admin: AdminClient, orderId: string): Promise<PageResult> {
+async function resolveTickets(admin: AdminClient, orderId: string, hasBundledPerks = false): Promise<PageResult> {
   const { data: rawTickets } = await admin
     .from('tickets')
     .select('id, qr_hash, tier_id, event_id')
     .eq('order_id', orderId)
 
-  if (!rawTickets?.length) return { status: 'success', tickets: [] }
+  if (!rawTickets?.length) return { status: 'success', tickets: [], hasBundledPerks }
 
   const tierIds  = [...new Set(rawTickets.map(t => t.tier_id))]
   const eventIds = [...new Set(rawTickets.map(t => t.event_id))]
 
   const [{ data: tiers }, { data: events }] = await Promise.all([
     admin.from('ticket_tiers').select('id, name, price').in('id', tierIds),
-    admin.from('events').select('id, title, event_date, venue_id').in('id', eventIds),
+    admin.from('events').select('id, title, event_date, location_name, venue_id').in('id', eventIds),
   ])
 
   const venueIds = [...new Set((events ?? []).map(e => e.venue_id).filter((id): id is string => !!id))]
@@ -458,18 +499,19 @@ async function resolveTickets(admin: AdminClient, orderId: string): Promise<Page
     const ev   = eventMap.get(t.event_id) ?? null
     const tier = tierMap.get(t.tier_id)   ?? null
     return {
-      id:         t.id,
-      qr_hash:    t.qr_hash,
-      eventTitle: ev?.title ?? 'Evento',
-      eventDate:  ev?.event_date ?? null,
-      venueName:  (ev?.venue as { name: string; city: string } | null)?.name ?? null,
-      venueCity:  (ev?.venue as { name: string; city: string } | null)?.city ?? null,
-      tierName:   tier?.name ?? null,
-      tierPrice:  tier ? Number(tier.price) : null,
+      id:           t.id,
+      qr_hash:      t.qr_hash,
+      eventTitle:   ev?.title ?? 'Evento',
+      eventDate:    ev?.event_date ?? null,
+      locationName: ev?.location_name ?? null,
+      venueName:    (ev?.venue as { name: string; city: string } | null)?.name ?? null,
+      venueCity:    (ev?.venue as { name: string; city: string } | null)?.city ?? null,
+      tierName:     tier?.name ?? null,
+      tierPrice:    tier ? Number(tier.price) : null,
     }
   })
 
-  return { status: 'success', tickets }
+  return { status: 'success', tickets, hasBundledPerks }
 }
 
 function ticketDisplayNumber(id: string): string {

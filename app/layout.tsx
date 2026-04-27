@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import PageTransition from "@/components/page-transition";
 import CapacitorInit from "@/components/capacitor-init";
 import "./globals.css";
@@ -38,7 +39,13 @@ export default function RootLayout({
         <PageTransition>
           {children}
         </PageTransition>
+        <footer className="text-center py-4 text-xs text-zinc-500">
+          <a href="mailto:contacto@takilla.online" className="hover:text-zinc-300 transition-colors">
+            contacto@takilla.online
+          </a>
+        </footer>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

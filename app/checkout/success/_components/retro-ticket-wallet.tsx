@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, CalendarDays, MapPin } from 'lucide-react'
-import TicketQr from '@/app/tickets/_components/ticket-qr'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import DigitalTicket from '@/components/digital-ticket'
 
 type TicketData = {
   id: string
@@ -10,6 +10,7 @@ type TicketData = {
   qr_hash: string
   eventTitle: string
   eventDate: string | null
+  locationName: string | null
   venueName: string | null
   venueCity: string | null
   tierName: string | null
@@ -36,125 +37,21 @@ export default function RetroTicketWallet({
   return (
     <div className="flex flex-col items-center gap-6 w-full">
 
-      {/* ── Ticket card ──────────────────────────────────────── */}
-      {/* Gradient border wrapper */}
-      <div
-        className="w-full"
-        style={{
-          background: 'var(--accent-gradient)',
-          padding: '1.5px',
-          borderRadius: '28px',
-          boxShadow: '0 0 60px rgba(249,115,22,0.18), 0 0 120px rgba(250,20,146,0.1)',
-        }}
-      >
-        <div
-          className="w-full overflow-hidden"
-          style={{
-            background: 'linear-gradient(160deg, #1e1040 0%, #110726 100%)',
-            borderRadius: '26.5px',
-          }}
-        >
+      <DigitalTicket
+        id={ticket.id}
+        displayNumber={ticket.displayNumber}
+        qr_hash={ticket.qr_hash}
+        eventTitle={ticket.eventTitle}
+        eventDate={date}
+        locationName={ticket.locationName}
+        venueName={ticket.venueName}
+        venueCity={ticket.venueCity}
+        tierName={ticket.tierName}
+        featuredTier
+        maxWidth="100%"
+      />
 
-          {/* ── Header strip ──────────────────────────────── */}
-          <div
-            className="flex items-center justify-between px-6 py-4"
-            style={{ background: 'var(--accent-gradient)' }}
-          >
-            <span className="font-bold text-xl tracking-[0.22em] text-white uppercase"
-              style={{ textShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
-              ★ Takilla
-            </span>
-            <span className="font-mono text-sm font-bold text-white/70 tracking-widest">
-              #{ticket.displayNumber}
-            </span>
-          </div>
-
-          {/* ── Event info ────────────────────────────────── */}
-          <div className="px-6 pt-6 pb-5 space-y-3">
-            <h2
-              className="font-bold text-white leading-tight break-words"
-              style={{ fontSize: 'clamp(1.6rem, 7vw, 2.2rem)' }}
-            >
-              {ticket.eventTitle}
-            </h2>
-
-            <div className="space-y-1.5">
-              {date && (
-                <p className="flex items-center gap-2 text-sm font-medium"
-                  style={{ color: 'rgba(255,255,255,0.55)' }}>
-                  <CalendarDays size={14} className="shrink-0" style={{ color: 'var(--color-orange)' }} />
-                  <span className="capitalize">{date}</span>
-                </p>
-              )}
-              {(ticket.venueName || ticket.venueCity) && (
-                <p className="flex items-center gap-2 text-sm font-medium"
-                  style={{ color: 'rgba(255,255,255,0.55)' }}>
-                  <MapPin size={14} className="shrink-0" style={{ color: 'var(--color-pink)' }} />
-                  {[ticket.venueName, ticket.venueCity].filter(Boolean).join(', ')}
-                </p>
-              )}
-            </div>
-
-            {ticket.tierName && (
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full"
-                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">
-                  {ticket.tierName}
-                </span>
-                {ticket.tierPrice !== null && ticket.tierPrice > 0 && (
-                  <>
-                    <span style={{ color: 'rgba(255,255,255,0.25)' }}>·</span>
-                    <span className="text-xs font-bold text-white">${ticket.tierPrice.toFixed(2)}</span>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── Perforated separator ──────────────────────── */}
-          <div className="relative flex items-center" style={{ margin: '0 -1.5px' }}>
-            {/* Left notch */}
-            <div className="w-7 h-7 rounded-full shrink-0"
-              style={{ background: 'linear-gradient(160deg, #1e1040 0%, #110726 100%)', marginLeft: '-14px' }} />
-            {/* Dashed line */}
-            <div className="flex-1 border-t-2 border-dashed mx-2"
-              style={{ borderColor: 'rgba(255,255,255,0.12)' }} />
-            {/* Right notch */}
-            <div className="w-7 h-7 rounded-full shrink-0"
-              style={{ background: 'linear-gradient(160deg, #1e1040 0%, #110726 100%)', marginRight: '-14px' }} />
-          </div>
-
-          {/* ── QR section ────────────────────────────────── */}
-          <div className="px-6 pt-6 pb-7 flex flex-col items-center gap-4">
-            <p className="text-xs font-bold uppercase tracking-[0.2em]"
-              style={{ color: 'rgba(255,255,255,0.3)' }}>
-              Código de acceso
-            </p>
-
-            {/* QR container */}
-            <div
-              className="p-4 rounded-2xl"
-              style={{ background: '#fff', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
-            >
-              <TicketQr qrHash={ticket.qr_hash} size={210} />
-            </div>
-
-            <p
-              className="text-xs font-semibold uppercase tracking-widest text-center"
-              style={{
-                background: 'var(--accent-gradient)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              Muestra al staff en la entrada
-            </p>
-          </div>
-
-        </div>
-      </div>
-
-      {/* ── Navigation (multi-ticket) ─────────────────────── */}
+      {/* Navigation (multi-ticket) */}
       {total > 1 && (
         <div className="flex items-center gap-5">
           <button

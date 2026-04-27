@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { deleteTier, updateTierDescription, updateTierItems, updateTierEffect } from '../actions'
-import { Trash2, Pencil, Check, X, Package } from 'lucide-react'
+import { Trash2, Pencil, Check, X, Package, Lock } from 'lucide-react'
 import { TierEffectKeyframes, tierEffectBadge } from '@/components/tier-effects'
 
 type Tier = {
@@ -33,6 +33,21 @@ export default function TierList({ tiers, eventId }: { tiers: Tier[]; eventId: s
   const [editMode,  setEditMode]  = useState<EditMode>(null)
   const [editValue, setEditValue] = useState('')
   const [saving, startSave] = useTransition()
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleting, startDelete] = useTransition()
+
+  function handleDeleteConfirm(tierId: string) {
+    setDeleteError(null)
+    startDelete(async () => {
+      const result = await deleteTier(tierId, eventId)
+      if (result?.error) {
+        setDeleteError(result.error)
+      } else {
+        setConfirmDeleteId(null)
+      }
+    })
+  }
 
   function startEdit(tier: Tier, mode: EditMode) {
     setEditingId(tier.id)
@@ -145,15 +160,24 @@ export default function TierList({ tiers, eventId }: { tiers: Tier[]; eventId: s
                       </button>
                     </>
                   )}
-                  <form action={deleteTier.bind(null, tier.id, eventId)}>
+                  {sold > 0 ? (
                     <button
-                      type="submit"
+                      disabled
+                      className="text-purple-800/60 p-1 cursor-not-allowed"
+                      title={`No se puede eliminar: ${sold} boleto(s) vendido(s)`}
+                    >
+                      <Lock size={15} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { setConfirmDeleteId(tier.id); setDeleteError(null) }}
                       className="text-purple-600/60 hover:text-red-400 transition-colors p-1"
                       title="Eliminar tier"
                     >
                       <Trash2 size={15} />
                     </button>
-                  </form>
+                  )}
                 </div>
               </div>
 
@@ -221,6 +245,48 @@ export default function TierList({ tiers, eventId }: { tiers: Tier[]; eventId: s
           )
         })}
       </div>
+
+      {/* Modal de confirmación de borrado */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+          <div className="w-full max-w-sm rounded-2xl border border-purple-700/40 p-6 space-y-4" style={{ background: 'var(--surface-panel)' }}>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-500/15">
+                <Trash2 size={20} className="text-red-400" />
+              </div>
+              <div>
+                <p className="font-semibold text-white text-sm">¿Eliminar tier?</p>
+                <p className="text-xs text-purple-400/70 mt-0.5">Esta acción no se puede deshacer.</p>
+              </div>
+            </div>
+
+            {deleteError && (
+              <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => { setConfirmDeleteId(null); setDeleteError(null) }}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleDeleteConfirm(confirmDeleteId)}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-50"
+                style={{ background: 'linear-gradient(90deg, #dc2626, #b91c1c)' }}
+              >
+                {deleting ? 'Eliminando...' : 'Sí, eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -3,31 +3,37 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { resolveEventImageUrl } from '@/utils/supabase/storage'
-import { CalendarDays, MapPin, Ticket } from 'lucide-react'
+import { CalendarDays, MapPin, Ticket, Tag } from 'lucide-react'
 import { startStripeCheckout } from './actions'
 import SubmitButton from './_components/submit-button'
-import PaymentForm from './_components/payment-form'
 import BackButton from './_components/back-button'
+import CheckoutPaymentSection from './_components/checkout-payment-section'
 import { calculateFees, calculatePerkFees } from '@/utils/pricing'
 import { isEventOver } from '@/utils/event-time'
+import {
+  getPublicDiscountForTier,
+  validateDiscountCode,
+  applyDiscountRow,
+} from '@/utils/discounts'
 
 type CheckoutPageProps = {
   searchParams: Promise<{
-    eventId?: string
-    tierId?: string
+    eventId?:  string
+    tierId?:   string
     quantity?: string
-    perks?: string    // CSV of perk IDs (with repetitions for qty)
+    perks?:    string   // CSV of perk IDs (with repetitions for qty)
+    code?:     string   // optional discount code
   }>
 }
 
 type VenueInfo = { name?: string | null; city?: string | null }
 type EventInfo = {
-  title: string
-  status: string
-  event_date: string
+  title:          string
+  status:         string
+  event_date:     string
   event_end_date?: string | null
-  image_url?: string | null
-  venues?: VenueInfo | VenueInfo[] | null
+  image_url?:     string | null
+  venues?:        VenueInfo | VenueInfo[] | null
 }
 
 export default async function CheckoutPage({ searchParams }: CheckoutPageProps) {
@@ -38,6 +44,7 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
   const quantity       = Number.isInteger(quantityParsed) ? quantityParsed : 1
   const perksCsv       = params.perks?.trim() || ''
   const perkIds        = perksCsv ? perksCsv.split(',').map(s => s.trim()).filter(Boolean) : []
+  const codeParam      = params.code?.trim().toUpperCase() || null
 
   if (!eventId || !tierId) redirect('/events')
 
@@ -64,9 +71,30 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
   const finalQuantity  = Math.min(cappedQuantity, tier.available_tickets)
   if (finalQuantity < 1) redirect(`/events/${eventId}`)
 
-  const price  = Number(tier.price)
+  const price = Number(tier.price)
 
-  // Fetch and validate perks if present
+  // ── Discount resolution ──────────────────────────────────────────────────────
+  // Priority: user-entered code > public auto-applied discount
+  let activeDiscount: Awaited<ReturnType<typeof getPublicDiscountForTier>> = null
+  let codeError: string | null = null
+
+  if (codeParam) {
+    const result = await validateDiscountCode(supabase, eventId, tierId, codeParam)
+    if (result.ok) {
+      activeDiscount = result.discount
+    } else {
+      codeError = result.reason
+      // Fall back to public discount when code is invalid
+      activeDiscount = await getPublicDiscountForTier(supabase, eventId, tierId)
+    }
+  } else {
+    activeDiscount = await getPublicDiscountForTier(supabase, eventId, tierId)
+  }
+
+  const applied      = activeDiscount ? applyDiscountRow(price, finalQuantity, activeDiscount) : null
+  const effectPrice  = applied?.effectivePrice ?? price
+
+  // ── Fetch and validate perks ──────────────────────────────────────────────────
   type PerkRow = { id: string; name: string; price: number }
   let perkRows: PerkRow[] = []
   if (perkIds.length > 0) {
@@ -77,12 +105,11 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
       .in('id', uniqueIds)
       .eq('event_id', eventId)
     if (fetchedPerks) perkRows = fetchedPerks.map(p => ({ ...p, price: Number(p.price) }))
-    // Drop any perk IDs not found (safety)
     const validIds = new Set(perkRows.map(p => p.id))
     perkIds.splice(0, perkIds.length, ...perkIds.filter(id => validIds.has(id)))
   }
 
-  // Compute perk total: solo 5% de plataforma, sin gross-up de Stripe
+  // Perk fees (unaffected by ticket discount in v1)
   const perkFees = perkRows.length > 0
     ? perkIds.reduce((sum, id) => {
         const perk = perkRows.find(p => p.id === id)
@@ -91,10 +118,10 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
       }, 0)
     : 0
 
-  const ticketIsFree = price === 0
+  const ticketIsFree = effectPrice === 0
   const perkIsFree   = perkFees === 0
   const isFree       = ticketIsFree && perkIsFree
-  const fees         = ticketIsFree ? null : calculateFees(price, finalQuantity)
+  const fees         = ticketIsFree ? null : calculateFees(effectPrice, finalQuantity)
   const total        = (fees ? fees.totalAmount : 0) + perkFees
 
   const venue        = (Array.isArray(event.venues) ? event.venues[0] : event.venues) as VenueInfo | null
@@ -102,6 +129,11 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
   const dateFormatted = new Date(event.event_date).toLocaleDateString('es-MX', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
+
+  // Effective code to pass down — only if it validated OK
+  const validatedCode = (codeParam && !codeError) ? codeParam : null
+  // Public discount ID to pass for auto-applied discounts (no code)
+  const autoDiscountId = (!codeParam && activeDiscount?.code === null) ? activeDiscount?.id ?? null : null
 
   return (
     <main className="flex-1 flex items-start justify-center px-4 py-10">
@@ -157,9 +189,25 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
               <div className="flex items-center justify-between">
                 <span className="text-base" style={{ color: 'rgba(255,255,255,0.45)' }}>Precio del boleto</span>
                 <span className="text-base font-semibold text-white">
-                  {ticketIsFree ? 'FREE' : `$${price.toFixed(2)}`}
+                  {price === 0 ? 'FREE' : `$${price.toFixed(2)}`}
                 </span>
               </div>
+
+              {/* Discount line */}
+              {applied && applied.totalDiscount > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm flex items-center gap-1.5" style={{ color: 'rgba(34,197,94,0.9)' }}>
+                    <Tag size={12} />
+                    {activeDiscount?.code
+                      ? `Código ${activeDiscount.code}`
+                      : activeDiscount?.name ?? 'Descuento'}
+                  </span>
+                  <span className="text-sm font-semibold" style={{ color: 'rgba(34,197,94,0.9)' }}>
+                    -${applied.totalDiscount.toFixed(2)}
+                  </span>
+                </div>
+              )}
+
               {fees && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>Cargo por servicio</span>
@@ -215,33 +263,43 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
             </div>
           </div>
 
-          {/* CTA */}
-          <div className="px-6 pb-6 space-y-3">
-            {isFree ? (
-              <>
-                <form action={startStripeCheckout}>
-                  <input type="hidden" name="eventId"  value={eventId} />
-                  <input type="hidden" name="tierId"   value={tierId} />
-                  <input type="hidden" name="quantity" value={String(finalQuantity)} />
-                  {perkIds.length > 0 && (
-                    <input type="hidden" name="perks" value={perkIds.join(',')} />
-                  )}
-                  <SubmitButton label="Confirmar boletos · FREE" />
-                </form>
-                <p className="text-sm text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                  Tus boletos se generarán al confirmar.
-                </p>
-              </>
-            ) : (
-              <PaymentForm
-                eventId={eventId}
-                tierId={tierId}
-                quantity={finalQuantity}
-                perkIds={perkIds}
-                totalLabel={`$${total.toFixed(2)} MXN`}
-              />
-            )}
-          </div>
+          {/* CTA — free path stays server-rendered; paid path uses client wrapper */}
+          {isFree ? (
+            <div className="px-6 pb-6 space-y-3">
+              <form action={startStripeCheckout}>
+                <input type="hidden" name="eventId"  value={eventId} />
+                <input type="hidden" name="tierId"   value={tierId} />
+                <input type="hidden" name="quantity" value={String(finalQuantity)} />
+                {perkIds.length > 0 && (
+                  <input type="hidden" name="perks" value={perkIds.join(',')} />
+                )}
+                {validatedCode && (
+                  <input type="hidden" name="code" value={validatedCode} />
+                )}
+                {autoDiscountId && (
+                  <input type="hidden" name="discountId" value={autoDiscountId} />
+                )}
+                <SubmitButton label="Confirmar boletos · FREE" />
+              </form>
+              <p className="text-sm text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                Tus boletos se generarán al confirmar.
+              </p>
+            </div>
+          ) : (
+            <CheckoutPaymentSection
+              price={price}
+              eventId={eventId}
+              tierId={tierId}
+              quantity={finalQuantity}
+              perksCsv={perkIds.join(',')}
+              perkIds={perkIds}
+              currentCode={codeParam}
+              codeError={codeError}
+              totalLabel={`$${total.toFixed(2)} MXN`}
+              discountCode={validatedCode}
+              autoDiscountId={autoDiscountId}
+            />
+          )}
 
         </div>
       </div>

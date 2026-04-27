@@ -36,7 +36,11 @@ function asRequiredMetadata(metadata: Stripe.Metadata | null) {
   const perkIdsCsv = metadata?.perk_ids?.trim() || null
   const perkIds: string[] = perkIdsCsv ? perkIdsCsv.split(',').map(s => s.trim()).filter(Boolean) : []
 
-  return { userId, tierId, quantity, perkIds }
+  // discount is optional
+  const discountId     = metadata?.discount_id?.trim() || null
+  const discountAmount = metadata?.discount_amount ? Number(metadata.discount_amount) : 0
+
+  return { userId, tierId, quantity, perkIds, discountId, discountAmount }
 }
 
 function asPerksOnlyMetadata(metadata: Stripe.Metadata | null) {
@@ -125,16 +129,23 @@ export async function POST(request: Request) {
     const parsed = asRequiredMetadata(pi.metadata)
     if (parsed) {
       const { data: orderId, error } = await supabaseAdmin.rpc('fulfill_checkout_session', {
-        p_user_id:           parsed.userId,
-        p_tier_id:           parsed.tierId,
-        p_quantity:          parsed.quantity,
-        p_session_id:        pi.id,
-        p_payment_intent_id: pi.id,
+        p_user_id:            parsed.userId,
+        p_tier_id:            parsed.tierId,
+        p_quantity:           parsed.quantity,
+        p_session_id:         pi.id,
+        p_payment_intent_id:  pi.id,
+        p_discount_id:        parsed.discountId,
+        p_discount_amount:    parsed.discountAmount,
       })
 
       if (error) {
         if (error.message.includes('No hay boletos suficientes')) {
           console.warn('[webhook] Inventario insuficiente en PaymentIntent, reembolsando:', pi.id)
+          await tryRefund(pi.id, pi.id)
+          return NextResponse.json({ received: true })
+        }
+        if (error.message.includes('discount_exhausted')) {
+          console.warn('[webhook] Descuento agotado en PaymentIntent, reembolsando:', pi.id)
           await tryRefund(pi.id, pi.id)
           return NextResponse.json({ received: true })
         }
@@ -182,23 +193,27 @@ export async function POST(request: Request) {
 
       const supabaseAdmin = createAdminClient()
       const { data: orderId, error } = await supabaseAdmin.rpc('fulfill_checkout_session', {
-        p_user_id: parsed.userId,
-        p_tier_id: parsed.tierId,
-        p_quantity: parsed.quantity,
-        p_session_id: session.id,
+        p_user_id:           parsed.userId,
+        p_tier_id:           parsed.tierId,
+        p_quantity:          parsed.quantity,
+        p_session_id:        session.id,
         p_payment_intent_id: paymentIntentId,
+        p_discount_id:       parsed.discountId,
+        p_discount_amount:   parsed.discountAmount,
       })
 
       if (error) {
         if (error.message.includes('No hay boletos suficientes')) {
           console.warn('[webhook] Inventario insuficiente al fulfillment, emitiendo reembolso. Sesión:', session.id)
           await tryRefund(paymentIntentId, session.id)
-          // Return 200 — Stripe must not retry this, the issue is permanent
           return NextResponse.json({ received: true })
         }
-
+        if (error.message.includes('discount_exhausted')) {
+          console.warn('[webhook] Descuento agotado al fulfillment, emitiendo reembolso. Sesión:', session.id)
+          await tryRefund(paymentIntentId, session.id)
+          return NextResponse.json({ received: true })
+        }
         console.error('[webhook] fulfill_checkout_session error:', error.message)
-        // Return 500 for unexpected errors so Stripe retries
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
 

@@ -9,6 +9,7 @@ import EventPurchasePanel from './_components/event-purchase-panel'
 import EventMap from './_components/event-map'
 import Avatar from '@/components/avatar'
 import { isEventOver } from '@/utils/event-time'
+import { getPublicDiscountsForEvent, toTierDiscount } from '@/utils/discounts'
 
 type VenueInfo = {
   name?: string | null
@@ -37,6 +38,8 @@ export default async function EventDetailPage({
     supabase.auth.getUser(),
     supabase.from('perks').select('id, name, price, description, image_url').eq('event_id', id).order('price'),
   ])
+
+  const publicDiscounts = await getPublicDiscountsForEvent(supabase, id)
 
   if (!event) notFound()
 
@@ -207,15 +210,19 @@ export default async function EventDetailPage({
             ) : (
               <EventPurchasePanel
                 eventId={id}
-                tiers={tiers.map(t => ({
-                  id: t.id,
-                  name: t.name,
-                  price: Number(t.price),
-                  available_tickets: t.available_tickets,
-                  total_capacity: t.total_capacity,
-                  description: t.description ?? null,
-                  effect: t.effect ?? null,
-                }))}
+                tiers={tiers.map(t => {
+                  const d = publicDiscounts.get(t.id) ?? publicDiscounts.get(null) ?? null
+                  return {
+                    id: t.id,
+                    name: t.name,
+                    price: Number(t.price),
+                    available_tickets: t.available_tickets,
+                    total_capacity: t.total_capacity,
+                    description: t.description ?? null,
+                    effect: t.effect ?? null,
+                    discount: d ? toTierDiscount(d) : null,
+                  }
+                })}
                 perks={(perks ?? []).map(p => ({
                   id: p.id,
                   name: p.name,

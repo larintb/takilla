@@ -33,6 +33,7 @@ export const diamondStyle: React.CSSProperties = { ...diamondBase }
 export const tierEffectKeyframesCSS = `
   @keyframes goldWave    { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
   @keyframes diamondWave { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  @keyframes accentWave  { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
 `
 
 export function TierEffectKeyframes(): React.ReactElement {
@@ -79,6 +80,18 @@ export function tierCtaStyle(effect: string | null | undefined): React.CSSProper
   if (effect === 'gold')    return { ...goldStyle, borderRadius: '1rem', fontSize: '1rem' }
   if (effect === 'diamond') return { ...diamondStyle, borderRadius: '1rem', fontSize: '1rem' }
   return { background: 'var(--accent-gradient)', boxShadow: '0 0 28px rgba(249,115,22,0.28)' }
+}
+
+// ── Discount corner-flag badge ────────────────────────────────────────────────
+// Rendered as an absolute-positioned <span> in the top-right corner of a tier card.
+
+export const discountFlagStyle: React.CSSProperties = {
+  background: 'var(--accent-gradient)',
+  backgroundSize: '200% 200%',
+  animation: 'accentWave 3s ease infinite',
+  color: '#ffffff',
+  textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+  boxShadow: '0 4px 12px rgba(250,20,146,0.35)',
 }
 
 // ── Badge style for small tier badges (organizer dashboard) ───────────────────

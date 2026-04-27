@@ -3,12 +3,14 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import {
   CalendarDays, MapPin, Ticket, Globe,
-  TrendingUp, Users, DollarSign, Pencil, Lock, Gift
+  TrendingUp, Users, DollarSign, Pencil, Lock, Gift, Percent
 } from 'lucide-react'
 import TierForm from './_components/tier-form'
 import TierList from './_components/tier-list'
 import PerkForm from './_components/perk-form'
 import PerkList from './_components/perk-list'
+import DiscountForm from './_components/discount-form'
+import DiscountList from './_components/discount-list'
 import StatusActions from './_components/status-actions'
 import EventEditForm from './_components/event-edit-form'
 import { updateEvent, duplicateEvent } from './actions'
@@ -30,11 +32,12 @@ export default async function EventDetailPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: event }, { data: profile }, { data: tiers }, { data: perks }] = await Promise.all([
+  const [{ data: event }, { data: profile }, { data: tiers }, { data: perks }, { data: discounts }] = await Promise.all([
     supabase.from('events').select('*, venues(name, city)').eq('id', id).single(),
     supabase.from('profiles').select('role, stripe_onboarding_complete').eq('id', user.id).single(),
     supabase.from('ticket_tiers').select('*').eq('event_id', id).order('price'),
     supabase.from('perks').select('*').eq('event_id', id).order('price'),
+    supabase.from('discounts').select('*').eq('event_id', id).order('created_at'),
   ])
 
   if (!event) notFound()
@@ -42,6 +45,16 @@ export default async function EventDetailPage({
   const isOwner = event.organizer_id === user.id
   const isAdmin = profile?.role === 'admin'
   if (!isOwner && !isAdmin) redirect('/dashboard')
+
+  let canCharge = !!profile?.stripe_onboarding_complete
+  if (isAdmin && !isOwner) {
+    const { data: orgProfile } = await supabase
+      .from('profiles')
+      .select('stripe_onboarding_complete')
+      .eq('id', event.organizer_id)
+      .single()
+    canCharge = !!orgProfile?.stripe_onboarding_complete
+  }
 
   const venue = (event.venues ?? null) as VenueInfo | null
   const isFinished = event.status === 'published' && isEventOver(event.event_date, event.event_end_date)
@@ -207,7 +220,7 @@ export default async function EventDetailPage({
         {isDraft && (
           <div>
             <h3 className="text-sm font-medium text-purple-300 mb-3">Agregar tier</h3>
-            <TierForm eventId={id} canCharge={!!profile?.stripe_onboarding_complete} />
+            <TierForm eventId={id} canCharge={canCharge} />
           </div>
         )}
 
@@ -231,13 +244,37 @@ export default async function EventDetailPage({
         {isDraft && (
           <div>
             <h3 className="text-sm font-medium text-purple-300 mb-3">Agregar extra</h3>
-            <PerkForm eventId={id} canCharge={!!profile?.stripe_onboarding_complete} />
+            <PerkForm eventId={id} canCharge={canCharge} />
           </div>
         )}
 
         {isPublished && (
           <p className="text-xs text-purple-400/60 flex items-center gap-1.5 bg-white/5 border border-purple-700/30 px-3 py-2 rounded-lg">
             <Lock size={11} /> Regresa el evento a borrador para agregar o eliminar extras.
+          </p>
+        )}
+      </section>
+
+      {/* Discounts */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Percent size={16} className="text-orange-400" />
+          <h2 className="text-base font-semibold text-white">Descuentos y códigos</h2>
+          <span className="text-sm text-purple-400/60">({discounts?.length ?? 0})</span>
+        </div>
+
+        <DiscountList discounts={discounts ?? []} tiers={tiers ?? []} eventId={id} />
+
+        {isDraft && (
+          <div>
+            <h3 className="text-sm font-medium text-purple-300 mb-3">Agregar descuento</h3>
+            <DiscountForm eventId={id} tiers={tiers ?? []} />
+          </div>
+        )}
+
+        {isPublished && (
+          <p className="text-xs text-purple-400/60 flex items-center gap-1.5 bg-white/5 border border-purple-700/30 px-3 py-2 rounded-lg">
+            <Lock size={11} /> Regresa el evento a borrador para agregar o eliminar descuentos.
           </p>
         )}
       </section>
