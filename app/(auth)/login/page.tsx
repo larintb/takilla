@@ -3,7 +3,7 @@
 import { Suspense, useActionState, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { login, resendSignupCode, verifyEmailCode } from '@/app/actions/auth'
+import { login, resendSignupCode, verifyEmailCode, requestPasswordReset } from '@/app/actions/auth'
 import FormButton from '@/components/form-button'
 
 export default function LoginPage() {
@@ -18,11 +18,12 @@ function LoginPageContent() {
   const [state, action] = useActionState(login, null)
   const [resendState, resendAction] = useActionState(resendSignupCode, null)
   const [verifyState, verifyAction] = useActionState(verifyEmailCode, null)
+  const [resetState, resetAction] = useActionState(requestPasswordReset, null)
   const searchParams = useSearchParams()
   const next = searchParams.get('next') ?? ''
 
-  const [view, setView] = useState<'login' | 'unverified' | 'confirm_send' | 'verify'>('login')
-  const [showPassword, setShowPassword] = useState(false)  // 👈 nuevo
+  const [view, setView] = useState<'login' | 'unverified' | 'confirm_send' | 'verify' | 'forgot_password'>('login')
+  const [showPassword, setShowPassword] = useState(false)
 
   const isUnverified = !!(state && 'unverified' in state && state.unverified)
   const codeSent = !!(resendState && 'sent' in resendState && resendState.sent)
@@ -186,6 +187,80 @@ function LoginPageContent() {
     )
   }
 
+  if (currentView === 'forgot_password') {
+    const sent = !!(resetState && 'sent' in resetState && resetState.sent)
+    return (
+      <div className="rounded-2xl p-8" style={panelStyle}>
+        {sent ? (
+          <div className="text-center space-y-4">
+            <div className="text-5xl mb-4">📩</div>
+            <h2 className="text-2xl font-bold text-white">Revisa tu correo</h2>
+            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Si existe una cuenta con ese correo, recibirás un enlace para restablecer tu contraseña.
+            </p>
+            <button
+              onClick={() => setView('login')}
+              className="w-full py-3 rounded-xl text-sm transition-all hover:opacity-70 mt-4"
+              style={{ color: 'rgba(255,255,255,0.4)', background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              Volver al inicio de sesión
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-white">Restablecer contraseña</h2>
+              <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                Te enviaremos un enlace a tu correo
+              </p>
+            </div>
+            <form action={resetAction} className="space-y-5">
+              <div>
+                <label htmlFor="reset-email" className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Correo electrónico
+                </label>
+                <input
+                  id="reset-email"
+                  name="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  autoFocus
+                  className="w-full rounded-xl px-4 py-3 text-sm text-white focus:outline-none transition-all"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
+                  placeholder="tu@correo.com"
+                />
+              </div>
+              {resetState && 'error' in resetState && (
+                <div
+                  className="rounded-xl px-4 py-3 text-sm font-medium"
+                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}
+                >
+                  {resetState.error}
+                </div>
+              )}
+              <div className="pt-1">
+                <FormButton
+                  className="w-full py-3 rounded-xl font-bold text-white text-sm transition-all hover:opacity-90 active:scale-[0.98]"
+                  style={{ background: 'var(--accent-gradient)', boxShadow: '0 0 30px rgba(249,115,22,0.3)' }}
+                >
+                  Enviar enlace
+                </FormButton>
+              </div>
+            </form>
+            <button
+              onClick={() => setView('login')}
+              className="w-full py-3 rounded-xl text-sm transition-all hover:opacity-70 mt-2"
+              style={{ color: 'rgba(255,255,255,0.4)', background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              Volver al inicio de sesión
+            </button>
+          </>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="rounded-2xl p-8" style={panelStyle}>
       <div className="text-center mb-8">
@@ -256,6 +331,18 @@ function LoginPageContent() {
               )}
             </button>
           </div>
+        </div>
+
+        {/* Forgot password link */}
+        <div className="flex justify-end -mt-2">
+          <button
+            type="button"
+            onClick={() => setView('forgot_password')}
+            className="text-xs transition-opacity hover:opacity-80"
+            style={{ color: 'rgba(255,255,255,0.4)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          >
+            ¿Olvidaste tu contraseña?
+          </button>
         </div>
 
         {state && 'error' in state && (

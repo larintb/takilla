@@ -533,6 +533,23 @@ export default function EventEditForm({ action, defaultValues }: Props) {
         </p>
       )}
 
+      {state === null && !localError && !isPending && (
+        <p className="text-xs text-green-400/70 hidden" data-saved="true" />
+      )}
+
+      <button
+        type="submit"
+        disabled={isPending}
+        className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+        style={{ background: 'var(--accent-gradient)' }}
+      >
+        {isPending ? (
+          <><Loader2 size={14} className="animate-spin" /> Guardando…</>
+        ) : (
+          'Guardar cambios'
+        )}
+      </button>
+
     </form>
   )
 }

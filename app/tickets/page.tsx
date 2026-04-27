@@ -21,6 +21,7 @@ type EventGroup = {
   eventData: {
     title: string; date: string
     venueName: string | null; venueCity: string | null
+    locationName: string | null
     imageUrl: string | null
     totalCount: number; validCount: number
     hasAvailablePerks: boolean
@@ -29,6 +30,21 @@ type EventGroup = {
   perkPurchases: PerkPurchaseRow[]
   eventDate: string
   eventEndDate: string | null
+}
+
+type RawTicketDetailRow = {
+  id: string
+  qr_hash: string
+  is_used: boolean
+  event_id: string
+  tier_name: string | null
+  tier_price: number | null
+  event_title: string
+  event_date: string
+  image_url: string | null
+  venue_name: string | null
+  venue_city: string | null
+  location_name: string | null
 }
 
 export default async function TicketsPage() {
@@ -41,7 +57,7 @@ export default async function TicketsPage() {
   const [{ data: rows, error }, { data: perkPurchaseRows }] = await Promise.all([
     supabase
       .from('ticket_details')
-      .select('id, qr_hash, is_used, event_id, tier_name, tier_price, event_title, event_date, image_url, venue_name, venue_city')
+      .select('id, qr_hash, is_used, event_id, tier_name, tier_price, event_title, event_date, image_url, venue_name, venue_city, location_name')
       .eq('owner_id', user.id)
       .order('event_date', { ascending: true }),
     supabase
@@ -51,9 +67,10 @@ export default async function TicketsPage() {
   ])
 
   if (error) throw new Error(error.message)
+  const ticketRows = (rows ?? []) as RawTicketDetailRow[]
 
   // Build a set of event_ids that have perks available for purchase
-  const userEventIds = [...new Set((rows ?? []).map(r => r.event_id))]
+  const userEventIds = [...new Set(ticketRows.map(r => r.event_id))]
   const eventIdsWithPerks = new Set<string>()
   const eventEndDateMap = new Map<string, string | null>()
   if (userEventIds.length > 0) {
@@ -81,7 +98,7 @@ export default async function TicketsPage() {
 
   const groupMap = new Map<string, EventGroup>()
 
-  for (const row of rows ?? []) {
+  for (const row of ticketRows) {
     if (!groupMap.has(row.event_id)) {
       groupMap.set(row.event_id, {
         eventId: row.event_id,
@@ -90,8 +107,9 @@ export default async function TicketsPage() {
           date:       new Date(row.event_date).toLocaleDateString('es-MX', {
             weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
           }),
-          venueName:  row.venue_name ?? null,
-          venueCity:  row.venue_city ?? null,
+          venueName:    row.venue_name ?? null,
+          venueCity:    row.venue_city ?? null,
+          locationName: row.location_name ?? null,
           imageUrl:   resolveEventImageUrl(supabase, row.image_url),
           totalCount: 0,
           validCount: 0,
@@ -118,7 +136,7 @@ export default async function TicketsPage() {
   }
 
   const eventGroups  = [...groupMap.values()]
-  const totalTickets = (rows ?? []).length
+  const totalTickets = ticketRows.length
   const totalEvents  = eventGroups.length
 
   return (
