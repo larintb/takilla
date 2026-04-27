@@ -6,9 +6,8 @@ import { resolveEventImageUrl } from '@/utils/supabase/storage'
 import { CalendarDays, MapPin, Ticket, Tag } from 'lucide-react'
 import { startStripeCheckout } from './actions'
 import SubmitButton from './_components/submit-button'
-import PaymentForm from './_components/payment-form'
 import BackButton from './_components/back-button'
-import DiscountInput from './_components/discount-input'
+import CheckoutPaymentSection from './_components/checkout-payment-section'
 import { calculateFees, calculatePerkFees } from '@/utils/pricing'
 import { isEventOver } from '@/utils/event-time'
 import {
@@ -264,55 +263,43 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
             </div>
           </div>
 
-          {/* Discount code input */}
-          {price > 0 && (
-            <div className="px-6 pb-4">
-              <DiscountInput
-                eventId={eventId}
-                tierId={tierId}
-                quantity={finalQuantity}
-                perksCsv={perkIds.join(',')}
-                currentCode={codeParam}
-                codeError={codeError}
-              />
+          {/* CTA — free path stays server-rendered; paid path uses client wrapper */}
+          {isFree ? (
+            <div className="px-6 pb-6 space-y-3">
+              <form action={startStripeCheckout}>
+                <input type="hidden" name="eventId"  value={eventId} />
+                <input type="hidden" name="tierId"   value={tierId} />
+                <input type="hidden" name="quantity" value={String(finalQuantity)} />
+                {perkIds.length > 0 && (
+                  <input type="hidden" name="perks" value={perkIds.join(',')} />
+                )}
+                {validatedCode && (
+                  <input type="hidden" name="code" value={validatedCode} />
+                )}
+                {autoDiscountId && (
+                  <input type="hidden" name="discountId" value={autoDiscountId} />
+                )}
+                <SubmitButton label="Confirmar boletos · FREE" />
+              </form>
+              <p className="text-sm text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                Tus boletos se generarán al confirmar.
+              </p>
             </div>
+          ) : (
+            <CheckoutPaymentSection
+              price={price}
+              eventId={eventId}
+              tierId={tierId}
+              quantity={finalQuantity}
+              perksCsv={perkIds.join(',')}
+              perkIds={perkIds}
+              currentCode={codeParam}
+              codeError={codeError}
+              totalLabel={`$${total.toFixed(2)} MXN`}
+              discountCode={validatedCode}
+              autoDiscountId={autoDiscountId}
+            />
           )}
-
-          {/* CTA */}
-          <div className="px-6 pb-6 space-y-3">
-            {isFree ? (
-              <>
-                <form action={startStripeCheckout}>
-                  <input type="hidden" name="eventId"  value={eventId} />
-                  <input type="hidden" name="tierId"   value={tierId} />
-                  <input type="hidden" name="quantity" value={String(finalQuantity)} />
-                  {perkIds.length > 0 && (
-                    <input type="hidden" name="perks" value={perkIds.join(',')} />
-                  )}
-                  {validatedCode && (
-                    <input type="hidden" name="code" value={validatedCode} />
-                  )}
-                  {autoDiscountId && (
-                    <input type="hidden" name="discountId" value={autoDiscountId} />
-                  )}
-                  <SubmitButton label="Confirmar boletos · FREE" />
-                </form>
-                <p className="text-sm text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                  Tus boletos se generarán al confirmar.
-                </p>
-              </>
-            ) : (
-              <PaymentForm
-                eventId={eventId}
-                tierId={tierId}
-                quantity={finalQuantity}
-                perkIds={perkIds}
-                totalLabel={`$${total.toFixed(2)} MXN`}
-                discountCode={validatedCode}
-                autoDiscountId={autoDiscountId}
-              />
-            )}
-          </div>
 
         </div>
       </div>

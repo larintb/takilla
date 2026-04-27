@@ -14,6 +14,7 @@ type TicketData = {
   qr_hash: string
   eventTitle: string
   eventDate: string | null
+  locationName: string | null
   venueName: string | null
   venueCity: string | null
   tierName: string | null
@@ -172,6 +173,7 @@ export default async function CheckoutSuccessPage({
 
   const walletsTickets = tickets.map(t => ({
     ...t,
+    locationName:  t.locationName,
     displayNumber: ticketDisplayNumber(t.id),
   }))
 
@@ -476,7 +478,7 @@ async function resolveTickets(admin: AdminClient, orderId: string, hasBundledPer
 
   const [{ data: tiers }, { data: events }] = await Promise.all([
     admin.from('ticket_tiers').select('id, name, price').in('id', tierIds),
-    admin.from('events').select('id, title, event_date, venue_id').in('id', eventIds),
+    admin.from('events').select('id, title, event_date, location_name, venue_id').in('id', eventIds),
   ])
 
   const venueIds = [...new Set((events ?? []).map(e => e.venue_id).filter((id): id is string => !!id))]
@@ -497,14 +499,15 @@ async function resolveTickets(admin: AdminClient, orderId: string, hasBundledPer
     const ev   = eventMap.get(t.event_id) ?? null
     const tier = tierMap.get(t.tier_id)   ?? null
     return {
-      id:         t.id,
-      qr_hash:    t.qr_hash,
-      eventTitle: ev?.title ?? 'Evento',
-      eventDate:  ev?.event_date ?? null,
-      venueName:  (ev?.venue as { name: string; city: string } | null)?.name ?? null,
-      venueCity:  (ev?.venue as { name: string; city: string } | null)?.city ?? null,
-      tierName:   tier?.name ?? null,
-      tierPrice:  tier ? Number(tier.price) : null,
+      id:           t.id,
+      qr_hash:      t.qr_hash,
+      eventTitle:   ev?.title ?? 'Evento',
+      eventDate:    ev?.event_date ?? null,
+      locationName: ev?.location_name ?? null,
+      venueName:    (ev?.venue as { name: string; city: string } | null)?.name ?? null,
+      venueCity:    (ev?.venue as { name: string; city: string } | null)?.city ?? null,
+      tierName:     tier?.name ?? null,
+      tierPrice:    tier ? Number(tier.price) : null,
     }
   })
 

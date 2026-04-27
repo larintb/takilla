@@ -19,10 +19,12 @@ export type DiscountRow = {
 }
 
 export type TierDiscount = {
-  id:    string
-  label: string
-  kind:  'percent' | 'fixed' | 'bogo'
-  code:  string | null
+  id:      string
+  label:   string
+  kind:    'percent' | 'fixed' | 'bogo'
+  code:    string | null
+  min_qty: number
+  input:   DiscountInput
 }
 
 export function discountToInput(d: DiscountRow): DiscountInput {
@@ -120,7 +122,8 @@ export async function validateDiscountCode(
 
 // Builds the TierDiscount summary for tier cards (corner flag).
 export function toTierDiscount(d: DiscountRow): TierDiscount {
-  return { id: d.id, label: discountLabel(d), kind: d.kind, code: d.code }
+  const min_qty = d.kind === 'bogo' ? (d.buy_quantity! + d.get_quantity!) : 1
+  return { id: d.id, label: discountLabel(d), kind: d.kind, code: d.code, min_qty, input: discountToInput(d) }
 }
 
 // Applies a discount to a price/quantity and returns the effective amounts.

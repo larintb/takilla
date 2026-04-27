@@ -39,7 +39,7 @@ interface Profile {
 interface TicketRow {
   id: string; qr_hash: string; is_used: boolean; used_at: string | null
   ticket_tiers: { name: string; price: number } | null
-  events: { title: string; event_date: string; venues: { name: string; city: string } | null } | null
+  events: { title: string; event_date: string; location_name?: string | null; venues: { name: string; city: string } | null } | null
 }
 interface EventRow {
   id: string; title: string; event_date: string; event_end_date?: string | null; status: string
@@ -92,6 +92,7 @@ function TicketModal({ tickets, initialIndex, onClose }: { tickets: TicketRow[];
   const walletTickets = tickets.map(t => ({
     id: t.id, displayNumber: ticketDisplayNumber(t.id), qr_hash: t.qr_hash,
     eventTitle: t.events?.title ?? 'Evento', eventDate: t.events?.event_date ?? null,
+    locationName: t.events?.location_name ?? null,
     venueName: t.events?.venues?.name ?? null, venueCity: t.events?.venues?.city ?? null,
     tierName: t.ticket_tiers?.name ?? null, tierPrice: t.ticket_tiers ? Number(t.ticket_tiers.price) : null,
   }))
