@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { stripePromise } from '@/utils/stripe/client'
-import { Loader2, Clock, AlertCircle } from 'lucide-react'
+import { Loader2, Clock, AlertCircle, Lock } from 'lucide-react'
 
 // ── Countdown display ────────────────────────────────────────────────────────
 
@@ -31,9 +31,9 @@ function InnerForm({
   const elements = useElements()
   const router   = useRouter()
 
-  const [submitting, setSubmitting]   = useState(false)
-  const [errorMsg,   setErrorMsg]     = useState<string | null>(null)
-  const [ready,      setReady]        = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMsg,   setErrorMsg]   = useState<string | null>(null)
+  const [ready,      setReady]      = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -163,7 +163,7 @@ function InnerForm({
   )
 }
 
-// ── Outer component (fetches client_secret, manages timer) ───────────────────
+// ── Outer component ──────────────────────────────────────────────────────────
 
 export default function PaymentForm({
   eventId,
@@ -173,6 +173,7 @@ export default function PaymentForm({
   totalLabel,
   discountCode = null,
   autoDiscountId = null,
+  onStart,
 }: {
   eventId:         string
   tierId:          string
@@ -181,53 +182,55 @@ export default function PaymentForm({
   totalLabel:      string
   discountCode?:   string | null
   autoDiscountId?: string | null
+  onStart?:        () => void
 }) {
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [expiresAt,    setExpiresAt]    = useState<number>(0)
   const [secondsLeft,  setSecondsLeft]  = useState<number>(600)
   const [fetchError,   setFetchError]   = useState<string | null>(null)
+  const [starting,     setStarting]     = useState(false)
   const expired = secondsLeft <= 0
 
-  // Stable key for perkIds so the effect re-fires when the selection changes
-  const perkIdsKey = perkIds.slice().sort().join(',')
+  async function handleStart() {
+    onStart?.()
+    setStarting(true)
+    setFetchError(null)
 
-  // Create PaymentIntent on mount and whenever the cart changes
-  useEffect(() => {
-    let ignore = false
+    async function attempt(retriesLeft: number): Promise<void> {
+      const r = await fetch('/api/stripe/payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId, tierId, quantity, perkIds,
+          ...(discountCode   ? { discountCode }   : {}),
+          ...(autoDiscountId ? { autoDiscountId } : {}),
+        }),
+      })
 
-    async function fetchIntent(retriesLeft = 3): Promise<void> {
-      try {
-        const r = await fetch('/api/stripe/payment-intent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            eventId, tierId, quantity, perkIds,
-            ...(discountCode   ? { discountCode }   : {}),
-            ...(autoDiscountId ? { autoDiscountId } : {}),
-          }),
-        })
-        if (ignore) return
-        if (r.status === 409 && retriesLeft > 0) {
-          // Transient lock — retry after a short delay
-          await new Promise(res => setTimeout(res, 2000))
-          if (!ignore) return fetchIntent(retriesLeft - 1)
-          return
-        }
-        const data = await r.json()
-        if (ignore) return
-        if (data.error) { setFetchError(data.error); return }
-        setClientSecret(data.clientSecret)
-        setExpiresAt(data.expiresAt)
-        setSecondsLeft(data.expiresAt - Math.floor(Date.now() / 1000))
-      } catch {
-        if (!ignore) setFetchError('No se pudo iniciar el pago. Intenta de nuevo.')
+      if (r.status === 409 && retriesLeft > 0) {
+        await new Promise(res => setTimeout(res, 2000))
+        return attempt(retriesLeft - 1)
       }
+
+      const data = await r.json()
+      if (data.error) {
+        setFetchError(data.error)
+        setStarting(false)
+        return
+      }
+
+      setClientSecret(data.clientSecret)
+      setExpiresAt(data.expiresAt)
+      setSecondsLeft(data.expiresAt - Math.floor(Date.now() / 1000))
     }
 
-    fetchIntent()
-    return () => { ignore = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, tierId, quantity, perkIdsKey, discountCode, autoDiscountId])
+    try {
+      await attempt(3)
+    } catch {
+      setFetchError('No se pudo iniciar el pago. Intenta de nuevo.')
+      setStarting(false)
+    }
+  }
 
   // Countdown ticker
   useEffect(() => {
@@ -249,19 +252,8 @@ export default function PaymentForm({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [clientSecret, expired])
 
-  if (fetchError) {
-    return (
-      <div
-        className="rounded-xl p-5 text-center space-y-2"
-        style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}
-      >
-        <AlertCircle size={24} className="mx-auto text-red-400" />
-        <p className="text-sm text-red-400">{fetchError}</p>
-      </div>
-    )
-  }
-
-  if (!clientSecret) {
+  // ── Loading state after button click ────────────────────────────────────
+  if (starting && !clientSecret) {
     return (
       <div className="flex items-center justify-center py-8 gap-3" style={{ color: 'rgba(255,255,255,0.4)' }}>
         <Loader2 size={18} className="animate-spin" />
@@ -270,31 +262,59 @@ export default function PaymentForm({
     )
   }
 
-  return (
-    <Elements
-      stripe={stripePromise}
-      options={{
-        clientSecret,
-        appearance: {
-          theme: 'night',
-          variables: {
-            colorPrimary:     '#f97316',
-            colorBackground:  '#1a1025',
-            colorText:        'rgba(255,255,255,0.9)',
-            colorTextSecondary: 'rgba(255,255,255,0.45)',
-            borderRadius:     '12px',
-            fontFamily:       'inherit',
+  // ── Stripe form ──────────────────────────────────────────────────────────
+  if (clientSecret) {
+    return (
+      <Elements
+        stripe={stripePromise}
+        options={{
+          clientSecret,
+          appearance: {
+            theme: 'night',
+            variables: {
+              colorPrimary:       '#f97316',
+              colorBackground:    '#1a1025',
+              colorText:          'rgba(255,255,255,0.9)',
+              colorTextSecondary: 'rgba(255,255,255,0.45)',
+              borderRadius:       '12px',
+              fontFamily:         'inherit',
+            },
           },
-        },
-        locale: 'es-419',
-      }}
-    >
-      <InnerForm
-        totalLabel={totalLabel}
-        secondsLeft={Math.max(0, secondsLeft)}
-        expired={expired}
-        eventId={eventId}
-      />
-    </Elements>
+          locale: 'es-419',
+        }}
+      >
+        <InnerForm
+          totalLabel={totalLabel}
+          secondsLeft={Math.max(0, secondsLeft)}
+          expired={expired}
+          eventId={eventId}
+        />
+      </Elements>
+    )
+  }
+
+  // ── Initial state: "Iniciar pago" button ─────────────────────────────────
+  return (
+    <div className="space-y-3">
+      {fetchError && (
+        <p className="text-sm text-red-400 flex items-start gap-2">
+          <AlertCircle size={15} className="shrink-0 mt-0.5" />
+          {fetchError}
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={handleStart}
+        disabled={starting}
+        className="w-full h-14 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        style={{ background: 'var(--accent-gradient)', boxShadow: '0 0 28px rgba(249,115,22,0.28)' }}
+      >
+        <Lock size={16} />
+        Pagar {totalLabel}
+      </button>
+      <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.25)' }}>
+        Al continuar se abrirá el formulario de pago seguro
+      </p>
+    </div>
   )
 }

@@ -57,7 +57,7 @@ export default function TicketCard({ tierName, tierEffect, eventTitle, eventDate
 
             {/* Body */}
             <div className="px-4 py-3 space-y-1.5">
-              <p className="font-bold text-white leading-tight text-sm break-words" style={{ fontSize: compact ? '0.85rem' : '1rem' }}>
+              <p className="font-bold text-white leading-tight text-sm wrap-break-word" style={{ fontSize: compact ? '0.85rem' : '1rem' }}>
                 {eventTitle}
               </p>
               {dateStr && (

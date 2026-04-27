@@ -132,6 +132,16 @@ export async function sendPurchaseConfirmation(userId: string, orderId: string) 
   try {
     const admin = createAdminClient()
 
+    // Atomically claim the send slot — if already sent, bail out immediately
+    const { data: claimed } = await admin
+      .from('orders')
+      .update({ confirmation_email_sent: true })
+      .eq('id', orderId)
+      .eq('confirmation_email_sent', false)
+      .select('id')
+
+    if (!claimed || claimed.length === 0) return
+
     const [{ data: profile }, { data: rawTickets }] = await Promise.all([
       admin.from('profiles').select('email, full_name').eq('id', userId).single(),
       admin.from('tickets').select('id, qr_hash, tier_id, event_id').eq('order_id', orderId),

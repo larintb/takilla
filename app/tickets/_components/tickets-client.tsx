@@ -4,11 +4,12 @@ import { useState, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
-  Ticket, CalendarDays, MapPin, X,
-  ChevronLeft, ChevronRight, FileSearch, Gift,
+  Ticket, X,
+  ChevronLeft, ChevronRight, FileSearch, Gift, CalendarDays, MapPin,
 } from 'lucide-react'
-import TicketQr from './ticket-qr'
 import { isEventOver } from '@/utils/event-time'
+import TicketQr from './ticket-qr'
+import DigitalTicket from '@/components/digital-ticket'
 
 type TicketItem = {
   id: string
@@ -33,6 +34,7 @@ type EventGroup = {
     date: string
     venueName: string | null
     venueCity: string | null
+    locationName: string | null
     imageUrl: string | null
     totalCount: number
     validCount: number
@@ -42,11 +44,6 @@ type EventGroup = {
   perkPurchases: PerkPurchaseRow[]
   eventDate: string
   eventEndDate: string | null
-}
-
-function ticketDisplayNumber(id: string): string {
-  const hex = id.replace(/-/g, '').slice(0, 8)
-  return String((parseInt(hex, 16) % 9000) + 1000)
 }
 
 // ── Dot nav ───────────────────────────────────────────────────────────────────
@@ -70,125 +67,6 @@ function DotNav({
           }}
         />
       ))}
-    </div>
-  )
-}
-
-// ── Ticket card ───────────────────────────────────────────────────────────────
-
-function TicketCard({
-  ticket, eventTitle, eventDate, venueName, venueCity, isPast,
-}: {
-  ticket: TicketItem
-  eventTitle: string
-  eventDate: string
-  venueName: string | null
-  venueCity: string | null
-  isPast: boolean
-}) {
-  const isUsed = ticket.is_used
-  const dimmed = isPast || isUsed
-
-  return (
-    <div
-      className="w-full rounded-3xl overflow-hidden"
-      style={{
-        background: dimmed
-          ? 'rgba(255,255,255,0.06)'
-          : 'linear-gradient(135deg, #ff6e01 0%, #fa1492 55%, #720d98 100%)',
-        padding: '1.5px',
-        boxShadow: dimmed ? 'none' : '0 0 60px rgba(249,115,22,0.2), 0 0 100px rgba(250,20,146,0.1)',
-        opacity: dimmed ? 0.7 : 1,
-      }}
-    >
-      <div className="w-full rounded-[22.5px] overflow-hidden"
-        style={{ background: 'linear-gradient(170deg, #1c0f38 0%, #0f0720 100%)' }}>
-
-        {/* Status banner */}
-        {(isPast || isUsed) && (
-          <div className="text-center py-1.5 text-[10px] font-bold uppercase tracking-[0.2em]"
-            style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)' }}>
-            {isPast ? 'Evento finalizado' : 'Boleto utilizado'}
-          </div>
-        )}
-
-        {/* Header strip */}
-        <div className="flex items-center justify-between px-5 py-3"
-          style={{
-            background: dimmed
-              ? 'rgba(255,255,255,0.05)'
-              : 'linear-gradient(90deg, rgba(255,110,1,0.9) 0%, rgba(250,20,146,0.7) 100%)',
-          }}>
-          <span className="font-black text-sm tracking-[0.25em] text-white uppercase">★ TAKILLA</span>
-          <span className="font-mono text-xs font-bold tracking-widest"
-            style={{ color: 'rgba(255,255,255,0.7)' }}>
-            #{ticketDisplayNumber(ticket.id)}
-          </span>
-        </div>
-
-        {/* Event info — compact */}
-        <div className="px-5 pt-4 pb-3 space-y-2">
-          <h2 className="font-bold text-white leading-tight line-clamp-2"
-            style={{ fontSize: 'clamp(1.1rem, 5vw, 1.5rem)' }}>
-            {eventTitle}
-          </h2>
-          <div className="flex flex-wrap gap-x-4 gap-y-1">
-            <p className="text-xs flex items-center gap-1.5 capitalize"
-              style={{ color: 'rgba(255,255,255,0.45)' }}>
-              <CalendarDays size={11} style={{ color: 'var(--color-orange)', flexShrink: 0 }} />
-              {eventDate}
-            </p>
-            {venueName && (
-              <p className="text-xs flex items-center gap-1.5"
-                style={{ color: 'rgba(255,255,255,0.35)' }}>
-                <MapPin size={11} style={{ color: 'var(--color-pink)', flexShrink: 0 }} />
-                {venueName}{venueCity ? `, ${venueCity}` : ''}
-              </p>
-            )}
-          </div>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider"
-            style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.55)' }}>
-            {ticket.tierName}
-            {ticket.price > 0 && (
-              <><span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
-              <span className="text-white font-bold">${ticket.price.toFixed(2)}</span></>
-            )}
-          </span>
-        </div>
-
-        {/* Perforated divider */}
-        <div className="relative flex items-center mx-0 my-1">
-          <div className="w-6 h-6 rounded-full shrink-0"
-            style={{ background: '#0a0414', marginLeft: '-12px' }} />
-          <div className="flex-1 border-t-2 border-dashed"
-            style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
-          <div className="w-6 h-6 rounded-full shrink-0"
-            style={{ background: '#0a0414', marginRight: '-12px' }} />
-        </div>
-
-        {/* QR section */}
-        <div className="px-5 pt-3 pb-6 flex flex-col items-center gap-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] self-start"
-            style={{ color: 'rgba(255,255,255,0.2)' }}>
-            Código de acceso
-          </p>
-          <div className="p-3 rounded-2xl w-full flex items-center justify-center"
-            style={{ background: '#ffffff', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-            <TicketQr qrHash={ticket.qr_hash} size={220} />
-          </div>
-          <p className="text-xs font-bold uppercase tracking-wider text-center"
-            style={dimmed
-              ? { color: 'rgba(255,255,255,0.2)' }
-              : {
-                  background: 'linear-gradient(90deg, #ff6e01, #fa1492)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                }
-            }>
-            {isPast ? 'Evento finalizado' : isUsed ? 'Ya utilizado' : 'Muestra al staff en la entrada'}
-          </p>
-        </div>
-      </div>
     </div>
   )
 }
@@ -295,20 +173,21 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
   const [perkIndex,   setPerkIndex]   = useState(0)
   const [activeTab,   setActiveTab]   = useState<'tickets' | 'perks'>('tickets')
 
-  // Swipe support
-  const touchStartX = useRef<number | null>(null)
+  const ticketScrollRef = useRef<HTMLDivElement>(null)
+  const swipeTouchStart = useRef<number | null>(null)
 
-  function onTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX
+
+  function onSwipeTouchStart(e: React.TouchEvent) {
+    swipeTouchStart.current = e.touches[0].clientX
   }
 
-  function onTouchEnd(e: React.TouchEvent, total: number, index: number, setIndex: (i: number) => void) {
-    if (touchStartX.current === null) return
-    const dx = e.changedTouches[0].clientX - touchStartX.current
-    touchStartX.current = null
-    if (Math.abs(dx) < 50) return
-    if (dx < 0 && index < total - 1) setIndex(index + 1)
-    if (dx > 0 && index > 0) setIndex(index - 1)
+  function onSwipeTouchEnd(e: React.TouchEvent) {
+    if (swipeTouchStart.current === null) return
+    const dx = e.changedTouches[0].clientX - swipeTouchStart.current
+    swipeTouchStart.current = null
+    if (Math.abs(dx) < 40) return
+    if (dx < 0) setTicketIndex(i => Math.min(totalTickets - 1, i + 1))
+    else         setTicketIndex(i => Math.max(0, i - 1))
   }
 
   function openWallet(group: EventGroup) {
@@ -340,7 +219,6 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
     )
   }
 
-  const ticket       = selected?.tickets[ticketIndex]
   const perk         = selected?.perkPurchases[perkIndex]
   const totalTickets = selected?.tickets.length ?? 0
   const totalPerks   = selected?.perkPurchases.length ?? 0
@@ -497,22 +375,42 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
           )}
 
           {/* ── BOLETOS ─────────────────────────────────────────────────────── */}
-          {activeTab === 'tickets' && ticket && (
+          {activeTab === 'tickets' && (
             <>
-              {/* Swipeable card area */}
+              {/* Slide carousel — one card at a time */}
               <div
-                className="flex-1 min-h-0 overflow-y-auto px-4 py-2"
-                onTouchStart={onTouchStart}
-                onTouchEnd={e => onTouchEnd(e, totalTickets, ticketIndex, setTicketIndex)}
+                className="flex-1 min-h-0 overflow-hidden relative"
+                onTouchStart={onSwipeTouchStart}
+                onTouchEnd={onSwipeTouchEnd}
               >
-                <TicketCard
-                  ticket={ticket}
-                  eventTitle={selected.eventData.title}
-                  eventDate={selected.eventData.date}
-                  venueName={selected.eventData.venueName}
-                  venueCity={selected.eventData.venueCity}
-                  isPast={isPast}
-                />
+                <div
+                  ref={ticketScrollRef}
+                  className="flex h-full"
+                  style={{
+                    transform: `translateX(-${ticketIndex * 100}%)`,
+                    transition: 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                  }}
+                >
+                  {selected.tickets.map((t) => (
+                    <div
+                      key={t.id}
+                      className="min-w-full h-full overflow-y-auto px-4 py-2"
+                    >
+                      <DigitalTicket
+                        id={t.id}
+                        qr_hash={t.qr_hash}
+                        eventTitle={selected.eventData.title}
+                        eventDate={selected.eventData.date}
+                        venueName={selected.eventData.venueName}
+                        venueCity={selected.eventData.venueCity}
+                        locationName={selected.eventData.locationName}
+                        tierName={t.tierName}
+                        isUsed={t.is_used}
+                        isPast={isPast}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Bottom nav */}
@@ -520,7 +418,7 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
                 {totalTickets > 1 ? (
                   <div className="flex items-center justify-between px-6 py-3">
                     <button
-                      onClick={() => setTicketIndex(i => i - 1)}
+                      onClick={() => setTicketIndex(i => Math.max(0, i - 1))}
                       disabled={ticketIndex === 0}
                       className="w-10 h-10 rounded-full flex items-center justify-center transition-all disabled:opacity-20 active:scale-90"
                       style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}>
@@ -533,7 +431,7 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
                       accent="var(--color-orange)"
                     />
                     <button
-                      onClick={() => setTicketIndex(i => i + 1)}
+                      onClick={() => setTicketIndex(i => Math.min(totalTickets - 1, i + 1))}
                       disabled={ticketIndex === totalTickets - 1}
                       className="w-10 h-10 rounded-full flex items-center justify-center transition-all disabled:opacity-20 active:scale-90"
                       style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}>
@@ -550,11 +448,7 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
           {/* ── EXTRAS ──────────────────────────────────────────────────────── */}
           {activeTab === 'perks' && perk && (
             <>
-              <div
-                className="flex-1 min-h-0 overflow-y-auto px-4 py-2"
-                onTouchStart={onTouchStart}
-                onTouchEnd={e => onTouchEnd(e, totalPerks, perkIndex, setPerkIndex)}
-              >
+              <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2">
                 <PerkCard
                   perk={perk}
                   eventTitle={selected.eventData.title}

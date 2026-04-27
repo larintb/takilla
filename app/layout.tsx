@@ -39,6 +39,11 @@ export default function RootLayout({
         <PageTransition>
           {children}
         </PageTransition>
+        <footer className="text-center py-4 text-xs text-zinc-500">
+          <a href="mailto:contacto@takilla.online" className="hover:text-zinc-300 transition-colors">
+            contacto@takilla.online
+          </a>
+        </footer>
         <Analytics />
         <SpeedInsights />
       </body>
