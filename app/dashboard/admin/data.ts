@@ -115,21 +115,35 @@ export async function loadUserMetrics(): Promise<Result<UserMetrics>> {
 export async function loadEventPerformance(): Promise<Result<EventPerformanceSummary>> {
   try {
     const supabase = createAdminClient()
-    const { data, error } = await supabase
-      .from('events')
-      .select(`
-        id, title, event_date, status, image_url,
-        organizer:profiles!organizer_id(full_name, email),
-        ticket_tiers(id, price, total_capacity, available_tickets)
-      `)
-      .order('event_date', { ascending: false })
-    if (error) throw new Error(error.message)
+    const [eventsRes, ordersRes] = await Promise.all([
+      supabase
+        .from('events')
+        .select(`
+          id, title, event_date, status, image_url,
+          organizer:profiles!organizer_id(full_name, email),
+          ticket_tiers(id, price, total_capacity, available_tickets)
+        `)
+        .order('event_date', { ascending: false }),
+      supabase
+        .from('orders')
+        .select('event_id, total_amount, discount_amount'),
+    ])
+    if (eventsRes.error) throw new Error(eventsRes.error.message)
+    if (ordersRes.error) throw new Error(ordersRes.error.message)
 
-    const events: EventPerformanceRow[] = (data ?? []).map((ev) => {
+    // Sum actual paid amounts (total minus any discount) per event
+    const revenueByEvent = new Map<string, number>()
+    for (const o of ordersRes.data ?? []) {
+      if (!o.event_id) continue
+      const paid = (Number(o.total_amount) || 0) - (Number(o.discount_amount) || 0)
+      revenueByEvent.set(o.event_id, (revenueByEvent.get(o.event_id) ?? 0) + paid)
+    }
+
+    const events: EventPerformanceRow[] = (eventsRes.data ?? []).map((ev) => {
       const tiers = (ev.ticket_tiers as { price: number; total_capacity: number; available_tickets: number }[]) ?? []
       const capacity = tiers.reduce((s, t) => s + (t.total_capacity ?? 0), 0)
       const sold = tiers.reduce((s, t) => s + Math.max(0, (t.total_capacity ?? 0) - (t.available_tickets ?? 0)), 0)
-      const revenue = tiers.reduce((s, t) => s + (t.price ?? 0) * Math.max(0, (t.total_capacity ?? 0) - (t.available_tickets ?? 0)), 0)
+      const revenue = revenueByEvent.get(ev.id) ?? 0
       const organizer = ev.organizer && !Array.isArray(ev.organizer)
         ? (ev.organizer as { full_name: string | null; email: string | null })
         : null
@@ -234,7 +248,7 @@ export async function loadActivityFeed(): Promise<Result<FeedItem[]>> {
     const [ordersRes, profilesRes, eventsRes, appsRes, perkPurchasesRes] = await Promise.all([
       supabase
         .from('orders')
-        .select('id, created_at, total_amount, buyer:profiles!user_id(full_name, email), events(title), tickets(id)')
+        .select('id, created_at, total_amount, discount_amount, buyer:profiles!user_id(full_name, email), events(title), tickets(id)')
         .order('created_at', { ascending: false })
         .limit(25),
       supabase
@@ -267,6 +281,7 @@ export async function loadActivityFeed(): Promise<Result<FeedItem[]>> {
         ? (o.buyer as { full_name: string | null; email: string | null }) : null
       const ev = o.events && !Array.isArray(o.events)
         ? (o.events as { title: string }) : null
+      const paidAmount = (o.total_amount ?? 0) - (o.discount_amount ?? 0)
       items.push({
         id: `order-${o.id}`,
         created_at: o.created_at,
@@ -274,7 +289,7 @@ export async function loadActivityFeed(): Promise<Result<FeedItem[]>> {
         actorName: buyer?.full_name ?? null,
         actorEmail: buyer?.email ?? null,
         subtitle: ev?.title ?? null,
-        amount: o.total_amount,
+        amount: paidAmount,
         quantity: Array.isArray(o.tickets) ? o.tickets.length : 1,
         appStatus: null,
         tierEffect: null,
@@ -282,7 +297,7 @@ export async function loadActivityFeed(): Promise<Result<FeedItem[]>> {
         buyerEmail: buyer?.email ?? null,
         tierName: null,
         eventTitle: ev?.title ?? null,
-        tierPrice: o.total_amount ?? 0,
+        tierPrice: paidAmount,
       })
     }
 
