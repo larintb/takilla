@@ -6,7 +6,7 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { stripePromise } from '@/utils/stripe/client'
 import { Loader2, Clock, AlertCircle, Lock } from 'lucide-react'
 
-// ── Countdown display ────────────────────────────────────────────────────────
+// ── Countdown display ───────────────────────────────────────────────────────
 
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0')
@@ -116,11 +116,19 @@ function InnerForm({
       ) : (
         <>
           {/* Payment Element */}
-          <div className={ready ? '' : 'opacity-0 h-0 overflow-hidden'}>
-            <PaymentElement
-              onReady={() => setReady(true)}
-              options={{ layout: 'accordion' }}
-            />
+          <div
+            className={`rounded-2xl transition-all ${ready ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}
+            style={{
+              background: 'var(--background)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            <div className="p-0">
+              <PaymentElement
+                onReady={() => setReady(true)}
+                options={{ layout: 'accordion' }}
+              />
+            </div>
           </div>
 
           {/* Skeleton while loading */}
@@ -272,12 +280,51 @@ export default function PaymentForm({
           appearance: {
             theme: 'night',
             variables: {
-              colorPrimary:       '#f97316',
-              colorBackground:    '#1a1025',
-              colorText:          'rgba(255,255,255,0.9)',
-              colorTextSecondary: 'rgba(255,255,255,0.45)',
-              borderRadius:       '12px',
-              fontFamily:         'inherit',
+              colorPrimary:           '#ff6e01',
+              colorBackground:        '#0a0a0a',
+              colorText:              '#f4f1ff',
+              colorTextSecondary:     'rgba(255,255,255,0.45)',
+              colorTextPlaceholder:   'rgba(255,255,255,0.25)',
+              colorIcon:              'rgba(255,255,255,0.3)',
+              colorIconCardError:     '#ef4444',
+              
+              
+              borderRadius:           '12px',
+              fontFamily:             'inherit',
+              fontSizeBase:           '16px',
+              spacingUnit:            '8px',
+              spacingGridColumn:      '12px',
+              spacingGridRow:         '12px',
+            },
+            rules: {
+              '.p-Accordion': {
+                boxShadow: 'none',
+                border: '1px solid rgba(255,255,255,0.08)',
+              },
+              '.p-AccordionButton': {
+                background: 'transparent',
+                padding: '12px 16px',
+              },
+              '.p-Input': {
+                background: 'transparent',
+                border: '1px solid rgba(255,255,255,0.08)',
+              },
+              '.p-Input-input': {
+                color: '#f4f1ff',
+                background: 'transparent',
+              },
+              '.p-Input-input::placeholder': {
+                color: 'rgba(255,255,255,0.25)',
+              },
+              '.p-FieldLabel': {
+                color: 'rgba(255,255,255,0.45)',
+                fontSize: '12px',
+              },
+              '.p-Select-select': {
+                background: 'var(--background)',
+                color: '#f4f1ff',
+                borderColor: 'rgba(255,255,255,0.08)',
+              },
             },
           },
           locale: 'es-419',

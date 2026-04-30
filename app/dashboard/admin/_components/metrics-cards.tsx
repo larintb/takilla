@@ -81,7 +81,7 @@ export function MetricsCards({ users, performance }: Props) {
         icon={<TrendingUp size={16} />}
         label="Ingresos brutos"
         value={mxn(performance.totalRevenue)}
-        sub="Precio del boleto × vendidos"
+        sub="Total cobrado (descuentos incluidos)"
         accent
       />
     </div>

@@ -57,7 +57,7 @@ export default async function CheckoutSuccessPage({
             </p>
           </div>
           <div className="rounded-2xl px-5 py-4 text-left animate-fade-in-up"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            style={{ background: 'var(--background)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <p className="text-sm font-semibold text-white mb-1">¿Dónde están mis QR?</p>
             <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
               Los QR de tus extras los encuentras en{' '}
@@ -68,8 +68,8 @@ export default async function CheckoutSuccessPage({
           <div className="animate-fade-in-up" style={{ animationDelay: '120ms' }}>
             <Link
               href="/tickets"
-              className="inline-flex items-center justify-center px-8 h-14 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
-              style={{ background: 'var(--accent-gradient)', boxShadow: '0 0 32px rgba(249,115,22,0.3)' }}
+              className="inline-flex items-center justify-center px-8 h-12 rounded-xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: 'var(--accent-gradient)' }}
             >
               Ver mis boletos y extras
             </Link>
@@ -97,7 +97,7 @@ export default async function CheckoutSuccessPage({
           </div>
 
           <div className="rounded-2xl p-6 space-y-4 animate-fade-in-up"
-            style={{ background: 'var(--surface-panel)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            style={{ background: 'var(--background)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <div>
               <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>¿Qué pasó?</p>
               <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
@@ -117,8 +117,8 @@ export default async function CheckoutSuccessPage({
           <div className="text-center animate-fade-in-up" style={{ animationDelay: '120ms' }}>
             <Link
               href="/events"
-              className="inline-flex items-center justify-center px-8 h-14 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
-              style={{ background: 'var(--accent-gradient)', boxShadow: '0 0 32px rgba(249,115,22,0.3)' }}
+              className="inline-flex items-center justify-center px-8 h-12 rounded-xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: 'var(--accent-gradient)' }}
             >
               Ver otros eventos
             </Link>
@@ -142,7 +142,7 @@ export default async function CheckoutSuccessPage({
           </div>
 
           <div className="rounded-2xl p-6 animate-fade-in-up"
-            style={{ background: 'var(--surface-panel)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            style={{ background: 'var(--background)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
               Si tu pago fue cobrado, contáctanos con el ID de esta sesión y te ayudaremos a resolverlo.
             </p>
@@ -157,8 +157,8 @@ export default async function CheckoutSuccessPage({
           <div className="text-center animate-fade-in-up" style={{ animationDelay: '120ms' }}>
             <Link
               href="/dashboard"
-              className="inline-flex items-center justify-center px-8 h-14 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
-              style={{ background: 'var(--accent-gradient)', boxShadow: '0 0 32px rgba(249,115,22,0.3)' }}
+              className="inline-flex items-center justify-center px-8 h-12 rounded-xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: 'var(--accent-gradient)' }}
             >
               Ir a mis boletos
             </Link>
@@ -216,7 +216,7 @@ export default async function CheckoutSuccessPage({
         {/* Perks bundled notice */}
         {hasBundledPerks && (
           <div className="rounded-2xl px-5 py-4 animate-fade-in-up"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', animationDelay: '180ms' }}>
+            style={{ background: 'var(--background)', border: '1px solid rgba(255,255,255,0.08)', animationDelay: '180ms' }}>
             <p className="text-sm font-semibold text-white mb-1">🎁 También compraste extras</p>
             <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
               Los QR de tus extras los encuentras en{' '}
@@ -230,11 +230,8 @@ export default async function CheckoutSuccessPage({
         <div className="text-center animate-fade-in-up" style={{ animationDelay: '240ms' }}>
           <Link
             href="/tickets"
-            className="inline-flex items-center justify-center px-8 h-14 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
-            style={{
-              background: 'var(--accent-gradient)',
-              boxShadow: '0 0 32px rgba(249,115,22,0.3)',
-            }}
+            className="inline-flex items-center justify-center px-8 h-12 rounded-xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{ background: 'var(--accent-gradient)' }}
           >
             Ver mis boletos
           </Link>

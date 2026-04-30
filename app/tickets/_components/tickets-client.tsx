@@ -201,7 +201,7 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
   if (eventGroups.length === 0) {
     return (
       <div className="rounded-2xl p-16 text-center animate-fade-in-up"
-        style={{ background: 'var(--surface-panel)', border: '1px solid rgba(255,255,255,0.07)' }}>
+        style={{ background: 'black', border: '1px solid rgba(255,255,255,0.08)' }}>
         <Ticket size={40} className="mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.15)' }} />
         <p className="font-semibold text-white">No tienes boletos aún</p>
         <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
@@ -237,8 +237,8 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
             <div key={group.eventId}
               className="rounded-2xl overflow-hidden animate-fade-in-up"
               style={{
-                background: 'var(--surface-panel)',
-                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'var(--background)',
+                border: '1px solid rgba(255,255,255,0.08)',
                 animationDelay: `${i * 50}ms`,
               }}>
               <button
@@ -324,7 +324,7 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
       {/* ── Wallet overlay ─────────────────────────────────────────────────── */}
       {selected && (
         <div
-          className="fixed inset-0 z-50 flex flex-col"
+          className="fixed inset-0 z-100 flex flex-col"
           style={{ height: '100dvh', background: '#0a0414' }}
         >
           {/* Header */}
@@ -377,46 +377,10 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
           {/* ── BOLETOS ─────────────────────────────────────────────────────── */}
           {activeTab === 'tickets' && (
             <>
-              {/* Slide carousel — one card at a time */}
-              <div
-                className="flex-1 min-h-0 overflow-hidden relative"
-                onTouchStart={onSwipeTouchStart}
-                onTouchEnd={onSwipeTouchEnd}
-              >
-                <div
-                  ref={ticketScrollRef}
-                  className="flex h-full"
-                  style={{
-                    transform: `translateX(-${ticketIndex * 100}%)`,
-                    transition: 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-                  }}
-                >
-                  {selected.tickets.map((t) => (
-                    <div
-                      key={t.id}
-                      className="min-w-full h-full overflow-y-auto px-4 py-2"
-                    >
-                      <DigitalTicket
-                        id={t.id}
-                        qr_hash={t.qr_hash}
-                        eventTitle={selected.eventData.title}
-                        eventDate={selected.eventData.date}
-                        venueName={selected.eventData.venueName}
-                        venueCity={selected.eventData.venueCity}
-                        locationName={selected.eventData.locationName}
-                        tierName={t.tierName}
-                        isUsed={t.is_used}
-                        isPast={isPast}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Bottom nav */}
-              <div className="shrink-0 pb-safe-bottom">
+              {/* Top nav */}
+              <div className="shrink-0 ">
                 {totalTickets > 1 ? (
-                  <div className="flex items-center justify-between px-6 py-3">
+                  <div className="flex items-center justify-between px-6 py-2">
                     <button
                       onClick={() => setTicketIndex(i => Math.max(0, i - 1))}
                       disabled={ticketIndex === 0}
@@ -439,8 +403,45 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
                     </button>
                   </div>
                 ) : (
-                  <div className="h-4" />
+                  <div className="h-2" />
                 )}
+              </div>
+
+              {/* Slide carousel — one card at a time */}
+              <div
+                className="flex-1 min-h-0 overflow-hidden relative"
+                onTouchStart={onSwipeTouchStart}
+                onTouchEnd={onSwipeTouchEnd}
+              >
+                <div
+                  ref={ticketScrollRef}
+                  className="flex h-full"
+                  style={{
+                    transform: `translateX(-${ticketIndex * 100}%)`,
+                    transition: 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                  }}
+                >
+                  {selected.tickets.map((t) => (
+                    <div
+                      key={t.id}
+                      className="min-w-full h-full overflow-hidden flex items-start justify-center px-4 pb-4"
+                    >
+                      <DigitalTicket
+                        id={t.id}
+                        qr_hash={t.qr_hash}
+                        eventTitle={selected.eventData.title}
+                        eventDate={selected.eventData.date}
+                        venueName={selected.eventData.venueName}
+                        venueCity={selected.eventData.venueCity}
+                        locationName={selected.eventData.locationName}
+                        tierName={t.tierName}
+                        isUsed={t.is_used}
+                        isPast={isPast}
+                        fillHeight
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             </>
           )}
@@ -448,18 +449,9 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
           {/* ── EXTRAS ──────────────────────────────────────────────────────── */}
           {activeTab === 'perks' && perk && (
             <>
-              <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2">
-                <PerkCard
-                  perk={perk}
-                  eventTitle={selected.eventData.title}
-                  index={perkIndex}
-                  total={totalPerks}
-                />
-              </div>
-
-              <div className="shrink-0 pb-safe-bottom">
+              <div className="shrink-0">
                 {totalPerks > 1 ? (
-                  <div className="flex items-center justify-between px-6 py-3">
+                  <div className="flex items-center justify-between px-6 py-2">
                     <button
                       onClick={() => setPerkIndex(i => i - 1)}
                       disabled={perkIndex === 0}
@@ -482,8 +474,17 @@ export default function TicketsClient({ eventGroups }: { eventGroups: EventGroup
                     </button>
                   </div>
                 ) : (
-                  <div className="h-4" />
+                  <div className="h-2" />
                 )}
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+                <PerkCard
+                  perk={perk}
+                  eventTitle={selected.eventData.title}
+                  index={perkIndex}
+                  total={totalPerks}
+                />
               </div>
             </>
           )}

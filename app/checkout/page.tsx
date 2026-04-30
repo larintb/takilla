@@ -136,60 +136,57 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
   const autoDiscountId = (!codeParam && activeDiscount?.code === null) ? activeDiscount?.id ?? null : null
 
   return (
-    <main className="flex-1 flex items-start justify-center px-4 py-10">
-      <div className="w-full max-w-md space-y-4">
+    <main className="min-h-screen flex flex-col items-center justify-between px-4 py-4 md:py-8 md:justify-center">
+      <div className="w-full max-w-md space-y-3 animate-fade-in-up shrink-0">
 
-        {/* Back */}
-        <BackButton href={`/events/${eventId}`} hasPayment={!isFree} />
+        {/* Back button — absolute positioned */}
+        <div className="relative mb-2">
+          <BackButton href={`/events/${eventId}`} hasPayment={!isFree} />
+        </div>
 
-        {/* Card */}
-        <div className="rounded-2xl overflow-hidden"
-          style={{ background: 'var(--surface-panel)', border: '1px solid rgba(255,255,255,0.08)' }}>
-
-          {/* Event header */}
-          <div className="flex gap-4 p-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <div className="relative w-20 h-20 rounded-2xl overflow-hidden shrink-0"
-              style={{ background: 'rgba(255,255,255,0.06)' }}>
-              {imageUrl ? (
-                <Image src={imageUrl} alt={event.title} fill unoptimized sizes="80px" className="object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Ticket size={28} style={{ color: 'rgba(255,255,255,0.2)' }} />
-                </div>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-white text-lg leading-snug line-clamp-2">
-                {event.title}
-              </p>
-              <p className="text-sm mt-1.5 flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                <CalendarDays size={13} />
-                {dateFormatted}
-              </p>
-              {venue?.name && (
-                <p className="text-sm mt-0.5 flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                  <MapPin size={13} />
-                  {venue.name}{venue.city ? `, ${venue.city}` : ''}
-                </p>
-              )}
-            </div>
+        {/* Event summary card */}
+        <div className="rounded-2xl overflow-hidden p-4 flex gap-3"
+          style={{ background: 'var(--background)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0"
+            style={{ background: 'rgba(255,255,255,0.06)' }}>
+            {imageUrl ? (
+              <Image src={imageUrl} alt={event.title} fill unoptimized sizes="56px" className="object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Ticket size={20} style={{ color: 'rgba(255,255,255,0.2)' }} />
+              </div>
+            )}
           </div>
-
-          {/* Order summary */}
-          <div className="p-6 space-y-5">
-            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.35)' }}>
-              Resumen
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-white text-sm leading-tight line-clamp-1">
+              {event.title}
             </p>
+            <p className="text-xs mt-1 flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              <CalendarDays size={10} />
+              {dateFormatted}
+            </p>
+            {venue?.name && (
+              <p className="text-xs mt-1 flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                <MapPin size={10} />
+                {venue.name}{venue.city ? `, ${venue.city}` : ''}
+              </p>
+            )}
+          </div>
+        </div>
 
-            <div className="space-y-3">
+        {/* Order summary card */}
+        <div className="rounded-2xl overflow-hidden p-4"
+          style={{ background: 'var(--background)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="space-y-4">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-base" style={{ color: 'rgba(255,255,255,0.45)' }}>Tier</span>
-                <span className="text-base font-semibold text-white">{tier.name}</span>
+                <span className="text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>Boleto</span>
+                <span className="text-sm font-semibold text-white">{tier.name}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-base" style={{ color: 'rgba(255,255,255,0.45)' }}>Precio del boleto</span>
-                <span className="text-base font-semibold text-white">
-                  {price === 0 ? 'FREE' : `$${price.toFixed(2)}`}
+                <span className="text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>Precio</span>
+                <span className="text-sm font-semibold text-white">
+                  {price === 0 ? 'GRATIS' : `$${price.toFixed(2)}`}
                 </span>
               </div>
 
@@ -210,24 +207,24 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
 
               {fees && (
                 <div className="flex items-center justify-between">
-                  <span className="text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>Cargo por servicio</span>
+                  <span className="text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>Servicio</span>
                   <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
                     +${fees.serviceChargePerTicket.toFixed(2)}
                   </span>
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <span className="text-base" style={{ color: 'rgba(255,255,255,0.45)' }}>Cantidad</span>
-                <span className="text-base font-semibold text-white">
+                <span className="text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>Cantidad</span>
+                <span className="text-sm font-semibold text-white">
                   {finalQuantity} {finalQuantity === 1 ? 'boleto' : 'boletos'}
                 </span>
               </div>
 
               {/* Perks line items */}
               {perkIds.length > 0 && (
-                <div className="pt-3 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-                  <span className="text-xs font-bold uppercase tracking-widest block"
-                    style={{ color: 'rgba(255,255,255,0.3)' }}>
+                <div className="pt-2 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] block"
+                    style={{ color: 'rgba(255,255,255,0.2)' }}>
                     Extras
                   </span>
                   {(() => {
@@ -239,11 +236,11 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
                       const unitWithFee = perk.price === 0 ? 0 : calculatePerkFees(perk.price, 1).unitTotal
                       return (
                         <div key={id} className="flex items-center justify-between">
-                          <span className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
                             {perk.name} × {qty}
                           </span>
-                          <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                            {perk.price === 0 ? 'FREE' : `$${(unitWithFee * qty).toFixed(2)}`}
+                          <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                            {perk.price === 0 ? 'GRATIS' : `$${(unitWithFee * qty).toFixed(2)}`}
                           </span>
                         </div>
                       )
@@ -254,53 +251,52 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
             </div>
 
             {/* Total */}
-            <div className="flex items-center justify-between pt-5"
+            <div className="flex items-center justify-between pt-2"
               style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-              <span className="text-lg font-semibold text-white">Total</span>
-              <span className="font-bold text-white" style={{ fontSize: '2rem' }}>
-                {isFree ? 'FREE' : `$${total.toFixed(2)}`}
+              <span className="text-base font-semibold text-white">Total</span>
+              <span className="font-bold text-white text-2xl">
+                {isFree ? 'GRATIS' : `$${total.toFixed(2)}`}
               </span>
             </div>
-          </div>
 
-          {/* CTA — free path stays server-rendered; paid path uses client wrapper */}
-          {isFree ? (
-            <div className="px-6 pb-6 space-y-3">
-              <form action={startStripeCheckout}>
-                <input type="hidden" name="eventId"  value={eventId} />
-                <input type="hidden" name="tierId"   value={tierId} />
-                <input type="hidden" name="quantity" value={String(finalQuantity)} />
-                {perkIds.length > 0 && (
-                  <input type="hidden" name="perks" value={perkIds.join(',')} />
-                )}
-                {validatedCode && (
-                  <input type="hidden" name="code" value={validatedCode} />
-                )}
-                {autoDiscountId && (
-                  <input type="hidden" name="discountId" value={autoDiscountId} />
-                )}
-                <SubmitButton label="Confirmar boletos · FREE" />
-              </form>
-              <p className="text-sm text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                Tus boletos se generarán al confirmar.
-              </p>
+            {/* CTA Button */}
+            <div className="pt-4">
+              {isFree ? (
+                <form action={startStripeCheckout} className="space-y-3">
+                  <input type="hidden" name="eventId"  value={eventId} />
+                  <input type="hidden" name="tierId"   value={tierId} />
+                  <input type="hidden" name="quantity" value={String(finalQuantity)} />
+                  {perkIds.length > 0 && (
+                    <input type="hidden" name="perks" value={perkIds.join(',')} />
+                  )}
+                  {validatedCode && (
+                    <input type="hidden" name="code" value={validatedCode} />
+                  )}
+                  {autoDiscountId && (
+                    <input type="hidden" name="discountId" value={autoDiscountId} />
+                  )}
+                  <SubmitButton label={`Confirmar boletos · ${isFree ? 'GRATIS' : `$${total.toFixed(2)} MXN`}`} />
+                  <p className="text-xs text-center leading-relaxed" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                    Tus boletos se generarán al confirmar.
+                  </p>
+                </form>
+              ) : (
+                <CheckoutPaymentSection
+                  price={price}
+                  eventId={eventId}
+                  tierId={tierId}
+                  quantity={finalQuantity}
+                  perksCsv={perkIds.join(',')}
+                  perkIds={perkIds}
+                  currentCode={codeParam}
+                  codeError={codeError}
+                  totalLabel={`$${total.toFixed(2)} MXN`}
+                  discountCode={validatedCode}
+                  autoDiscountId={autoDiscountId}
+                />
+              )}
             </div>
-          ) : (
-            <CheckoutPaymentSection
-              price={price}
-              eventId={eventId}
-              tierId={tierId}
-              quantity={finalQuantity}
-              perksCsv={perkIds.join(',')}
-              perkIds={perkIds}
-              currentCode={codeParam}
-              codeError={codeError}
-              totalLabel={`$${total.toFixed(2)} MXN`}
-              discountCode={validatedCode}
-              autoDiscountId={autoDiscountId}
-            />
-          )}
-
+          </div>
         </div>
       </div>
     </main>

@@ -22,6 +22,7 @@ export type DigitalTicketProps = {
   isPast?: boolean
   maxWidth?: string
   featuredTier?: boolean
+  fillHeight?: boolean
 }
 
 export default function DigitalTicket({
@@ -38,16 +39,17 @@ export default function DigitalTicket({
   isPast = false,
   maxWidth = '320px',
   featuredTier = false,
+  fillHeight = false,
 }: DigitalTicketProps) {
   const number = displayNumber ?? computeDisplayNumber(id)
   const dimmed = isPast || isUsed
 
   return (
     <div
-      className="relative w-full overflow-hidden rounded-3xl shadow-2xl mx-auto"
+      className="relative overflow-hidden rounded-3xl shadow-2xl mx-auto"
       style={{
-        aspectRatio: '370 / 700',
-        maxWidth,
+        aspectRatio: '370 / 760',
+        ...(fillHeight ? { height: '100%', width: 'auto' } : { width: '100%', maxWidth }),
         backgroundImage: 'url(/boleto_digital.png)',
         backgroundSize: '100% auto',
         backgroundPosition: 'top center',
@@ -119,7 +121,7 @@ export default function DigitalTicket({
       </div>
 
       {/* Dashed tear line */}
-      <div className="absolute left-0 right-0 flex items-center" style={{ top: '63%' }}>
+      <div className="absolute left-0 right-0 flex items-center" style={{ top: '54%' }}>
         <div className="absolute -left-3 w-6 h-6 rounded-full bg-black/50" />
         <div className="flex-1 border-t-2 border-dashed border-black/15 mx-5" />
         <div className="absolute -right-3 w-6 h-6 rounded-full bg-black/50" />
@@ -128,10 +130,10 @@ export default function DigitalTicket({
       {/* Bottom zone - white area: QR */}
       <div
         className={`absolute bottom-0 left-0 right-0 flex flex-col items-center justify-center gap-1 pb-3 pt-4 ${isUsed ? 'opacity-40' : ''}`}
-        style={{ top: '63%' }}
+        style={{ top: '55%' }}
       >
         <div className="bg-white p-2.5 rounded-xl shadow-sm">
-          <TicketQr qrHash={qr_hash} size={170} />
+          <TicketQr qrHash={qr_hash} size={250} />
         </div>
         <p className="text-[10px] text-zinc-800 text-center">
           {isPast ? 'Evento finalizado' : isUsed ? 'Ya utilizado' : 'Muestra al staff en la entrada'}

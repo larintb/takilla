@@ -20,14 +20,14 @@ import RetroTicketWallet from '@/app/checkout/success/_components/retro-ticket-w
 const vt323 = VT323({ weight: '400', subsets: ['latin'] })
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const BG         = 'var(--background)'
-const CARD       = 'rgba(255,255,255,0.04)'
+const BG         = '#000000'
+const CARD       = 'var(--background)'
 const BORDER     = '1px solid rgba(255,255,255,0.08)'
 const TEXT       = '#ffffff'
 const TEXT_MUTED = 'rgba(255,255,255,0.45)'
 const TEXT_DIM   = 'rgba(255,255,255,0.25)'
 const ACCENT     = 'var(--accent-gradient)'
-const SIDEBAR_BG = 'rgba(255,255,255,0.03)'
+const SIDEBAR_BG = '#000000'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -50,6 +50,14 @@ interface TeamMember {
   eventTitle: string; eventStatus: string; fullName: string; email: string
 }
 interface PublishedEvent { id: string; title: string }
+type DashboardMobileTab = {
+  id: string
+  label: string
+  icon: React.ReactNode
+  href?: string
+  section?: Section
+  roles?: string[]
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -76,6 +84,19 @@ function getDisplayStatus(status: string, eventDate: string, eventEndDate?: stri
 function ticketDisplayNumber(id: string): string {
   const hex = id.replace(/-/g, '').slice(0, 8)
   return String((parseInt(hex, 16) % 9000) + 1000)
+}
+
+function getDashboardNavItems(profile: Profile | null) {
+  const baseItems: DashboardMobileTab[] = [
+    { id: 'inicio',   label: 'Inicio',         icon: <Home size={15} /> },
+    { id: 'tickets',  label: 'Mis boletos',    icon: <Ticket size={15} />, href: '/tickets' },
+    { id: 'events',   label: 'Mis eventos',    icon: <CalendarDays size={15} />, roles: ['organizer', 'admin'] },
+    { id: 'team',     label: 'Mi equipo',      icon: <Users size={15} />,        roles: ['organizer', 'admin'] },
+    { id: 'perfil',   label: 'Perfil público', icon: <Store size={15} />,        roles: ['organizer', 'admin'] },
+    { id: 'settings', label: 'Configuración',  icon: <Settings size={15} /> },
+  ]
+
+  return baseItems.filter(item => !item.roles || (profile && item.roles.includes(profile.role)))
 }
 
 // ─── Fade ─────────────────────────────────────────────────────────────────────
@@ -124,15 +145,7 @@ function TicketModal({ tickets, initialIndex, onClose }: { tickets: TicketRow[];
 function SidebarContent({ profile, section, onSelect, isTeamMember }: {
   profile: Profile | null; section: Section; onSelect: (s: Section) => void; isTeamMember?: boolean
 }) {
-  const baseItems: { id: Section; label: string; icon: React.ReactNode; roles?: string[]; href?: string }[] = [
-    { id: 'inicio',   label: 'Inicio',         icon: <Home size={15} /> },
-    { id: 'tickets',  label: 'Mis boletos',    icon: <Ticket size={15} />, href: '/tickets' },
-    { id: 'events',   label: 'Mis eventos',    icon: <CalendarDays size={15} />, roles: ['organizer', 'admin'] },
-    { id: 'team',     label: 'Mi equipo',      icon: <Users size={15} />,        roles: ['organizer', 'admin'] },
-    { id: 'perfil',   label: 'Perfil público', icon: <Store size={15} />,        roles: ['organizer', 'admin'] },
-    { id: 'settings', label: 'Configuración',  icon: <Settings size={15} /> },
-  ]
-  const navItems = baseItems.filter(i => !i.roles || (profile && i.roles.includes(profile.role)))
+  const navItems = getDashboardNavItems(profile)
   const showStaffLink = isTeamMember || profile?.role === 'organizer' || profile?.role === 'admin'
 
   const itemClass = "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all text-left"
@@ -154,7 +167,7 @@ function SidebarContent({ profile, section, onSelect, isTeamMember }: {
           )
         }
         return (
-          <button key={item.id} onClick={() => onSelect(item.id)}
+          <button key={item.id} onClick={() => onSelect(item.id as Section)}
             className={itemClass}
             style={{
               background: isActive ? ACCENT : 'transparent',
@@ -179,6 +192,92 @@ function SidebarContent({ profile, section, onSelect, isTeamMember }: {
         </>
       )}
     </nav>
+  )
+}
+
+// ─── Mobile Menu Overlay ──────────────────────────────────────────────────────
+
+function MobileMenu({
+  profile, section, onSelect, onClose, isTeamMember
+}: {
+  profile: Profile | null; section: Section; onSelect: (s: Section) => void; onClose: () => void; isTeamMember?: boolean
+}) {
+  const navItems = getDashboardNavItems(profile)
+  const showStaffLink = isTeamMember || profile?.role === 'organizer' || profile?.role === 'admin'
+
+  useEffect(() => { 
+    document.body.style.overflow = 'hidden'; 
+    return () => { document.body.style.overflow = '' } 
+  }, [])
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col md:hidden animate-in fade-in duration-200" 
+         style={{ background: 'var(--background)', backdropFilter: 'blur(12px)' }}>
+      
+      {/* Header del Menú Móvil */}
+      <div className="flex items-center justify-between px-4 h-14 shrink-0" style={{ borderBottom: BORDER }}>
+        <span className="font-bold text-lg tracking-tight" style={{ background: ACCENT, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          Menú
+        </span>
+        <button onClick={onClose} className="p-1.5 rounded-lg text-white hover:bg-white/10 transition-colors">
+          <X size={24} />
+        </button>
+      </div>
+
+      {/* Opciones de Navegación */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {navItems.map((item) => {
+          const isActive = section === item.id
+          const isAction = !!item.href
+          const key = item.id
+
+          const content = (
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" 
+                     style={{ background: isActive ? ACCENT : 'rgba(255,255,255,0.05)', color: isActive ? '#fff' : TEXT_MUTED }}>
+                  {item.icon}
+                </div>
+                <div className="text-base font-medium" style={{ color: isActive ? '#fff' : TEXT }}>{item.label}</div>
+              </div>
+              <div className="text-zinc-500">
+                {isAction ? <ExternalLink size={16} /> : <ArrowRight size={16} style={{ color: isActive ? 'var(--color-orange)' : 'currentColor' }} />}
+              </div>
+            </div>
+          )
+
+          return isAction ? (
+            <Link key={key} href={item.href!} onClick={onClose} 
+                  className="block rounded-2xl p-3 transition-all active:scale-[0.98]" style={{ background: CARD, border: BORDER }}>
+              {content}
+            </Link>
+          ) : (
+            <button key={key} type="button" onClick={() => { onSelect(item.id as Section); onClose() }} 
+                    className="w-full text-left rounded-2xl p-3 transition-all active:scale-[0.98]" 
+                    style={{ background: isActive ? 'rgba(255,255,255,0.08)' : CARD, border: isActive ? '1px solid rgba(255,255,255,0.15)' : BORDER }}>
+              {content}
+            </button>
+          )
+        })}
+
+        {showStaffLink && (
+          <>
+            <div className="my-5" style={{ borderTop: BORDER }} />
+            <Link href="/staff" onClick={onClose} className="block rounded-2xl p-3 transition-all active:scale-[0.98]" style={{ background: CARD, border: BORDER }}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)', color: TEXT_MUTED }}>
+                    <ScanLine size={18} />
+                  </div>
+                  <div className="text-base font-medium" style={{ color: TEXT }}>Staff App</div>
+                </div>
+                <div className="text-zinc-500"><ExternalLink size={16} /></div>
+              </div>
+            </Link>
+          </>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -473,7 +572,6 @@ function EventRowItem({ event, confirmingId, onConfirm, onCancel, onDelete }: {
 // ─── Events Section ───────────────────────────────────────────────────────────
 
 function EventsSection({ events, loading, onDeleteEvent, profile }: { events: EventRow[]; loading: boolean; onDeleteEvent: (id: string) => Promise<void>; profile: Profile | null }) {
-  // Solo un confirm activo a la vez
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
 
   if (loading) return (
@@ -877,7 +975,7 @@ function SettingsSection({ profile, email, onProfileUpdate, onLogout }: {
 // ─── Perfil público Section ───────────────────────────────────────────────────
 
 function slugify(str: string) {
-  return str.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60)
+  return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60)
 }
 
 function PerfilSection({ profile, userId, onProfileUpdate }: {
@@ -999,6 +1097,7 @@ function PerfilSection({ profile, userId, onProfileUpdate }: {
 export default function DashboardPage() {
   const supabase = createClient()
   const [section, setSection]       = useState<Section>('inicio')
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [profile, setProfile]       = useState<Profile | null>(null)
   const [email, setEmail]           = useState('')
   const [userId, setUserId]         = useState('')
@@ -1006,7 +1105,6 @@ export default function DashboardPage() {
   const [events, setEvents]         = useState<EventRow[]>([])
   const [loading, setLoading]       = useState(true)
   const [eventsLoading, setEventsLoading] = useState(false)
-  const [drawerOpen, setDrawerOpen] = useState(false)
   const [isTeamMember, setIsTeamMember] = useState(false)
 
   useEffect(() => {
@@ -1062,7 +1160,7 @@ export default function DashboardPage() {
     setEvents(prev => prev.filter(e => e.id !== id))
   }
   async function handleLogout() { await supabase.auth.signOut(); window.location.href = '/' }
-  function handleSelectSection(s: Section) { setSection(s); setDrawerOpen(false) }
+  function handleSelectSection(s: Section) { setSection(s) }
 
   // ── Loading skeleton ────────────────────────────────────────────────────────
   if (loading) return (
@@ -1077,7 +1175,7 @@ export default function DashboardPage() {
           </Link>
         </div>
       </header>
-      <div className="max-w-6xl mx-auto px-4 py-8 flex gap-8">
+      <div className="max-w-6xl mx-auto px-4 py-8 flex gap-8 pb-28 md:pb-8">
         <aside className="hidden md:block w-52 shrink-0 space-y-2">
           <div className="h-4 rounded-lg animate-pulse w-3/4" style={{ background: 'rgba(255,255,255,0.06)' }} />
           <div className="h-3 rounded-lg animate-pulse w-1/2 mb-4" style={{ background: 'rgba(255,255,255,0.04)' }} />
@@ -1105,45 +1203,43 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen" style={{ background: BG }}>
 
+      {/* Render condicional del Menú Móvil */}
+      {isMobileMenuOpen && (
+        <MobileMenu 
+          profile={profile} 
+          section={section} 
+          onSelect={handleSelectSection} 
+          onClose={() => setIsMobileMenuOpen(false)} 
+          isTeamMember={isTeamMember} 
+        />
+      )}
+
       {/* Header */}
-      <header className="h-14 flex items-center sticky top-0 z-30" style={{ borderBottom: BORDER, background: 'rgba(20,10,42,0.85)', backdropFilter: 'blur(12px)' }}>
+      <header className="h-14 flex items-center sticky top-0 z-30" style={{ borderBottom: BORDER, background: BG, backdropFilter: 'blur(12px)' }}>
         <div className="max-w-6xl mx-auto px-4 w-full flex items-center justify-between">
-          <button className="md:hidden p-1 transition-colors" onClick={() => setDrawerOpen(true)}
-            style={{ color: TEXT_MUTED }}>
+          
+          <button 
+            onClick={() => setIsMobileMenuOpen(true)} 
+            className="p-1.5 -ml-1.5 md:hidden text-white hover:bg-white/10 rounded-lg transition-colors"
+          >
             <Menu size={22} />
           </button>
+          
+          <div className="hidden md:block w-7" />
+
           <Link href="/" className="flex items-center gap-2 absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0">
             <Image src="/images/logo1.png" alt="Takilla" width={28} height={28} className="rounded-md" />
             <span className="font-bold text-lg tracking-tight" style={{
               background: ACCENT, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>Takilla</span>
           </Link>
-          <div className="md:hidden w-7" />
+          
+          <div className="w-7 md:hidden" />
         </div>
       </header>
 
-      {/* Mobile overlay */}
-      {drawerOpen && <div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={() => setDrawerOpen(false)} />}
-
-      {/* Mobile drawer */}
-      <div className={`fixed top-0 left-0 h-full w-64 z-50 shadow-2xl transform transition-transform duration-300 ease-in-out md:hidden ${drawerOpen ? 'translate-x-0' : '-translate-x-full'}`}
-        style={{ background: '#1a1929' }}>
-        <div className="px-4 h-16 flex items-center justify-between" style={{ background: ACCENT }}>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{profile?.full_name || email}</p>
-            <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.65)' }}>{email}</p>
-          </div>
-          <button type="button" onClick={() => setDrawerOpen(false)} className="ml-3 shrink-0 p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/20 transition-colors">
-            <X size={18} />
-          </button>
-        </div>
-        <div className="p-4">
-          <SidebarContent profile={profile} section={section} onSelect={handleSelectSection} isTeamMember={isTeamMember} />
-        </div>
-      </div>
-
       {/* Body */}
-      <div className="max-w-6xl mx-auto px-4 py-8 flex gap-8">
+      <div className="max-w-6xl mx-auto px-4 py-8 flex gap-8 pb-28 md:pb-8">
 
         {/* Desktop sidebar */}
         <aside className="hidden md:block w-52 shrink-0">
