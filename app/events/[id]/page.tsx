@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@/utils/supabase/server'
 import { resolveEventImageUrl, resolveAvatarUrl } from '@/utils/supabase/storage'
 import { CalendarDays, MapPin, Users, ArrowLeft, Ticket, Store } from 'lucide-react'
