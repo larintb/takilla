@@ -5,9 +5,9 @@ import { ArrowLeft } from 'lucide-react'
 export default function EventsNavbar() {
   return (
     <header
-      className="relative z-40 sticky top-0"
+      className="z-40 sticky top-0"
       style={{
-        background:           'rgba(20,10,42,0.85)',
+        background:           'black',
         borderBottom:         '1px solid rgba(255,255,255,0.06)',
         backdropFilter:       'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',

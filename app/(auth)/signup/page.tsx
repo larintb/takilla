@@ -49,7 +49,7 @@ export default function SignupPage() {
       <div
         className="rounded-2xl p-8"
         style={{
-          background: 'var(--surface-panel)',
+          background: 'var(--background)',
           border: '1px solid rgba(255,255,255,0.08)',
           boxShadow: '0 25px 80px rgba(0,0,0,0.4)',
         }}
@@ -159,7 +159,7 @@ export default function SignupPage() {
     <div
       className="rounded-2xl p-8"
       style={{
-        background: 'var(--surface-panel)',
+        background: 'var(--background)',
         border: '1px solid rgba(255,255,255,0.08)',
         boxShadow: '0 25px 80px rgba(0,0,0,0.4)',
       }}

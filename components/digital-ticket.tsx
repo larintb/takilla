@@ -22,6 +22,7 @@ export type DigitalTicketProps = {
   isPast?: boolean
   maxWidth?: string
   featuredTier?: boolean
+  fillHeight?: boolean
 }
 
 export default function DigitalTicket({
@@ -38,16 +39,17 @@ export default function DigitalTicket({
   isPast = false,
   maxWidth = '320px',
   featuredTier = false,
+  fillHeight = false,
 }: DigitalTicketProps) {
   const number = displayNumber ?? computeDisplayNumber(id)
   const dimmed = isPast || isUsed
 
   return (
     <div
-      className="relative w-full overflow-hidden rounded-3xl shadow-2xl mx-auto"
+      className="relative overflow-hidden rounded-3xl shadow-2xl mx-auto"
       style={{
         aspectRatio: '370 / 760',
-        maxWidth,
+        ...(fillHeight ? { height: '100%', width: 'auto' } : { width: '100%', maxWidth }),
         backgroundImage: 'url(/boleto_digital.png)',
         backgroundSize: '100% auto',
         backgroundPosition: 'top center',

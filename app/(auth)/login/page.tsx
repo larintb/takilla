@@ -32,7 +32,7 @@ function LoginPageContent() {
   const currentView = codeSent ? 'verify' : isUnverified && view === 'login' ? 'unverified' : view
 
   const panelStyle = {
-    background: 'var(--surface-panel)',
+    background: 'var(--background)',
     border: '1px solid rgba(255,255,255,0.08)',
     boxShadow: '0 25px 80px rgba(0,0,0,0.4)',
   }

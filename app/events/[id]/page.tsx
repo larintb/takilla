@@ -54,10 +54,10 @@ export default async function EventDetailPage({
   const avatarUrl  = resolveAvatarUrl(supabase, organizer?.avatar_url)
 
   const dateFormatted = new Date(event.event_date).toLocaleDateString('es-MX', {
-    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
   })
   const timeFormatted = new Date(event.event_date).toLocaleTimeString('es-MX', {
-    hour: '2-digit', minute: '2-digit',
+    hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
   })
 
   const isPast = isEventOver(event.event_date, event.event_end_date)
@@ -69,22 +69,27 @@ export default async function EventDetailPage({
     <div className="w-full min-h-screen overflow-x-hidden" style={{ background: 'var(--background)' }}>
 
       {/* ── Banner ─────────────────────────────────────────────── */}
-      <div className="relative w-full h-60 sm:h-80 md:h-[420px] overflow-hidden animate-fade-in"
+      <div className="relative w-full h-72 sm:h-96 md:h-[520px] overflow-hidden animate-fade-in"
         style={{ background: 'var(--color-deep-purple)' }}>
         {imageUrl ? (
-          <>
-            <Image src={imageUrl} alt="" fill unoptimized aria-hidden
-              className="object-cover blur-2xl opacity-40 scale-110" />
-            <Image src={imageUrl} alt={event.title} fill unoptimized priority
-              sizes="100vw" className="object-contain" />
-          </>
+          <Image src={imageUrl} alt={event.title} fill unoptimized priority
+            sizes="100vw" className="object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center"
             style={{ background: 'var(--hero-gradient)' }}>
             <Ticket size={48} style={{ color: 'rgba(255,255,255,0.15)' }} />
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/10" />
+
+        {/* Back button — flotante sobre la imagen */}
+        <Link
+          href="/events"
+          className="absolute top-4 left-4 z-10 flex items-center justify-center w-9 h-9 rounded-full transition-all hover:scale-105 active:scale-95"
+          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)' }}
+        >
+          <ArrowLeft size={16} className="text-white" />
+        </Link>
 
         <div className="absolute inset-x-0 bottom-0 px-4 pb-5 sm:px-6 sm:pb-7">
           <h1
@@ -121,20 +126,41 @@ export default async function EventDetailPage({
       {/* ── Page content ───────────────────────────────────────── */}
       <div className="w-full max-w-5xl mx-auto px-4 py-6 sm:py-8">
 
-        <Link
-          href="/events"
-          className="inline-flex items-center gap-1.5 text-sm font-medium mb-6 transition-opacity hover:opacity-70 animate-fade-in-up"
-          style={{ color: 'rgba(255,255,255,0.4)' }}
-        >
-          <ArrowLeft size={14} />
-          Todos los eventos
-        </Link>
-
-        <div className="flex flex-col md:grid md:grid-cols-3 md:gap-8 md:items-start gap-6 animate-fade-in-up"
+        <div className="flex flex-col-reverse md:grid md:grid-cols-3 md:gap-8 md:items-start gap-6 animate-fade-in-up"
           style={{ animationDelay: '80ms' }}>
 
           {/* ── Left: description + map ─────────────────────── */}
           <div className="md:col-span-2 min-w-0 space-y-6">
+
+            {hasLocation && (
+              <div className="pt-5 min-w-0 space-y-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <h2 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5"
+                  style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  <MapPin size={13} />
+                  Ubicación
+                </h2>
+                <div className="w-full overflow-hidden rounded-xl">
+                  <EventMap
+                    lat={event.location_lat}
+                    lng={event.location_lng}
+                    locationName={event.location_name}
+                  />
+                </div>
+              </div>
+            )}
+
+            {!hasLocation && venue?.address && (
+              <div className="pt-5 min-w-0 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <h2 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5"
+                  style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  <MapPin size={13} />
+                  Ubicación
+                </h2>
+                <p className="text-sm break-words" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  {venue.address}{venue.city ? `, ${venue.city}` : ''}
+                </p>
+              </div>
+            )}
 
             {event.description && (
               <div className="pt-5 min-w-0" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
@@ -164,36 +190,6 @@ export default async function EventDetailPage({
                   </div>
                   <Store size={15} style={{ color: 'rgba(255,255,255,0.25)' }} className="shrink-0" />
                 </Link>
-              </div>
-            )}
-
-            {hasLocation && (
-              <div className="pt-5 min-w-0 space-y-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                <h2 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5"
-                  style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  <MapPin size={13} />
-                  Ubicación
-                </h2>
-                <div className="w-full overflow-hidden rounded-xl">
-                  <EventMap
-                    lat={event.location_lat}
-                    lng={event.location_lng}
-                    locationName={event.location_name}
-                  />
-                </div>
-              </div>
-            )}
-
-            {!hasLocation && venue?.address && (
-              <div className="pt-5 min-w-0 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                <h2 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5"
-                  style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  <MapPin size={13} />
-                  Ubicación
-                </h2>
-                <p className="text-sm break-words" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                  {venue.address}{venue.city ? `, ${venue.city}` : ''}
-                </p>
               </div>
             )}
           </div>

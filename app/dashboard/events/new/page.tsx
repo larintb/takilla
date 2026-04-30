@@ -24,15 +24,15 @@ export default async function NewEventPage() {
   const defaultDate = new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
+    <div className="max-w-3xl mx-auto px-4 py-6 space-y-8 animate-fade-in-up">
 
       {/* Header */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="flex items-center gap-2">
           <span className="bg-purple-900/40 text-purple-300 border border-purple-700/50 text-xs font-semibold px-2.5 py-0.5 rounded-full">
             Borrador
           </span>
-          <span className="flex items-center gap-1 text-xs text-orange-400">
+          <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--color-orange)' }}>
             <Pencil size={11} /> Modo edición activo
           </span>
         </div>
@@ -40,10 +40,10 @@ export default async function NewEventPage() {
       </div>
 
       {/* Form */}
-      <section className="space-y-3">
+      <section className="space-y-4">
         <div className="flex items-center gap-2">
-          <Pencil size={15} className="text-orange-400" />
-          <h2 className="text-base font-semibold text-white">Editar información</h2>
+          <Pencil size={15} style={{ color: 'var(--color-orange)' }} />
+          <h2 className="text-base font-semibold text-white">Información del evento</h2>
         </div>
 
         <EventEditForm
@@ -58,15 +58,16 @@ export default async function NewEventPage() {
           submitLabel="Continuar"
         />
 
-        {/* Submit button */}
-        <div className="bg-white/5 rounded-2xl border border-purple-700/40 p-5 flex flex-col items-end gap-2">
-         <p className="text-sm text-white/70 w-full">
-  Continúa para agregar boletos y publicar tu evento
-</p>
+        {/* Submit section */}
+        <div className="rounded-2xl border p-5 flex flex-col items-end gap-3 mt-6"
+          style={{ background: 'var(--background)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <p className="text-sm w-full" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            Continúa para agregar boletos y publicar tu evento
+          </p>
           <button
             type="submit"
             form="event-edit-form"
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-sm font-semibold transition-opacity hover:opacity-80"
+            className="flex items-center gap-2 px-6 h-12 rounded-xl text-white text-sm font-semibold transition-opacity hover:opacity-90 active:scale-[0.98]"
             style={{ background: 'var(--accent-gradient)' }}
           >
             Continuar →

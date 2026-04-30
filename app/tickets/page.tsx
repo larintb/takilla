@@ -1,9 +1,7 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { resolveEventImageUrl } from '@/utils/supabase/storage'
-import { ChevronLeft } from 'lucide-react'
 import { isEventOver } from '@/utils/event-time'
 import TicketsClient from './_components/tickets-client'
 
@@ -105,7 +103,7 @@ export default async function TicketsPage() {
         eventData: {
           title:      row.event_title,
           date:       new Date(row.event_date).toLocaleDateString('es-MX', {
-            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
           }),
           venueName:    row.venue_name ?? null,
           venueCity:    row.venue_city ?? null,
@@ -140,37 +138,16 @@ export default async function TicketsPage() {
   const totalEvents  = eventGroups.length
 
   return (
-    <>
-      <section style={{ background: 'var(--hero-gradient)' }} className="animate-fade-in">
-        <div className="max-w-2xl mx-auto px-4 pt-6">
-          <Link href="/dashboard"
-            className="inline-flex items-center gap-1 text-sm font-medium transition-opacity hover:opacity-70"
-            style={{ color: 'rgba(255,255,255,0.4)' }}>
-            <ChevronLeft size={16} />
-            Dashboard
-          </Link>
-        </div>
-        <div className="max-w-2xl mx-auto px-4 py-8 space-y-1">
-          <p className="text-sm font-medium uppercase tracking-widest animate-fade-in-up"
-            style={{ color: 'rgba(255,255,255,0.5)', animationDelay: '60ms' }}>
-            Tu billetera digital
+    <div className="max-w-2xl mx-auto px-4">
+      <div className="pt-8 pb-6 animate-fade-in-up">
+        <h1 className="text-3xl font-bold text-white tracking-tight">Mis boletos</h1>
+        {totalTickets > 0 && (
+          <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            {totalTickets} boleto{totalTickets !== 1 ? 's' : ''} · {totalEvents} evento{totalEvents !== 1 ? 's' : ''}
           </p>
-          <h1 className="font-display text-5xl text-white leading-none animate-fade-in-up"
-            style={{ animationDelay: '120ms' }}>
-            Mis boletos
-          </h1>
-          {totalTickets > 0 && (
-            <p className="text-base animate-fade-in-up"
-              style={{ color: 'rgba(255,255,255,0.6)', animationDelay: '180ms' }}>
-              {totalTickets} boleto{totalTickets !== 1 ? 's' : ''} · {totalEvents} evento{totalEvents !== 1 ? 's' : ''}
-            </p>
-          )}
-        </div>
-      </section>
-
-      <main className="max-w-2xl mx-auto px-4 py-6">
-        <TicketsClient eventGroups={eventGroups} />
-      </main>
-    </>
+        )}
+      </div>
+      <TicketsClient eventGroups={eventGroups} />
+    </div>
   )
 }

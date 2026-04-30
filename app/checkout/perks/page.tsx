@@ -39,39 +39,40 @@ export default async function PerksCheckoutPage({ searchParams }: PerksCheckoutP
   })
 
   return (
-    <main className="flex-1 flex items-start justify-center px-4 py-10">
-      <div className="w-full max-w-md space-y-4">
+    <main className="flex-1 flex items-start justify-center px-4 py-6 pb-24 md:pb-10">
+      <div className="w-full max-w-md space-y-4 animate-fade-in-up">
 
-        <Link
-          href="/tickets"
-          className="inline-flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-70"
-          style={{ color: 'rgba(255,255,255,0.4)' }}
-        >
-          <ArrowLeft size={14} />
-          Mis boletos
-        </Link>
+        {/* Back button */}
+        <div className="relative mb-2">
+          <Link
+            href="/tickets"
+            className="inline-flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-70"
+            style={{ color: 'rgba(255,255,255,0.4)' }}
+          >
+            <ArrowLeft size={14} />
+            Mis boletos
+          </Link>
+        </div>
 
-        {/* Event header */}
-        <div className="rounded-2xl overflow-hidden"
-          style={{ background: 'var(--surface-panel)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <div className="flex gap-4 p-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0"
-              style={{ background: 'rgba(255,255,255,0.06)' }}>
-              {imageUrl ? (
-                <Image src={imageUrl} alt={event.title} fill unoptimized sizes="64px" className="object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Ticket size={24} style={{ color: 'rgba(255,255,255,0.2)' }} />
-                </div>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-white text-base leading-snug line-clamp-2">{event.title}</p>
-              <p className="text-sm mt-1 flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                <CalendarDays size={13} />
-                {dateFormatted}
-              </p>
-            </div>
+        {/* Event summary card */}
+        <div className="rounded-2xl overflow-hidden p-4 flex gap-3"
+          style={{ background: 'var(--background)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0"
+            style={{ background: 'rgba(255,255,255,0.06)' }}>
+            {imageUrl ? (
+              <Image src={imageUrl} alt={event.title} fill unoptimized sizes="64px" className="object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Ticket size={24} style={{ color: 'rgba(255,255,255,0.2)' }} />
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-white text-sm leading-tight line-clamp-1">{event.title}</p>
+            <p className="text-xs mt-1 flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              <CalendarDays size={11} />
+              {dateFormatted}
+            </p>
           </div>
         </div>
 

@@ -43,9 +43,11 @@ export default function DateTimePicker({
     if (!val) return { day: null as Date | null, time: '20:00' }
     const d = new Date(val)
     if (isNaN(d.getTime())) return { day: null as Date | null, time: '20:00' }
-    const h = d.getHours().toString().padStart(2, '0')
-    const m = d.getMinutes() < 30 ? '00' : '30'
-    return { day: d, time: `${h}:${m}` }
+    // Use UTC components so editing an existing event shows the originally-entered time
+    const h = d.getUTCHours().toString().padStart(2, '0')
+    const m = d.getUTCMinutes() < 30 ? '00' : '30'
+    const day = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+    return { day, time: `${h}:${m}` }
   }
 
   const { day: initDay, time: initTime } = parseDefault(defaultValue)
@@ -167,22 +169,19 @@ export default function DateTimePicker({
 
   const isoValue = selectedDay
     ? (() => {
-        const d = new Date(selectedDay)
-        const [hh, mm] = selectedTime.split(':')
-        d.setHours(Number(hh), Number(mm), 0, 0)
-        return d.toISOString().slice(0, 16)
+        const y  = selectedDay.getFullYear()
+        const mo = String(selectedDay.getMonth() + 1).padStart(2, '0')
+        const d  = String(selectedDay.getDate()).padStart(2, '0')
+        return `${y}-${mo}-${d}T${selectedTime}`
       })()
     : ''
 
   const displayValue = selectedDay
     ? (() => {
-        const d = new Date(selectedDay)
-        const [hh, mm] = selectedTime.split(':')
-        d.setHours(Number(hh), Number(mm))
-        return d.toLocaleDateString('es-MX', {
+        const slotLabel = TIME_SLOTS.find(s => s.value === selectedTime)?.label ?? selectedTime
+        return selectedDay.toLocaleDateString('es-MX', {
           weekday: 'short', day: 'numeric', month: 'short',
-          hour: '2-digit', minute: '2-digit', hour12: true,
-        })
+        }) + ', ' + slotLabel
       })()
     : null
 

@@ -3,7 +3,7 @@ import Image from 'next/image'
 import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { resolveEventImageUrl } from '@/utils/supabase/storage'
-import { Ticket, CalendarDays, MapPin, QrCode, ShieldCheck, Zap } from 'lucide-react'
+import { Search, Ticket, QrCode, ShieldCheck, Zap } from 'lucide-react'
 import Navbar from '@/components/navbar'
 import { isEventOver } from '@/utils/event-time'
 import DomeGallery from '@/components/dome-gallery'
@@ -26,22 +26,18 @@ const CATEGORY_LABELS: Record<string, string> = {
   nocturna: 'Vida nocturna',
 }
 
-type VenueInfo = {
-  name?: string | null
-  city?: string | null
-}
 
-type TierPrice = {
-  price: number | string
-}
+type VenueInfo  = { name?: string | null; city?: string | null }
+type TierPrice  = { price: number | string }
 
 export default async function Home() {
   const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
+  const supabase    = createClient(cookieStore)
 
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1)
-  const cutoff = yesterday.toISOString()
-  const [{ data: { user } }, { data: events }] = await Promise.all([
+  const cutoff    = yesterday.toISOString()
+
+  const [, { data: events }] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from('events').select(`
       id, title, event_date, event_end_date, image_url, category,
@@ -61,66 +57,166 @@ export default async function Home() {
   const domeImages = [...eventDomeImages, ...DOME_STOCK.slice(eventDomeImages.length)]
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--background)' }}>
+    <div className="min-h-screen flex flex-col">
 
       <Navbar />
 
-      {/* Hero */}
-      <section
-        className="relative text-white animate-fade-in overflow-hidden"
-        style={{ background: 'var(--hero-gradient)' }}
-      >
-        {/* Dome gallery background */}
-        <div className="absolute inset-0 z-0" style={{ opacity: 0.45 }}>
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden">
+        {/* DomeGallery — fondo sutil */}
+        <div className="absolute inset-0 z-0 pointer-events-none" style={{ opacity: 0.25 }}>
           <DomeGallery
             images={domeImages}
             fit={1.2}
             minRadius={750}
             segments={30}
             maxVerticalRotationDeg={0}
-            dragDampening={2}
+            dragDampening={8}
             grayscale={false}
-            overlayBlurColor="#140a2a"
-            autoRotateSpeed={0.6}
+            overlayBlurColor="#0a0a0a"
+            autoRotateSpeed={0.4}
           />
         </div>
-        <div className="max-w-6xl mx-auto px-4 py-24 text-center space-y-6 relative z-10">
-          <h1
-            className="font-display text-6xl md:text-7xl leading-none max-w-3xl mx-auto animate-fade-in-up"
-            style={{ animationDelay: '160ms' }}
-          >
-            Los mejores eventos de tu ciudad en un lugar.
+        {/* Overlay: funde el dome hacia el fondo */}
+        <div className="absolute inset-0 z-1 pointer-events-none bg-linear-to-b from-transparent via-black/20 to-black" />
+
+        {/* Contenido del hero */}
+        <div className="relative z-10 max-w-6xl mx-auto px-6 pt-10 pb-8 animate-fade-in-up">
+          <h1 className="text-4xl md:text-6xl font-bold uppercase leading-tight tracking-tight">
+            ¿Qué hay<br className="md:hidden" /> en tu ciudad?
           </h1>
-          <p
-            className="text-lg max-w-xl mx-auto animate-fade-in-up"
-            style={{ color: 'rgba(255,255,255,0.55)', animationDelay: '240ms' }}
-          >
-            Adquiere boletos para conciertos, festivales y eventos locales.
+          <p className="mt-2 text-lg" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            Descubre eventos cerca de ti.
           </p>
-          <div className="flex items-center justify-center gap-3 pt-2 animate-fade-in-up" style={{ animationDelay: '320ms' }}>
-            <Link
-              href="/events"
-              className="px-6 py-3 rounded-xl font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ background: 'var(--accent-gradient)' }}
-            >
-              Ver eventos
-            </Link>
-            {!user && (
-              <Link
-                href="/signup"
-                className="px-6 py-3 rounded-xl font-semibold text-white transition-all hover:bg-white/10"
-                style={{ border: '1px solid rgba(255,255,255,0.2)' }}
-              >
-                Crear cuenta gratis
-              </Link>
-            )}
+
+          {/* Search bar */}
+          <div className="mt-6 relative group max-w-xl">
+            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-zinc-500 group-focus-within:text-pink-500 transition-colors" />
+            </div>
+            <input
+              type="text"
+              placeholder="Buscar eventos, artistas, lugares..."
+              className="w-full rounded-full py-4 pl-12 pr-6 outline-none transition-all focus:ring-2 focus:ring-pink-500/50"
+              style={{ background: '#1a1a1a', color: '#f4f1ff' }}
+            />
           </div>
         </div>
       </section>
 
-      {/* Categories */}
-      <section className="max-w-6xl mx-auto px-4 pt-14 pb-4 w-full animate-fade-in-up" style={{ animationDelay: '100ms' }}>
-        <div className="flex items-center gap-3 mb-7">
+      {/* ── Eventos destacados (carrusel) ─────────────────────────────────── */}
+      {activeEvents.length > 0 && (
+        <section className="mt-10 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+          <div className="max-w-6xl mx-auto px-6 flex items-end justify-between mb-5">
+            <h2 className="text-xl font-bold text-white">Eventos destacados</h2>
+            <Link
+              href="/events"
+              className="text-sm font-semibold flex items-center gap-1 hover:opacity-80 transition-opacity"
+              style={{ color: 'var(--color-pink)' }}
+            >
+              Ver todo
+            </Link>
+          </div>
+
+          {/* Carrusel horizontal — scroll full-bleed en mobile */}
+          <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-6 px-6 max-w-6xl mx-auto md:px-6">
+            {activeEvents.map((event) => {
+              const venue    = (event.venues ?? null) as VenueInfo | null
+              const tiers    = (event.ticket_tiers ?? []) as TierPrice[]
+              const prices   = tiers.map(t => Number(t.price))
+              const minPrice = prices.length ? Math.min(...prices) : null
+              const imageUrl = resolveEventImageUrl(supabase, event.image_url)
+              const catLabel = event.category && event.category !== 'otro'
+                ? CATEGORY_LABELS[event.category]
+                : null
+              const dateStr = new Date(event.event_date).toLocaleDateString('es-MX', {
+                day: 'numeric', month: 'short', timeZone: 'UTC',
+              }).toUpperCase() + ', ' + new Date(event.event_date).toLocaleTimeString('es-MX', {
+                hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC',
+              }).toUpperCase()
+
+              return (
+                <Link
+                  key={event.id}
+                  href={`/events/${event.id}`}
+                  className="flex-none w-56 snap-center group cursor-pointer"
+                >
+                  {/* Card imagen */}
+                  <div className="relative aspect-3/4 rounded-3xl overflow-hidden shadow-xl">
+                    {imageUrl ? (
+                      <Image
+                        src={imageUrl}
+                        alt={event.title}
+                        fill
+                        unoptimized
+                        sizes="224px"
+                        className="object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center" style={{ background: '#1a1a1a' }}>
+                        <Ticket size={32} style={{ color: 'rgba(255,255,255,0.2)' }} />
+                      </div>
+                    )}
+                    {/* Bottom overlay for chip legibility */}
+                    <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
+                    {/* Categoría chip */}
+                    {catLabel && (
+                      <div className="absolute inset-0 p-3 flex flex-col justify-end">
+                        <span
+                          className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider w-fit text-white"
+                          style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)' }}
+                        >
+                          {catLabel}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {/* Info debajo */}
+                  <div className="mt-3 space-y-0.5">
+                    <h3
+                      className="text-sm font-bold leading-snug line-clamp-2 group-hover:opacity-80 transition-opacity"
+                      style={{ color: '#f4f1ff' }}
+                    >
+                      {event.title}
+                    </h3>
+                    <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                      {dateStr}
+                    </p>
+                    {venue?.name && (
+                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                        {venue.name}
+                      </p>
+                    )}
+                    {minPrice !== null && (
+                      <p
+                        className="text-xs font-bold pt-1"
+                        style={{
+                          background: 'var(--accent-gradient)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                        }}
+                      >
+                        {minPrice === 0 ? 'FREE' : `Desde $${minPrice.toFixed(2)}`}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+
+          {/* Pagination dots decorativos */}
+          <div className="flex justify-center gap-2 mt-1">
+            <div className="h-1.5 w-4 rounded-full" style={{ background: 'var(--color-pink)' }} />
+            <div className="h-1.5 w-1.5 rounded-full bg-zinc-700" />
+            <div className="h-1.5 w-1.5 rounded-full bg-zinc-700" />
+          </div>
+        </section>
+      )}
+
+      {/* ── Categorías ──────────────────────────────────────────────────────── */}
+      <section className="max-w-6xl mx-auto px-6 pt-12 pb-4 w-full animate-fade-in-up" style={{ animationDelay: '120ms' }}>
+        <div className="flex items-center gap-3 mb-5">
           <span
             className="text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full text-white"
             style={{ background: 'var(--accent-gradient)' }}
@@ -141,7 +237,7 @@ export default async function Home() {
               className="flex flex-col items-center gap-3 p-5 rounded-2xl transition-all group"
               style={{
                 background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
+                border:     '1px solid rgba(255,255,255,0.08)',
               }}
             >
               <Image
@@ -162,114 +258,12 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Upcoming events */}
-      {activeEvents.length > 0 && (
-        <section className="max-w-6xl mx-auto px-4 py-16 space-y-6 w-full animate-fade-in-up" style={{ animationDelay: '150ms' }}>
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-white">Próximos eventos</h2>
-            <Link
-              href="/events"
-              className="text-sm font-medium transition-colors hover:opacity-70"
-              style={{ color: 'var(--color-orange)' }}
-            >
-              Ver todos →
-            </Link>
-          </div>
-
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {activeEvents.map((event, i) => {
-              const venue    = (event.venues ?? null) as VenueInfo | null
-              const tiers    = (event.ticket_tiers ?? []) as TierPrice[]
-              const prices   = tiers?.map(t => Number(t.price)) ?? []
-              const minPrice = prices.length ? Math.min(...prices) : null
-              const imageUrl = resolveEventImageUrl(supabase, event.image_url)
-              const catLabel = event.category && event.category !== 'otro'
-                ? CATEGORY_LABELS[event.category]
-                : null
-
-              return (
-                <Link
-                  key={event.id}
-                  href={`/events/${event.id}`}
-                  className="group rounded-2xl overflow-hidden transition-all hover:scale-[1.02] hover:shadow-2xl animate-fade-in-up flex flex-col"
-                  style={{
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    animationDelay: `${i * 80}ms`,
-                  }}
-                >
-                  <div
-                    className="relative h-44 overflow-hidden shrink-0"
-                    style={{ background: 'rgba(255,255,255,0.06)' }}
-                  >
-                    {imageUrl ? (
-                      <Image
-                        src={imageUrl}
-                        alt={event.title}
-                        fill
-                        unoptimized
-                        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Ticket size={32} style={{ color: 'rgba(255,255,255,0.2)' }} />
-                      </div>
-                    )}
-                    {/* Category badge */}
-                    {catLabel && (
-                      <span
-                        className="absolute top-3 right-3 text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm text-white"
-                        style={{ background: 'var(--accent-gradient)' }}
-                      >
-                        {catLabel}
-                      </span>
-                    )}
-                  </div>
-                  <div className="p-4 flex flex-col gap-2 flex-1">
-                    <p className="font-semibold text-white leading-snug line-clamp-2 group-hover:opacity-85 transition-opacity">
-                      {event.title}
-                    </p>
-                    <div className="space-y-1 text-sm flex-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                      <p className="flex items-center gap-1.5">
-                        <CalendarDays size={13} className="shrink-0" style={{ color: 'var(--color-pink)' }} />
-                        {new Date(event.event_date).toLocaleDateString('es-MX', {
-                          weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
-                        })}
-                      </p>
-                      {venue?.name && (
-                        <p className="flex items-center gap-1.5">
-                          <MapPin size={13} className="shrink-0" style={{ color: 'var(--color-pink)' }} />
-                          {venue.name}, {venue.city}
-                        </p>
-                      )}
-                    </div>
-                    <div className="pt-2 mt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                      <p
-                        className="text-sm font-bold"
-                        style={{
-                          background: 'var(--accent-gradient)',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                        }}
-                      >
-                        {minPrice === null ? 'Sin tiers' : minPrice === 0 ? 'FREE' : `Desde $${minPrice.toFixed(2)}`}
-                      </p>
-                    </div>
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Features */}
+      {/* ── Features ─────────────────────────────────────────────────────────── */}
       <section
         className="mt-auto"
         style={{ background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.06)' }}
       >
-        <div className="max-w-6xl mx-auto px-4 py-16">
+        <div className="max-w-6xl mx-auto px-6 py-16">
           <h2 className="font-display text-4xl text-white text-center mb-10 animate-fade-in-up">
             Todo lo que necesitas en un solo lugar
           </h2>
@@ -284,7 +278,7 @@ export default async function Home() {
                 className="rounded-2xl p-6 space-y-3 animate-fade-in-up"
                 style={{
                   background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  border:     '1px solid rgba(255,255,255,0.08)',
                   animationDelay: `${f.delay}ms`,
                 }}
               >
@@ -295,18 +289,23 @@ export default async function Home() {
                   {f.icon}
                 </div>
                 <p className="font-semibold text-white">{f.title}</p>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                  {f.desc}
-                </p>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.45)' }}>{f.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Organizer CTA */}
-      <section className="relative overflow-hidden" style={{ background: 'rgba(249,115,22,0.06)', borderTop: '1px solid rgba(249,115,22,0.15)', borderBottom: '1px solid rgba(249,115,22,0.15)' }}>
-        <div className="max-w-2xl mx-auto px-4 py-20 text-center space-y-6">
+      {/* ── Organizer CTA ───────────────────────────────────────────────────── */}
+      <section
+        className="relative overflow-hidden"
+        style={{
+          background:   'rgba(249,115,22,0.06)',
+          borderTop:    '1px solid rgba(249,115,22,0.15)',
+          borderBottom: '1px solid rgba(249,115,22,0.15)',
+        }}
+      >
+        <div className="max-w-2xl mx-auto px-6 py-20 text-center space-y-6">
           <span
             className="text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full text-white inline-block"
             style={{ background: 'var(--accent-gradient)' }}
@@ -332,18 +331,18 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Footer */}
+      {/* ── Footer ──────────────────────────────────────────────────────────── */}
       <footer style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }} className="py-6">
         <div
-          className="max-w-6xl mx-auto px-4 flex items-center justify-between text-sm"
+          className="max-w-6xl mx-auto px-6 flex items-center justify-between text-sm"
           style={{ color: 'rgba(255,255,255,0.3)' }}
         >
           <span
             className="font-semibold"
             style={{
-              background: 'var(--accent-gradient)',
+              background:           'var(--accent-gradient)',
               WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
+              WebkitTextFillColor:  'transparent',
             }}
           >
             Takilla

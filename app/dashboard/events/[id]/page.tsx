@@ -310,7 +310,7 @@ export default async function EventDetailPage({
     <span>Evento público en</span>
     <Link
       href={`/events/${id}`}
-      className="font-medium bg-gradient-to-r from-orange-400 to-purple-400 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+      className="font-medium bg-linear-to-r from-orange-400 to-purple-400 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
     >
       /events/{id}
     </Link>

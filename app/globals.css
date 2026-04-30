@@ -6,7 +6,7 @@
   --color-purple: #720d98;
   --color-deep-purple: #4b0a79;
 
-  --background: #140a2a;
+  --background: #0a0a0a;
   --foreground: #f4f1ff;
   --surface-panel: #1b1233;
   --hero-gradient: linear-gradient(135deg, #0b0718 0%, #2a1048 55%, #4b0a79 100%);
@@ -108,5 +108,174 @@ button, a, [role="button"] {
   scrollbar-width: none;
 }
 *::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Stripe Elements Customization ──────────────────────────────────────────── */
+
+/* Accordion containers */
+.p-Accordion,
+.p-AccordionItem {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Accordion button */
+.p-AccordionButton {
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  padding: 8px 12px !important;
+  margin: 0 !important;
+  transition: all 0.2s ease !important;
+}
+
+.p-AccordionButton:hover {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.p-AccordionButton--alignCenter {
+  justify-content: flex-start !important;
+}
+
+/* Accordion content */
+.p-AccordionPanel {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin-top: 0 !important;
+}
+
+.p-AccordionPanelContents {
+  background: transparent !important;
+  padding: 12px 0 0 0 !important;
+}
+
+/* Input fields */
+.p-Input,
+.p-Input-input,
+.p-CardNumberInput,
+.p-CardCvcInput {
+  background: transparent !important;
+}
+
+.p-Input-input,
+.p-Fieldset-input,
+.p-Select-select {
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  color: #f4f1ff !important;
+  font-size: 11px !important;
+  padding: 6px 8px !important;
+  height: 36px !important;
+  transition: all 0.2s ease !important;
+}
+
+/* Make PaymentElement area scrollable on small screens */
+.stripe-scrollable {
+  max-height: calc(100vh - 220px) !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding-right: 6px !important;
+}
+
+/* Ensure Stripe inputs use full width */
+.p-Input-input {
+  box-sizing: border-box !important;
+  width: 100% !important;
+}
+
+.p-Input-input::placeholder,
+.p-Select-select option {
+  color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.p-Input-input:focus,
+.p-Fieldset-input:focus,
+.p-Select-select:focus {
+  border-color: rgba(255, 110, 1, 0.5) !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: 0 0 12px rgba(255, 110, 1, 0.15) !important;
+}
+
+/* Labels */
+.p-FieldLabel,
+.Label {
+  color: rgba(255, 255, 255, 0.45) !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  margin-bottom: 4px !important;
+  text-transform: none !important;
+}
+
+/* Card brand icons */
+.p-CardBrandIcons,
+.p-CardBrandIcon {
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.p-CardBrandIcons-item {
+  background: transparent !important;
+}
+
+/* Field errors */
+.p-Field--invalid .p-Input-input,
+.p-Field--invalid .p-Fieldset-input {
+  border-color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.05) !important;
+}
+
+/* Grid and spacing */
+.p-Grid {
+  gap: 10px !important;
+}
+
+.p-GridCell {
+  padding: 0 !important;
+}
+
+/* Remove default Stripe styling */
+.p-FieldsetCell {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Focus states */
+.p-Input-input:hover,
+.p-Fieldset-input:hover,
+.p-Select-select:hover {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Payment accordion button text */
+.p-PaymentAccordionButtonText,
+.p-HeightObserver {
+  color: #f4f1ff !important;
+  font-size: 13px !important;
+}
+
+/* Chevron icon */
+.p-PaymentAccordionButtonIcon,
+.p-Icon--chevronDown {
+  color: rgba(255, 255, 255, 0.3) !important;
+  opacity: 1 !important;
+}
+
+/* Icon styling */
+.p-Icon {
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.p-Icon--selected {
+  color: #ff6e01 !important;
+}
+
+/* Visually hidden text */
+.u-visually-hidden {
   display: none;
 }
