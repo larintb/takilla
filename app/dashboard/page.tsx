@@ -206,13 +206,13 @@ function MobileMenu({
   const showStaffLink = isTeamMember || profile?.role === 'organizer' || profile?.role === 'admin'
 
   useEffect(() => { 
-    document.body.style.overflow = 'hidden'; 
-    return () => { document.body.style.overflow = '' } 
+    document.documentElement.style.overflow = 'hidden'; 
+    return () => { document.documentElement.style.overflow = '' } 
   }, [])
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col md:hidden animate-in fade-in duration-200" 
-         style={{ background: 'var(--background)', backdropFilter: 'blur(12px)' }}>
+         style={{ background: 'var(--background)', backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column' }}>
       
       {/* Header del Menú Móvil */}
       <div className="flex items-center justify-between px-4 h-14 shrink-0" style={{ borderBottom: BORDER }}>
@@ -225,7 +225,7 @@ function MobileMenu({
       </div>
 
       {/* Opciones de Navegación */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
         {navItems.map((item) => {
           const isActive = section === item.id
           const isAction = !!item.href
