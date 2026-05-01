@@ -179,8 +179,8 @@ export default function TicketPanel({
                   )}
 
                   {/* Card header */}
-                  <div className="px-4 py-3.5 flex items-center justify-between gap-3 pr-12">
-                    <div className="flex items-center gap-3 min-w-0">
+                  <div className="px-4 py-3.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="shrink-0 transition-colors duration-200" style={{ color: checkColor(tier) }}>
                         <CheckCircle2 className="w-5 h-5" fill={isSelected ? 'currentColor' : 'none'} />
                       </div>
@@ -194,7 +194,7 @@ export default function TicketPanel({
                         )}
                       </span>
                     </div>
-                    <span className="font-bold text-sm shrink-0" style={headerPriceStyle(tier)}>
+                    <span className="font-bold text-sm shrink-0 w-16 text-right mr-8" style={headerPriceStyle(tier)}>
                       {tierFree ? 'FREE' : `$${Number(tier.price).toLocaleString('es-MX')}`}
                     </span>
                   </div>

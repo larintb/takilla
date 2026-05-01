@@ -52,7 +52,7 @@ export default function PerkPanel({
           >
             {/* Header row */}
             <div className="px-4 py-3.5 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="shrink-0 transition-colors duration-200"
                   style={{ color: isSelected ? 'var(--color-pink)' : 'rgba(255,255,255,0.15)' }}>
                   <CheckCircle2 className="w-5 h-5" fill={isSelected ? 'currentColor' : 'none'} />
@@ -62,7 +62,7 @@ export default function PerkPanel({
                   {perk.name}
                 </span>
               </div>
-              <span className="font-bold text-sm shrink-0"
+              <span className="font-bold text-sm shrink-0 w-20 text-right mr-8"
                 style={{ color: isSelected ? 'var(--color-orange)' : 'rgba(255,255,255,0.45)' }}>
                 {isFree ? 'FREE' : `$${Number(perk.price).toLocaleString('es-MX')}`}
               </span>

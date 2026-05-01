@@ -42,7 +42,6 @@ const roleLabels: Record<string, string> = {
 
 const menuByRole: Record<string, { label: string; href: string }[]> = {
   customer: [
-    { label: 'Publicar eventos', href: '/convertirse-organizador'  },
   ],
   customer_staff: [
     { label: 'Staff App',   href: '/staff/team' },
