@@ -34,7 +34,7 @@ function EventCard({ event, index }: { event: EventItem; index: number }) {
       style={{ animationDelay: `${Math.min(index * 50, 300)}ms` }}
     >
       {/* Portrait image */}
-      <div className="relative aspect-[3/4] rounded-2xl overflow-hidden mb-3">
+      <div className="relative aspect-[7/5] rounded-2xl overflow-hidden mb-3">
         {event.imageUrl ? (
           <Image
             src={event.imageUrl}
@@ -54,13 +54,11 @@ function EventCard({ event, index }: { event: EventItem; index: number }) {
 
         {/* Category chip */}
         {catLabel && event.category !== 'otro' && (
-          <div className="absolute top-2.5 left-2.5">
+          <div className="absolute bottom-2.5 left-2.5">
             <span
               className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white"
               style={{
-                background:    'rgba(255,255,255,0.12)',
-                backdropFilter:'blur(8px)',
-                border:        '1px solid rgba(255,255,255,0.2)',
+                background:    'var(--accent-gradient)',
               }}
             >
               {catLabel}

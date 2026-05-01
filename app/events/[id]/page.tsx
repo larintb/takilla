@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@/utils/supabase/server'
 import { resolveEventImageUrl, resolveAvatarUrl } from '@/utils/supabase/storage'
 import { CalendarDays, MapPin, Users, ArrowLeft, Ticket, Store } from 'lucide-react'
@@ -71,15 +70,22 @@ export default async function EventDetailPage({
       {/* ── Banner ─────────────────────────────────────────────── */}
       <div className="relative w-full h-72 sm:h-96 md:h-[520px] overflow-hidden animate-fade-in"
         style={{ background: 'var(--color-deep-purple)' }}>
-        {imageUrl ? (
-          <Image src={imageUrl} alt={event.title} fill unoptimized priority
-            sizes="100vw" className="object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center"
-            style={{ background: 'var(--hero-gradient)' }}>
-            <Ticket size={48} style={{ color: 'rgba(255,255,255,0.15)' }} />
-          </div>
-        )}
+       {imageUrl ? (
+  <div
+    className="w-full h-full"
+    style={{
+      backgroundImage:    `url(${imageUrl})`,
+      backgroundRepeat:   'repeat',
+      backgroundSize:     '420px auto',
+      backgroundPosition: 'center top',
+    }}
+  />
+) : (
+  <div className="w-full h-full flex items-center justify-center"
+    style={{ background: 'var(--hero-gradient)' }}>
+    <Ticket size={48} style={{ color: 'rgba(255,255,255,0.15)' }} />
+  </div>
+)}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/10" />
 
         {/* Back button — flotante sobre la imagen */}

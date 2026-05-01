@@ -42,23 +42,16 @@ const roleLabels: Record<string, string> = {
 
 const menuByRole: Record<string, { label: string; href: string }[]> = {
   customer: [
-    { label: 'Mi cuenta',        href: '/dashboard'                },
-    { label: 'Ver eventos',      href: '/events'                   },
     { label: 'Publicar eventos', href: '/convertirse-organizador'  },
   ],
   customer_staff: [
-    { label: 'Mi cuenta',   href: '/dashboard'  },
     { label: 'Staff App',   href: '/staff/team' },
-    { label: 'Ver eventos', href: '/events'     },
   ],
   organizer: [
-    { label: 'Mi cuenta',   href: '/dashboard'  },
     { label: 'Mis eventos', href: '/dashboard'  },
     { label: 'Staff App',   href: '/staff/team' },
-    { label: 'Ver eventos', href: '/events'     },
   ],
   admin: [
-    { label: 'Mi cuenta',           href: '/dashboard'       },
     { label: 'Mis eventos',         href: '/dashboard'       },
     { label: 'Panel administrador', href: '/dashboard/admin' },
     { label: 'Staff App',           href: '/staff/team'      },
