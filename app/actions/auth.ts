@@ -6,27 +6,29 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 
 export async function login(
-  prevState: { error: string } | null,
+  prevState: { error: string } | { unverified: true; email: string } | null,
   formData: FormData
 ) {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
+  const email = formData.get('email') as string
+
   const { error } = await supabase.auth.signInWithPassword({
-    email: formData.get('email') as string,
+    email,
     password: formData.get('password') as string,
   })
 
   if (error) {
     if (error.message.toLowerCase().includes('email not confirmed')) {
-      return { error: 'Debes verificar tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada.' }
+      return { unverified: true as const, email }
     }
     return { error: error.message }
   }
 
   const next = formData.get('next') as string | null
   revalidatePath('/', 'layout')
-  redirect(next && next.startsWith('/') ? next : '/dashboard')
+  redirect(next && next.startsWith('/') ? next : '/')
 }
 
 export async function signup(
@@ -76,3 +78,61 @@ export async function logout() {
   revalidatePath('/', 'layout')
   redirect('/')
 }
+
+export async function verifyEmailCode(
+  prevState: { error: string } | null,
+  formData: FormData
+): Promise<{ error: string } | never> {
+  const email = formData.get('email') as string
+  const token = formData.get('code') as string
+
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+
+  const { error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' })
+
+  if (error) {
+    if (error.message.toLowerCase().includes('expired') || error.message.toLowerCase().includes('invalid')) {
+      return { error: 'El código es inválido o ha expirado. Solicita uno nuevo.' }
+    }
+    return { error: error.message }
+  }
+
+  revalidatePath('/', 'layout')
+  redirect('/')
+}
+
+export async function resendSignupCode(
+  prevState: { error: string } | { sent: true } | null,
+  formData: FormData
+): Promise<{ error: string } | { sent: true }> {
+  const email = formData.get('email') as string
+
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+
+  const { error } = await supabase.auth.resend({ type: 'signup', email })
+
+  if (error) return { error: error.message }
+  return { sent: true }
+}
+
+export async function requestPasswordReset(
+  prevState: { error: string } | { sent: true } | null,
+  formData: FormData
+): Promise<{ error: string } | { sent: true }> {
+  const email = formData.get('email') as string
+
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
+  })
+
+  if (error) return { error: error.message }
+  return { sent: true }
+}
+

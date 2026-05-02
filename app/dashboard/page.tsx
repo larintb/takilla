@@ -7,34 +7,42 @@ import Image from 'next/image'
 import { createClient } from '@/utils/supabase/client'
 import {
   Ticket, Settings, CalendarDays, MapPin,
-  FileSearch, LogOut, Check, Loader2, Menu, X, Plus, Trash2, Users, ScanLine
+  FileSearch, LogOut, Check, Loader2, Menu, X, Plus, Trash2, Users, ScanLine, Store, ExternalLink,
+  Home, Gift, QrCode, Sparkles, ShieldCheck, ArrowRight,
 } from 'lucide-react'
+import AvatarUpload from '@/components/avatar-upload'
+import BannerUpload from '@/components/banner-upload'
+import { isEventOver } from '@/utils/event-time'
+import { AVATARS_BUCKET } from '@/utils/supabase/storage'
 import { VT323 } from 'next/font/google'
 import RetroTicketWallet from '@/app/checkout/success/_components/retro-ticket-wallet'
 
 const vt323 = VT323({ weight: '400', subsets: ['latin'] })
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const BG         = 'var(--background)'
-const CARD       = 'rgba(255,255,255,0.04)'
+const BG         = '#000000'
+const CARD       = 'var(--background)'
 const BORDER     = '1px solid rgba(255,255,255,0.08)'
 const TEXT       = '#ffffff'
 const TEXT_MUTED = 'rgba(255,255,255,0.45)'
 const TEXT_DIM   = 'rgba(255,255,255,0.25)'
 const ACCENT     = 'var(--accent-gradient)'
-const SIDEBAR_BG = 'rgba(255,255,255,0.03)'
+const SIDEBAR_BG = '#000000'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Section = 'tickets' | 'settings' | 'events' | 'team'
-interface Profile { full_name: string; role: string; terms_accepted_at?: string | null; stripe_onboarding_complete?: boolean }
+type Section = 'inicio' | 'tickets' | 'settings' | 'events' | 'team' | 'perfil'
+interface Profile {
+  full_name: string; role: string; terms_accepted_at?: string | null; stripe_onboarding_complete?: boolean | null
+  business_name?: string | null; bio?: string | null; avatar_url?: string | null; banner_url?: string | null; public_slug?: string | null
+}
 interface TicketRow {
   id: string; qr_hash: string; is_used: boolean; used_at: string | null
   ticket_tiers: { name: string; price: number } | null
-  events: { title: string; event_date: string; venues: { name: string; city: string } | null } | null
+  events: { title: string; event_date: string; location_name?: string | null; venues: { name: string; city: string } | null } | null
 }
 interface EventRow {
-  id: string; title: string; event_date: string; status: string
+  id: string; title: string; event_date: string; event_end_date?: string | null; status: string
   venues: { name: string; city: string } | null
 }
 interface TeamMember {
@@ -42,6 +50,14 @@ interface TeamMember {
   eventTitle: string; eventStatus: string; fullName: string; email: string
 }
 interface PublishedEvent { id: string; title: string }
+type DashboardMobileTab = {
+  id: string
+  label: string
+  icon: React.ReactNode
+  href?: string
+  section?: Section
+  roles?: string[]
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -61,13 +77,26 @@ const statusColors: Record<string, { bg: string; color: string }> = {
   finished:  { bg: 'rgba(249,115,22,0.15)',  color: '#fb923c' },
 }
 
-function getDisplayStatus(status: string, eventDate: string) {
-  if (status === 'published' && new Date(eventDate) < new Date()) return 'finished'
+function getDisplayStatus(status: string, eventDate: string, eventEndDate?: string | null) {
+  if (status === 'published' && isEventOver(eventDate, eventEndDate)) return 'finished'
   return status
 }
 function ticketDisplayNumber(id: string): string {
   const hex = id.replace(/-/g, '').slice(0, 8)
   return String((parseInt(hex, 16) % 9000) + 1000)
+}
+
+function getDashboardNavItems(profile: Profile | null) {
+  const baseItems: DashboardMobileTab[] = [
+    { id: 'inicio',   label: 'Inicio',         icon: <Home size={15} /> },
+    { id: 'tickets',  label: 'Mis boletos',    icon: <Ticket size={15} />, href: '/tickets' },
+    { id: 'events',   label: 'Mis eventos',    icon: <CalendarDays size={15} />, roles: ['organizer', 'admin'] },
+    { id: 'team',     label: 'Mi equipo',      icon: <Users size={15} />,        roles: ['organizer', 'admin'] },
+    { id: 'perfil',   label: 'Perfil público', icon: <Store size={15} />,        roles: ['organizer', 'admin'] },
+    { id: 'settings', label: 'Configuración',  icon: <Settings size={15} /> },
+  ]
+
+  return baseItems.filter(item => !item.roles || (profile && item.roles.includes(profile.role)))
 }
 
 // ─── Fade ─────────────────────────────────────────────────────────────────────
@@ -84,6 +113,7 @@ function TicketModal({ tickets, initialIndex, onClose }: { tickets: TicketRow[];
   const walletTickets = tickets.map(t => ({
     id: t.id, displayNumber: ticketDisplayNumber(t.id), qr_hash: t.qr_hash,
     eventTitle: t.events?.title ?? 'Evento', eventDate: t.events?.event_date ?? null,
+    locationName: t.events?.location_name ?? null,
     venueName: t.events?.venues?.name ?? null, venueCity: t.events?.venues?.city ?? null,
     tierName: t.ticket_tiers?.name ?? null, tierPrice: t.ticket_tiers ? Number(t.ticket_tiers.price) : null,
   }))
@@ -115,28 +145,36 @@ function TicketModal({ tickets, initialIndex, onClose }: { tickets: TicketRow[];
 function SidebarContent({ profile, section, onSelect, isTeamMember }: {
   profile: Profile | null; section: Section; onSelect: (s: Section) => void; isTeamMember?: boolean
 }) {
-  const baseItems: { id: Section; label: string; icon: React.ReactNode; roles?: string[] }[] = [
-    { id: 'tickets',  label: 'Mis tickets',   icon: <Ticket size={15} /> },
-    { id: 'events',   label: 'Mis eventos',   icon: <CalendarDays size={15} />, roles: ['organizer', 'admin'] },
-    { id: 'team',     label: 'Mi equipo',     icon: <Users size={15} />,        roles: ['organizer', 'admin'] },
-    { id: 'settings', label: 'Configuración', icon: <Settings size={15} /> },
-  ]
-  const navItems = baseItems.filter(i => !i.roles || (profile && i.roles.includes(profile.role)))
+  const navItems = getDashboardNavItems(profile)
   const showStaffLink = isTeamMember || profile?.role === 'organizer' || profile?.role === 'admin'
+
+  const itemClass = "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all text-left"
 
   return (
     <nav className="flex flex-col gap-1">
       {navItems.map(item => {
         const isActive = section === item.id
+        const iconColor = isActive ? '#fff' : 'rgba(255,255,255,0.3)'
+        if (item.href) {
+          return (
+            <Link key={item.id} href={item.href}
+              className={itemClass}
+              style={{ color: TEXT_MUTED }}
+            >
+              <span style={{ color: iconColor }}>{item.icon}</span>
+              {item.label}
+            </Link>
+          )
+        }
         return (
-          <button key={item.id} onClick={() => onSelect(item.id)}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all text-left"
+          <button key={item.id} onClick={() => onSelect(item.id as Section)}
+            className={itemClass}
             style={{
               background: isActive ? ACCENT : 'transparent',
               color: isActive ? '#fff' : TEXT_MUTED,
             }}
           >
-            <span style={{ color: isActive ? '#fff' : 'rgba(255,255,255,0.3)' }}>{item.icon}</span>
+            <span style={{ color: iconColor }}>{item.icon}</span>
             {item.label}
           </button>
         )
@@ -145,7 +183,7 @@ function SidebarContent({ profile, section, onSelect, isTeamMember }: {
         <>
           <div style={{ borderTop: BORDER, margin: '8px 0' }} />
           <Link href="/staff"
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all"
+            className={itemClass}
             style={{ color: TEXT_MUTED }}
           >
             <span style={{ color: 'rgba(255,255,255,0.3)' }}><ScanLine size={15} /></span>
@@ -154,6 +192,225 @@ function SidebarContent({ profile, section, onSelect, isTeamMember }: {
         </>
       )}
     </nav>
+  )
+}
+
+// ─── Mobile Menu Overlay ──────────────────────────────────────────────────────
+
+function MobileMenu({
+  profile, section, onSelect, onClose, isTeamMember
+}: {
+  profile: Profile | null; section: Section; onSelect: (s: Section) => void; onClose: () => void; isTeamMember?: boolean
+}) {
+  const navItems = getDashboardNavItems(profile)
+  const showStaffLink = isTeamMember || profile?.role === 'organizer' || profile?.role === 'admin'
+
+  useEffect(() => { 
+    document.documentElement.style.overflow = 'hidden'; 
+    return () => { document.documentElement.style.overflow = '' } 
+  }, [])
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col md:hidden animate-in fade-in duration-200" 
+         style={{ background: 'var(--background)', backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column' }}>
+      
+      {/* Header del Menú Móvil */}
+      <div className="flex items-center justify-between px-4 h-14 shrink-0" style={{ borderBottom: BORDER }}>
+        <span className="font-bold text-lg tracking-tight" style={{ background: ACCENT, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          Menú
+        </span>
+        <button onClick={onClose} className="p-1.5 rounded-lg text-white hover:bg-white/10 transition-colors">
+          <X size={24} />
+        </button>
+      </div>
+
+      {/* Opciones de Navegación */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
+        {navItems.map((item) => {
+          const isActive = section === item.id
+          const isAction = !!item.href
+          const key = item.id
+
+          const content = (
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" 
+                     style={{ background: isActive ? ACCENT : 'rgba(255,255,255,0.05)', color: isActive ? '#fff' : TEXT_MUTED }}>
+                  {item.icon}
+                </div>
+                <div className="text-base font-medium" style={{ color: isActive ? '#fff' : TEXT }}>{item.label}</div>
+              </div>
+              <div className="text-zinc-500">
+                {isAction ? <ExternalLink size={16} /> : <ArrowRight size={16} style={{ color: isActive ? 'var(--color-orange)' : 'currentColor' }} />}
+              </div>
+            </div>
+          )
+
+          return isAction ? (
+            <Link key={key} href={item.href!} onClick={onClose} 
+                  className="block rounded-2xl p-3 transition-all active:scale-[0.98]" style={{ background: CARD, border: BORDER }}>
+              {content}
+            </Link>
+          ) : (
+            <button key={key} type="button" onClick={() => { onSelect(item.id as Section); onClose() }} 
+                    className="w-full text-left rounded-2xl p-3 transition-all active:scale-[0.98]" 
+                    style={{ background: isActive ? 'rgba(255,255,255,0.08)' : CARD, border: isActive ? '1px solid rgba(255,255,255,0.15)' : BORDER }}>
+              {content}
+            </button>
+          )
+        })}
+
+        {showStaffLink && (
+          <>
+            <div className="my-5" style={{ borderTop: BORDER }} />
+            <Link href="/staff" onClick={onClose} className="block rounded-2xl p-3 transition-all active:scale-[0.98]" style={{ background: CARD, border: BORDER }}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)', color: TEXT_MUTED }}>
+                    <ScanLine size={18} />
+                  </div>
+                  <div className="text-base font-medium" style={{ color: TEXT }}>Staff App</div>
+                </div>
+                <div className="text-zinc-500"><ExternalLink size={16} /></div>
+              </div>
+            </Link>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Inicio Section ───────────────────────────────────────────────────────────
+
+function InicioSection({ profile }: { profile: Profile | null }) {
+  const isOrganizer = profile?.role === 'organizer' || profile?.role === 'admin'
+
+  const userSteps = [
+    {
+      icon: <FileSearch size={20} style={{ color: 'var(--color-orange)' }} />,
+      title: 'Explora los eventos',
+      desc: 'Entra a la sección de Eventos y elige el que te interese.',
+      action: { label: 'Ver eventos', href: '/events' },
+    },
+    {
+      icon: <Ticket size={20} style={{ color: 'var(--color-pink)' }} />,
+      title: 'Compra tu boleto',
+      desc: 'Selecciona el tipo de boleto y la cantidad. Puedes pagar con tarjeta de crédito o débito de forma segura.',
+    },
+    {
+      icon: <QrCode size={20} style={{ color: 'var(--color-orange)' }} />,
+      title: 'Muestra tu QR en la entrada',
+      desc: 'Tus boletos están en "Mis boletos". Abre el QR y preséntalo al staff para entrar.',
+      action: { label: 'Mis boletos', href: '/tickets' },
+    },
+    {
+      icon: <Gift size={20} style={{ color: 'var(--color-pink)' }} />,
+      title: 'Compra extras si el evento los tiene',
+      desc: 'Algunos eventos ofrecen extras como bebidas o merch. Los puedes agregar al comprar tu boleto o después desde "Mis boletos".',
+    },
+  ]
+
+  const organizerSteps = [
+    {
+      icon: <Plus size={20} style={{ color: 'var(--color-orange)' }} />,
+      title: 'Crea tu evento',
+      desc: 'Ve a "Mis eventos" → "Nuevo evento". Llena los datos: nombre, fecha, lugar e imagen.',
+      action: { label: 'Nuevo evento', href: '/dashboard/events/new' },
+    },
+    {
+      icon: <Ticket size={20} style={{ color: 'var(--color-pink)' }} />,
+      title: 'Agrega tiers de boletos',
+      desc: 'Define los tipos de boleto: precio, cantidad disponible y nombre (ej. General, VIP). Puedes agregar boletos gratis.',
+    },
+    {
+      icon: <Gift size={20} style={{ color: 'var(--color-orange)' }} />,
+      title: 'Agrega extras (opcional)',
+      desc: 'Los extras son productos adicionales como bebidas o merch. Cada uno genera un QR escaneable independiente.',
+    },
+    {
+      icon: <ShieldCheck size={20} style={{ color: 'var(--color-pink)' }} />,
+      title: 'Configura tu cuenta de pagos',
+      desc: 'Para cobrar por boletos necesitas conectar tu cuenta de Stripe. Los pagos se depositan directamente a tu banco.',
+      action: { label: 'Configurar pagos', href: '/dashboard/onboarding' },
+    },
+    {
+      icon: <Sparkles size={20} style={{ color: 'var(--color-orange)' }} />,
+      title: 'Publica y comparte',
+      desc: 'Cuando tu evento esté listo, publícalo. Comparte el link para que la gente pueda comprar boletos.',
+    },
+    {
+      icon: <ScanLine size={20} style={{ color: 'var(--color-pink)' }} />,
+      title: 'Escanea QRs en la entrada',
+      desc: 'Usa la Staff App para escanear los QRs de tus asistentes. Puedes agregar a tu equipo en "Mi equipo".',
+      action: { label: 'Abrir Staff App', href: '/staff' },
+    },
+  ]
+
+  const steps = isOrganizer ? organizerSteps : userSteps
+
+  return (
+    <Fade id="inicio">
+      <div className="space-y-8 max-w-2xl">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--color-orange)' }}>
+            Bienvenido
+          </p>
+          <h1 className="text-2xl font-bold" style={{ color: TEXT }}>
+            ¿Cómo usar Takilla?
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: TEXT_MUTED }}>
+            {isOrganizer
+              ? 'Guía rápida para crear y gestionar tus eventos.'
+              : 'Guía rápida para comprar boletos y disfrutar eventos.'}
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {steps.map((step, i) => (
+            <div key={i}
+              className="rounded-2xl p-5"
+              style={{ background: CARD, border: BORDER }}
+            >
+              <div className="flex items-start gap-4">
+                <div className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ background: 'rgba(255,255,255,0.05)' }}>
+                  {step.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+                      style={{ background: 'rgba(255,255,255,0.06)', color: TEXT_DIM }}>
+                      Paso {i + 1}
+                    </span>
+                  </div>
+                  <p className="font-semibold text-sm" style={{ color: TEXT }}>{step.title}</p>
+                  <p className="text-sm mt-0.5" style={{ color: TEXT_MUTED }}>{step.desc}</p>
+                  {step.action && (
+                    <Link href={step.action.href}
+                      className="inline-flex items-center gap-1.5 mt-2 text-xs font-semibold transition-opacity hover:opacity-75"
+                      style={{ color: 'var(--color-orange)' }}>
+                      {step.action.label}
+                      <ArrowRight size={12} />
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-2xl p-5 flex items-center justify-between gap-4"
+          style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)' }}>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: TEXT }}>¿Tienes dudas?</p>
+            <p className="text-xs mt-0.5" style={{ color: TEXT_MUTED }}>
+              Escríbenos a contacto@takilla.online y te ayudamos.
+            </p>
+          </div>
+        </div>
+      </div>
+    </Fade>
   )
 }
 
@@ -211,7 +468,7 @@ function TicketsSection({ tickets }: { tickets: TicketRow[] }) {
                     </div>
                     <div className="pt-2 flex items-center justify-between" style={{ borderTop: BORDER }}>
                       <span className="text-sm font-medium" style={{ color: TEXT_MUTED }}>{tier?.name}</span>
-                      <span className="text-sm font-bold" style={{ color: TEXT }}>${Number(tier?.price ?? 0).toFixed(2)}</span>
+                      <span className="text-sm font-bold" style={{ color: TEXT }}>{Number(tier?.price ?? 0) === 0 ? 'FREE' : `$${Number(tier?.price ?? 0).toFixed(2)}`}</span>
                     </div>
                     <p className="text-xs font-medium" style={{ color: 'var(--color-orange)' }}>Toca para ver QR →</p>
                   </button>
@@ -236,33 +493,48 @@ function EventRowItem({ event, confirmingId, onConfirm, onCancel, onDelete }: {
   onDelete: (id: string) => Promise<void>
 }) {
   const [deleting, startDelete] = useTransition()
-  const displayStatus = getDisplayStatus(event.status, event.event_date)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const displayStatus = getDisplayStatus(event.status, event.event_date, event.event_end_date)
   const venue = event.venues
   const sc = statusColors[displayStatus] ?? statusColors.draft
   const isConfirming = confirmingId === event.id
 
   if (isConfirming) {
     return (
-      <div className="flex items-center justify-between rounded-xl px-5 py-4 gap-4"
+      <div className="rounded-xl px-5 py-4 space-y-3"
         style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
-        <p className="text-sm font-medium min-w-0 truncate" style={{ color: '#fca5a5' }}>
-          ¿Borrar <span className="font-semibold">&quot;{event.title}&quot;</span>?
-        </p>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); startDelete(async () => { await onDelete(event.id) }) }}
-            disabled={deleting}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold disabled:opacity-60 transition-colors"
-            style={{ background: '#dc2626' }}>
-            {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Sí, borrar
-          </button>
-          <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCancel() }}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-            style={{ background: 'rgba(255,255,255,0.08)', color: TEXT }}>
-            Cancelar
-          </button>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm font-medium min-w-0 truncate" style={{ color: '#fca5a5' }}>
+            ¿Borrar <span className="font-semibold">&quot;{event.title}&quot;</span>?
+          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={(e) => {
+                e.preventDefault(); e.stopPropagation(); setDeleteError(null)
+                startDelete(async () => {
+                  try {
+                    await onDelete(event.id)
+                  } catch {
+                    setDeleteError('No se puede borrar: el evento tiene boletos u otros datos asociados. Solo puedes cancelarlo desde su página.')
+                  }
+                })
+              }}
+              disabled={deleting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold disabled:opacity-60 transition-colors"
+              style={{ background: '#dc2626' }}>
+              {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Sí, borrar
+            </button>
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteError(null); onCancel() }}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+              style={{ background: 'rgba(255,255,255,0.08)', color: TEXT }}>
+              Cancelar
+            </button>
+          </div>
         </div>
+        {deleteError && (
+          <p className="text-xs leading-relaxed" style={{ color: '#fca5a5' }}>{deleteError}</p>
+        )}
       </div>
     )
   }
@@ -300,7 +572,6 @@ function EventRowItem({ event, confirmingId, onConfirm, onCancel, onDelete }: {
 // ─── Events Section ───────────────────────────────────────────────────────────
 
 function EventsSection({ events, loading, onDeleteEvent, profile }: { events: EventRow[]; loading: boolean; onDeleteEvent: (id: string) => Promise<void>; profile: Profile | null }) {
-  // Solo un confirm activo a la vez
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
 
   if (loading) return (
@@ -314,24 +585,41 @@ function EventsSection({ events, loading, onDeleteEvent, profile }: { events: Ev
     </div>
   )
 
-  const onboardingIncomplete = profile?.role === 'organizer' && (!profile?.terms_accepted_at || !profile?.stripe_onboarding_complete)
+  const needsTerms   = profile?.role === 'organizer' && !profile?.terms_accepted_at
+  const needsStripe  = profile?.role === 'organizer' && !!profile?.terms_accepted_at && !profile?.stripe_onboarding_complete
 
   return (
     <Fade id="events">
       <div className="space-y-6">
-        {onboardingIncomplete && (
+        {needsTerms && (
           <div className="rounded-xl px-5 py-4 flex items-center justify-between gap-4"
             style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.3)' }}>
             <div>
-              <p className="text-sm font-semibold" style={{ color: '#fb923c' }}>Configura tu cuenta de organizador</p>
+              <p className="text-sm font-semibold" style={{ color: '#fb923c' }}>Acepta los términos para publicar</p>
               <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                Acepta los términos y conecta tu cuenta de pagos para publicar eventos.
+                Necesitas aceptar los términos y condiciones antes de crear eventos.
               </p>
             </div>
             <Link href="/dashboard/onboarding"
               className="shrink-0 px-3 py-1.5 rounded-lg text-white text-xs font-semibold"
               style={{ background: 'var(--accent-gradient)' }}>
-              Configurar
+              Aceptar
+            </Link>
+          </div>
+        )}
+        {needsStripe && (
+          <div className="rounded-xl px-5 py-4 flex items-center justify-between gap-4"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.8)' }}>Organizador gratuito</p>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                Puedes crear eventos gratuitos. Para cobrar por boletos, configura tu cuenta de pagos.
+              </p>
+            </div>
+            <Link href="/dashboard/onboarding"
+              className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+              style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.12)' }}>
+              Activar cobros
             </Link>
           </div>
         )}
@@ -684,11 +972,132 @@ function SettingsSection({ profile, email, onProfileUpdate, onLogout }: {
   )
 }
 
+// ─── Perfil público Section ───────────────────────────────────────────────────
+
+function slugify(str: string) {
+  return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60)
+}
+
+function PerfilSection({ profile, userId, onProfileUpdate }: {
+  profile: Profile; userId: string; onProfileUpdate: (p: Profile) => void
+}) {
+  const supabase = createClient()
+  const [businessName, setBusinessName] = useState(profile.business_name ?? '')
+  const [bio,          setBio]          = useState(profile.bio ?? '')
+  const [avatarPath,   setAvatarPath]   = useState(profile.avatar_url ?? '')
+  const [bannerPath,   setBannerPath]   = useState<string | null>(profile.banner_url ?? null)
+  const [saved,        setSaved]        = useState(false)
+  const [error,        setError]        = useState('')
+  const [saving, startSave] = useTransition()
+
+  const inputClass = "w-full px-3 py-2 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 transition"
+  const inputStyle = { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: TEXT }
+  const btnPrimary = "flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-40"
+
+  async function handleSave() {
+    setError(''); setSaved(false)
+    if (!businessName.trim()) { setError('El nombre del negocio es requerido.'); return }
+    const finalSlug = slugify(businessName)
+    if (!finalSlug || finalSlug.length < 3) { setError('El nombre del negocio es demasiado corto para generar una URL.'); return }
+    startSave(async () => {
+      const { error: err } = await supabase.from('profiles').update({
+        business_name: businessName.trim(),
+        bio:           bio.trim() || null,
+        public_slug:   finalSlug,
+        avatar_url:    avatarPath || null,
+        banner_url:    bannerPath || null,
+      }).eq('id', userId)
+      if (err?.code === '23505') { setError('Ya existe un organizador con ese nombre. Intenta con un nombre ligeramente diferente.'); return }
+      if (err) { setError('Error al guardar. Intenta de nuevo.'); return }
+      onProfileUpdate({ ...profile, business_name: businessName.trim(), bio: bio.trim() || null, public_slug: finalSlug, avatar_url: avatarPath || null, banner_url: bannerPath })
+      setSaved(true); setTimeout(() => setSaved(false), 2500)
+    })
+  }
+
+  const previewSlug = slugify(businessName)
+  const publicUrl = profile.public_slug ? `/o/${profile.public_slug}` : null
+
+  return (
+    <Fade id="perfil">
+      <div className="space-y-6 max-w-lg">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: TEXT }}>Perfil público</h1>
+          <p className="mt-1 text-sm" style={{ color: TEXT_MUTED }}>
+            Los asistentes verán esta información en tu página pública.
+          </p>
+          {publicUrl && (
+            <a href={publicUrl} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1.5 mt-2 text-xs font-medium transition-opacity hover:opacity-70"
+              style={{ color: 'var(--color-orange)' }}>
+              <ExternalLink size={12} /> Ver mi perfil: takilla.app{publicUrl}
+            </a>
+          )}
+        </div>
+
+        <Card>
+          <h2 className="text-sm font-semibold" style={{ color: TEXT }}>Banner de perfil</h2>
+          <p className="text-xs" style={{ color: TEXT_DIM }}>Imagen de portada que aparece en tu página pública.</p>
+          <BannerUpload
+            currentUrl={profile.banner_url ?? null}
+            onUpload={path => setBannerPath(path)}
+          />
+        </Card>
+
+        <Card>
+          <h2 className="text-sm font-semibold" style={{ color: TEXT }}>Foto de perfil</h2>
+          <AvatarUpload
+            bucket={AVATARS_BUCKET}
+            currentUrl={profile.avatar_url ?? null}
+            onUpload={path => setAvatarPath(path)}
+            size={80}
+          />
+        </Card>
+
+        <Card>
+          <h2 className="text-sm font-semibold" style={{ color: TEXT }}>Nombre del negocio</h2>
+          <input
+            type="text"
+            value={businessName}
+            onChange={e => setBusinessName(e.target.value)}
+            maxLength={80}
+            placeholder="Ej. Bebidas El Paraíso"
+            className={inputClass} style={inputStyle}
+          />
+          {businessName.trim() && (
+            <p className="text-xs" style={{ color: TEXT_DIM }}>
+              URL: takilla.app/o/<span style={{ color: TEXT_MUTED }}>{previewSlug || '…'}</span>
+            </p>
+          )}
+
+          <h2 className="text-sm font-semibold mt-2" style={{ color: TEXT }}>Descripción (opcional)</h2>
+          <textarea
+            value={bio}
+            onChange={e => setBio(e.target.value)}
+            maxLength={500}
+            rows={3}
+            placeholder="Cuéntales a tus clientes sobre tu negocio..."
+            className={`${inputClass} resize-none`} style={inputStyle}
+          />
+          <p className="text-xs text-right" style={{ color: TEXT_DIM }}>{bio.length}/500</p>
+
+          {error && <p className="text-xs" style={{ color: '#fca5a5' }}>{error}</p>}
+
+          <button onClick={handleSave} disabled={saving} className={btnPrimary} style={{ background: ACCENT }}>
+            {saving ? <Loader2 size={14} className="animate-spin" /> : saved ? <Check size={14} /> : null}
+            {saved ? 'Guardado' : 'Guardar perfil'}
+          </button>
+        </Card>
+      </div>
+    </Fade>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const supabase = createClient()
-  const [section, setSection]       = useState<Section>('tickets')
+  const [section, setSection]       = useState<Section>('inicio')
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [profile, setProfile]       = useState<Profile | null>(null)
   const [email, setEmail]           = useState('')
   const [userId, setUserId]         = useState('')
@@ -696,7 +1105,6 @@ export default function DashboardPage() {
   const [events, setEvents]         = useState<EventRow[]>([])
   const [loading, setLoading]       = useState(true)
   const [eventsLoading, setEventsLoading] = useState(false)
-  const [drawerOpen, setDrawerOpen] = useState(false)
   const [isTeamMember, setIsTeamMember] = useState(false)
 
   useEffect(() => {
@@ -706,7 +1114,7 @@ export default function DashboardPage() {
       setEmail(user.email ?? '')
       setUserId(user.id)
       const [{ data: prof }, { data: tix }] = await Promise.all([
-        supabase.from('profiles').select('full_name, role, terms_accepted_at, stripe_onboarding_complete').eq('id', user.id).single(),
+        supabase.from('profiles').select('full_name, role, terms_accepted_at, stripe_onboarding_complete, business_name, bio, avatar_url, banner_url, public_slug').eq('id', user.id).single(),
         supabase.from('tickets').select('id, qr_hash, is_used, used_at, ticket_tiers(name, price), events(title, event_date, venues(name, city))').eq('owner_id', user.id).order('id', { ascending: false }),
       ])
       setProfile(prof ?? { full_name: '', role: 'customer' })
@@ -714,7 +1122,7 @@ export default function DashboardPage() {
       if (prof?.role === 'organizer' || prof?.role === 'admin') {
         setSection('events')
         setEventsLoading(true)
-        const query = supabase.from('events').select('id, title, event_date, status, venues(name, city)').order('event_date', { ascending: false })
+        const query = supabase.from('events').select('id, title, event_date, event_end_date, status, venues(name, city)').order('event_date', { ascending: false })
         if (prof.role === 'organizer') query.eq('organizer_id', user.id)
         const { data: evs } = await query
         setEvents((evs ?? []) as unknown as EventRow[])
@@ -737,7 +1145,7 @@ export default function DashboardPage() {
       setEventsLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const query = supabase.from('events').select('id, title, event_date, status, venues(name, city)').order('event_date', { ascending: false })
+      const query = supabase.from('events').select('id, title, event_date, event_end_date, status, venues(name, city)').order('event_date', { ascending: false })
       if (profile?.role === 'organizer') query.eq('organizer_id', user.id)
       const { data: evs } = await query
       setEvents((evs ?? []) as unknown as EventRow[])
@@ -748,10 +1156,11 @@ export default function DashboardPage() {
 
   async function handleDeleteEvent(id: string) {
     const { error } = await supabase.from('events').delete().eq('id', id)
-    if (!error) setEvents(prev => prev.filter(e => e.id !== id))
+    if (error) throw new Error(error.message)
+    setEvents(prev => prev.filter(e => e.id !== id))
   }
   async function handleLogout() { await supabase.auth.signOut(); window.location.href = '/' }
-  function handleSelectSection(s: Section) { setSection(s); setDrawerOpen(false) }
+  function handleSelectSection(s: Section) { setSection(s) }
 
   // ── Loading skeleton ────────────────────────────────────────────────────────
   if (loading) return (
@@ -766,7 +1175,7 @@ export default function DashboardPage() {
           </Link>
         </div>
       </header>
-      <div className="max-w-6xl mx-auto px-4 py-8 flex gap-8">
+      <div className="max-w-6xl mx-auto px-4 py-8 flex gap-8 pb-28 md:pb-8">
         <aside className="hidden md:block w-52 shrink-0 space-y-2">
           <div className="h-4 rounded-lg animate-pulse w-3/4" style={{ background: 'rgba(255,255,255,0.06)' }} />
           <div className="h-3 rounded-lg animate-pulse w-1/2 mb-4" style={{ background: 'rgba(255,255,255,0.04)' }} />
@@ -794,45 +1203,43 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen" style={{ background: BG }}>
 
+      {/* Render condicional del Menú Móvil */}
+      {isMobileMenuOpen && (
+        <MobileMenu 
+          profile={profile} 
+          section={section} 
+          onSelect={handleSelectSection} 
+          onClose={() => setIsMobileMenuOpen(false)} 
+          isTeamMember={isTeamMember} 
+        />
+      )}
+
       {/* Header */}
-      <header className="h-14 flex items-center sticky top-0 z-30" style={{ borderBottom: BORDER, background: 'rgba(20,10,42,0.85)', backdropFilter: 'blur(12px)' }}>
+      <header className="h-14 flex items-center sticky top-0 z-30" style={{ borderBottom: BORDER, background: BG, backdropFilter: 'blur(12px)' }}>
         <div className="max-w-6xl mx-auto px-4 w-full flex items-center justify-between">
-          <button className="md:hidden p-1 transition-colors" onClick={() => setDrawerOpen(true)}
-            style={{ color: TEXT_MUTED }}>
+          
+          <button 
+            onClick={() => setIsMobileMenuOpen(true)} 
+            className="p-1.5 -ml-1.5 md:hidden text-white hover:bg-white/10 rounded-lg transition-colors"
+          >
             <Menu size={22} />
           </button>
+          
+          <div className="hidden md:block w-7" />
+
           <Link href="/" className="flex items-center gap-2 absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0">
             <Image src="/images/logo1.png" alt="Takilla" width={28} height={28} className="rounded-md" />
             <span className="font-bold text-lg tracking-tight" style={{
               background: ACCENT, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>Takilla</span>
           </Link>
-          <div className="md:hidden w-7" />
+          
+          <div className="w-7 md:hidden" />
         </div>
       </header>
 
-      {/* Mobile overlay */}
-      {drawerOpen && <div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={() => setDrawerOpen(false)} />}
-
-      {/* Mobile drawer */}
-      <div className={`fixed top-0 left-0 h-full w-64 z-50 shadow-2xl transform transition-transform duration-300 ease-in-out md:hidden ${drawerOpen ? 'translate-x-0' : '-translate-x-full'}`}
-        style={{ background: '#1a1929' }}>
-        <div className="px-4 h-16 flex items-center justify-between" style={{ background: ACCENT }}>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{profile?.full_name || email}</p>
-            <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.65)' }}>{email}</p>
-          </div>
-          <button type="button" onClick={() => setDrawerOpen(false)} className="ml-3 shrink-0 p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/20 transition-colors">
-            <X size={18} />
-          </button>
-        </div>
-        <div className="p-4">
-          <SidebarContent profile={profile} section={section} onSelect={handleSelectSection} isTeamMember={isTeamMember} />
-        </div>
-      </div>
-
       {/* Body */}
-      <div className="max-w-6xl mx-auto px-4 py-8 flex gap-8">
+      <div className="max-w-6xl mx-auto px-4 py-8 flex gap-8 pb-28 md:pb-8">
 
         {/* Desktop sidebar */}
         <aside className="hidden md:block w-52 shrink-0">
@@ -851,9 +1258,13 @@ export default function DashboardPage() {
 
         {/* Content */}
         <main className="flex-1 min-w-0">
+          {section === 'inicio'   && <InicioSection profile={profile} />}
           {section === 'tickets'  && <TicketsSection tickets={tickets} />}
           {section === 'events'   && <EventsSection events={events} loading={eventsLoading} onDeleteEvent={handleDeleteEvent} profile={profile} />}
           {section === 'team'     && userId && <TeamSection userId={userId} />}
+          {section === 'perfil'   && profile && userId && (
+            <PerfilSection profile={profile} userId={userId} onProfileUpdate={p => setProfile(p)} />
+          )}
           {section === 'settings' && profile && (
             <SettingsSection profile={profile} email={email} onProfileUpdate={p => setProfile(p)} onLogout={handleLogout} />
           )}

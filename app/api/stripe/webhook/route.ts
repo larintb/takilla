@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { stripe } from '@/utils/stripe/server'
 import { createAdminClient } from '@/utils/supabase/admin'
+import { sendPurchaseConfirmation } from '@/utils/email/purchase-confirmation'
 
 async function handleAccountUpdated(account: Stripe.Account) {
   if (!account.charges_enabled || !account.payouts_enabled) return
@@ -31,13 +32,40 @@ function asRequiredMetadata(metadata: Stripe.Metadata | null) {
     return null
   }
 
-  return { userId, tierId, quantity }
+  // perk_ids is optional — present when perks are bundled with ticket purchase
+  const perkIdsCsv = metadata?.perk_ids?.trim() || null
+  const perkIds: string[] = perkIdsCsv ? perkIdsCsv.split(',').map(s => s.trim()).filter(Boolean) : []
+
+  // discount is optional
+  const discountId     = metadata?.discount_id?.trim() || null
+  const discountAmount = metadata?.discount_amount ? Number(metadata.discount_amount) : 0
+
+  return { userId, tierId, quantity, perkIds, discountId, discountAmount }
+}
+
+function asPerksOnlyMetadata(metadata: Stripe.Metadata | null) {
+  if (metadata?.purchase_kind !== 'perks') return null
+
+  const userId = metadata?.user_id?.trim()
+  const eventId = metadata?.event_id?.trim()
+  const perkIdsCsv = metadata?.perk_ids?.trim() || null
+  const perkIds: string[] = perkIdsCsv ? perkIdsCsv.split(',').map(s => s.trim()).filter(Boolean) : []
+
+  if (!userId || !eventId || perkIds.length === 0) return null
+
+  return { userId, eventId, perkIds }
 }
 
 async function tryRefund(paymentIntentId: string | null, context: string) {
   if (!paymentIntentId) return
   try {
-    await stripe.refunds.create({ payment_intent: paymentIntentId })
+    // reverse_transfer: true returns the funds from the connected account back to
+    // the platform. Required for destination charges — without it the platform
+    // absorbs the full loss while the organizer keeps the transfer.
+    await stripe.refunds.create({
+      payment_intent: paymentIntentId,
+      reverse_transfer: true,
+    })
     console.log(`[webhook] Reembolso emitido (${context}):`, paymentIntentId)
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -73,6 +101,84 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true })
   }
 
+  // ── PaymentIntent (flujo embebido, sin redirect) ──────────────────────────
+  if (event.type === 'payment_intent.succeeded') {
+    const pi = event.data.object as Stripe.PaymentIntent
+    const supabaseAdmin = createAdminClient()
+
+    // ── Perks-only purchase ───────────────────────────────────────────────
+    const perksOnly = asPerksOnlyMetadata(pi.metadata)
+    if (perksOnly) {
+      const totalAmount = pi.amount / 100
+      const { data: orderId, error } = await supabaseAdmin.rpc('fulfill_perks_order', {
+        p_user_id:     perksOnly.userId,
+        p_event_id:    perksOnly.eventId,
+        p_perk_ids:    perksOnly.perkIds,
+        p_session_id:  pi.id,
+        p_total_amount: totalAmount,
+      })
+      if (error) {
+        console.error('[webhook] fulfill_perks_order error:', error.message)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      if (orderId) void sendPurchaseConfirmation(perksOnly.userId, orderId)
+      return NextResponse.json({ received: true })
+    }
+
+    // ── Ticket purchase (+ optional bundled perks) ────────────────────────
+    const parsed = asRequiredMetadata(pi.metadata)
+    if (parsed) {
+      const { data: orderId, error } = await supabaseAdmin.rpc('fulfill_checkout_session', {
+        p_user_id:            parsed.userId,
+        p_tier_id:            parsed.tierId,
+        p_quantity:           parsed.quantity,
+        p_session_id:         pi.id,
+        p_payment_intent_id:  pi.id,
+        p_discount_id:        parsed.discountId,
+        p_discount_amount:    parsed.discountAmount,
+      })
+
+      if (error) {
+        if (error.message.includes('No hay boletos suficientes')) {
+          console.warn('[webhook] Inventario insuficiente en PaymentIntent, reembolsando:', pi.id)
+          await tryRefund(pi.id, pi.id)
+          return NextResponse.json({ received: true })
+        }
+        if (error.message.includes('discount_exhausted')) {
+          console.warn('[webhook] Descuento agotado en PaymentIntent, reembolsando:', pi.id)
+          await tryRefund(pi.id, pi.id)
+          return NextResponse.json({ received: true })
+        }
+        if (error.message.includes('orders_stripe_session_id_unique')) {
+          console.log('[webhook] PaymentIntent ya procesado (success page ganó la carrera):', pi.id)
+          return NextResponse.json({ received: true })
+        }
+        console.error('[webhook] fulfill error (payment_intent.succeeded):', error.message)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      // Fulfill bundled perks if present
+      if (orderId && parsed.perkIds.length > 0) {
+        const eventId = pi.metadata?.event_id?.trim()
+        if (eventId) {
+          const { error: perkError } = await supabaseAdmin.rpc('fulfill_perk_purchases', {
+            p_order_id: orderId,
+            p_user_id:  parsed.userId,
+            p_event_id: eventId,
+            p_perk_ids: parsed.perkIds,
+          })
+          if (perkError) {
+            console.error('[webhook] fulfill_perk_purchases error:', perkError.message)
+          }
+        }
+      }
+
+      if (orderId) void sendPurchaseConfirmation(parsed.userId, orderId)
+    }
+
+    return NextResponse.json({ received: true })
+  }
+
   if (
     event.type === 'checkout.session.completed' ||
     event.type === 'checkout.session.async_payment_succeeded'
@@ -90,25 +196,52 @@ export async function POST(request: Request) {
         typeof session.payment_intent === 'string' ? session.payment_intent : null
 
       const supabaseAdmin = createAdminClient()
-      const { error } = await supabaseAdmin.rpc('fulfill_checkout_session', {
-        p_user_id: parsed.userId,
-        p_tier_id: parsed.tierId,
-        p_quantity: parsed.quantity,
-        p_session_id: session.id,
+      const { data: orderId, error } = await supabaseAdmin.rpc('fulfill_checkout_session', {
+        p_user_id:           parsed.userId,
+        p_tier_id:           parsed.tierId,
+        p_quantity:          parsed.quantity,
+        p_session_id:        session.id,
         p_payment_intent_id: paymentIntentId,
+        p_discount_id:       parsed.discountId,
+        p_discount_amount:   parsed.discountAmount,
       })
 
       if (error) {
         if (error.message.includes('No hay boletos suficientes')) {
           console.warn('[webhook] Inventario insuficiente al fulfillment, emitiendo reembolso. Sesión:', session.id)
           await tryRefund(paymentIntentId, session.id)
-          // Return 200 — Stripe must not retry this, the issue is permanent
           return NextResponse.json({ received: true })
         }
-
+        if (error.message.includes('discount_exhausted')) {
+          console.warn('[webhook] Descuento agotado al fulfillment, emitiendo reembolso. Sesión:', session.id)
+          await tryRefund(paymentIntentId, session.id)
+          return NextResponse.json({ received: true })
+        }
+        if (error.message.includes('orders_stripe_session_id_unique')) {
+          console.log('[webhook] Sesión ya procesada (success page ganó la carrera):', session.id)
+          return NextResponse.json({ received: true })
+        }
         console.error('[webhook] fulfill_checkout_session error:', error.message)
-        // Return 500 for unexpected errors so Stripe retries
         return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      if (orderId && parsed.perkIds.length > 0) {
+        const eventId = session.metadata?.event_id?.trim()
+        if (eventId) {
+          const { error: perkError } = await supabaseAdmin.rpc('fulfill_perk_purchases', {
+            p_order_id: orderId,
+            p_user_id:  parsed.userId,
+            p_event_id: eventId,
+            p_perk_ids: parsed.perkIds,
+          })
+          if (perkError) {
+            console.error('[webhook] fulfill_perk_purchases (checkout.session) error:', perkError.message)
+          }
+        }
+      }
+
+      if (orderId) {
+        void sendPurchaseConfirmation(parsed.userId, orderId)
       }
     }
   }

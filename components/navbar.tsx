@@ -1,24 +1,38 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { cookies } from 'next/headers'
-import { unstable_cache } from 'next/cache'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import NavbarUserMenu from './navbar-user-menu'
 
-const getProfile = unstable_cache(
-  async (userId: string) => {
-    const admin = createAdminClient()
-    const { data } = await admin
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+async function getProfileAndTeam(userId: string) {
+  const admin = createAdminClient()
+  const supabase = createClient(await cookies())
+
+  // Ambas queries en paralelo — sin waterfall
+  const [profileResult, teamResult] = await Promise.all([
+    admin
       .from('profiles')
       .select('full_name, role')
       .eq('id', userId)
-      .single()
-    return data
-  },
-  ['navbar-profile'],
-  { revalidate: 300 }
-)
+      .single(),
+    supabase
+      .from('team_members')
+      .select('id')
+      .eq('member_user_id', userId)
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  return {
+    profile:   profileResult.data,
+    isOnTeam:  !!teamResult.data,
+  }
+}
+
+// ─── Constants ──────────────────────────────────────────────────────────────
 
 const roleLabels: Record<string, string> = {
   customer:  'Cliente',
@@ -26,25 +40,46 @@ const roleLabels: Record<string, string> = {
   admin:     'Admin',
 }
 
+const menuByRole: Record<string, { label: string; href: string }[]> = {
+  customer: [
+    { label: 'Publicar eventos', href: '/convertirse-organizador'  },
+  ],
+  customer_staff: [
+    { label: 'Staff App',   href: '/staff/team' },
+  ],
+  organizer: [
+    { label: 'Mis eventos', href: '/dashboard'  },
+    { label: 'Staff App',   href: '/staff/team' },
+  ],
+  admin: [
+    { label: 'Mis eventos',         href: '/dashboard'       },
+    { label: 'Panel administrador', href: '/dashboard/admin' },
+    { label: 'Staff App',           href: '/staff/team'      },
+  ],
+}
+
+// ─── Component ──────────────────────────────────────────────────────────────
+
 export default async function Navbar() {
   const cookieStore = await cookies()
-  const supabase   = createClient(cookieStore)
+  const supabase    = createClient(cookieStore)
 
   const { data: { user } } = await supabase.auth.getUser()
 
+  // ── Logged-out header ──────────────────────────────────────────────────
   if (!user) {
     return (
-      <header style={{ background: 'rgba(20,10,42,0.85)', borderBottom: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }} className="relative z-40 sticky top-0">
+      <header
+        className="z-40 sticky top-0"
+        style={{
+          background:           'rgba(10,10,10,0.85)',
+          borderBottom:         '1px solid rgba(255,255,255,0.06)',
+          backdropFilter:       'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+        }}
+      >
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <Image src="/images/logo1.png" alt="Takilla" width={32} height={32} className="rounded-lg" />
-            <span
-              className="font-bold text-xl tracking-tight"
-              style={{ background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
-            >
-              Takilla
-            </span>
-          </Link>
+          <Logo />
           <div className="flex items-center gap-3 text-sm">
             <Link
               href="/login"
@@ -66,60 +101,28 @@ export default async function Navbar() {
     )
   }
 
-  const profile = await getProfile(user.id)
+  // ── Logged-in: fetch profile + team membership in parallel ─────────────
+  const { profile, isOnTeam } = await getProfileAndTeam(user.id)
+
   const role        = profile?.role ?? 'customer'
   const displayName = profile?.full_name || user.email || 'Usuario'
 
-  const baseMenuByRole: Record<string, { label: string; href: string }[]> = {
-    customer: [
-      { label: 'Mi cuenta',   href: '/dashboard' },
-      { label: 'Ver eventos', href: '/events'    },
-    ],
-    organizer: [
-      { label: 'Mi cuenta',   href: '/dashboard'  },
-      { label: 'Mis eventos', href: '/dashboard'  },
-      { label: 'Staff App',   href: '/staff/team' },
-      { label: 'Ver eventos', href: '/events'     },
-    ],
-    admin: [
-      { label: 'Mi cuenta',           href: '/dashboard'       },
-      { label: 'Mis eventos',         href: '/dashboard'       },
-      { label: 'Panel administrador', href: '/dashboard/admin' },
-      { label: 'Staff App',           href: '/staff/team'      },
-    ],
-  }
-
-  let menuItems = baseMenuByRole[role] ?? baseMenuByRole.customer
-
-  if (role === 'customer') {
-    const { data: teamEntry } = await supabase
-      .from('team_members')
-      .select('id')
-      .eq('member_user_id', user.id)
-      .limit(1)
-      .single()
-
-    if (teamEntry) {
-      menuItems = [
-        { label: 'Mi cuenta',   href: '/dashboard'  },
-        { label: 'Staff App',   href: '/staff/team' },
-        { label: 'Ver eventos', href: '/events'     },
-      ]
-    }
-  }
+  // Resolve menu key: customers on a team get a different set
+  const menuKey  = role === 'customer' && isOnTeam ? 'customer_staff' : role
+  const menuItems = menuByRole[menuKey] ?? menuByRole.customer
 
   return (
-    <header style={{ background: 'rgba(20,10,42,0.85)', borderBottom: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }} className="relative z-40 sticky top-0">
+    <header
+      className="z-40 sticky top-0"
+      style={{
+        background:           'rgba(10,10,10,0.85)',
+        borderBottom:         '1px solid rgba(255,255,255,0.06)',
+        backdropFilter:       'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+      }}
+    >
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5">
-          <Image src="/images/logo1.png" alt="Takilla" width={32} height={32} className="rounded-lg" />
-          <span
-            className="font-bold text-xl tracking-tight"
-            style={{ background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
-          >
-            Takilla
-          </span>
-        </Link>
+        <Logo />
         <NavbarUserMenu
           userName={displayName}
           roleLabel={roleLabels[role] ?? 'Cliente'}
@@ -127,5 +130,31 @@ export default async function Navbar() {
         />
       </div>
     </header>
+  )
+}
+
+// ─── Sub-components ─────────────────────────────────────────────────────────
+
+function Logo() {
+  return (
+    <Link href="/" className="flex items-center gap-2.5">
+      <Image
+        src="/images/logo1.png"
+        alt="Takilla"
+        width={32}
+        height={32}
+        className="rounded-lg"
+      />
+      <span
+        className="font-bold text-xl tracking-tight"
+        style={{
+          background:             'var(--accent-gradient)',
+          WebkitBackgroundClip:   'text',
+          WebkitTextFillColor:    'transparent',
+        }}
+      >
+        Takilla
+      </span>
+    </Link>
   )
 }

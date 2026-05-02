@@ -16,6 +16,10 @@ export default function ConfettiBurst() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
+
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')

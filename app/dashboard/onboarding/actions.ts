@@ -56,23 +56,24 @@ export async function startStripeOnboarding() {
 
   if (profile?.role !== 'organizer') redirect('/dashboard')
   if (!profile?.terms_accepted_at) redirect('/dashboard/onboarding')
-  if (profile?.stripe_onboarding_complete) redirect('/dashboard/events')
+  if (profile?.stripe_onboarding_complete) redirect('/dashboard')
 
   const supabaseAdmin = createAdminClient()
   let stripeAccountId = profile.stripe_account_id
 
   if (!stripeAccountId) {
     const account = await stripe.accounts.create({
-      type: 'express',
       country: 'MX',
       email: user.email ?? undefined,
-      capabilities: {
-        transfers: { requested: true },
+      controller: {
+        losses: { payments: 'application' },
+        fees: { payer: 'application' },
+        stripe_dashboard: { type: 'express' },
+        requirement_collection: 'stripe',
       },
-      settings: {
-        payouts: {
-          schedule: { interval: 'manual' },
-        },
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
       },
     })
 

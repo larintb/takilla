@@ -3,8 +3,11 @@
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/utils/supabase/admin'
 import { stripe } from '@/utils/stripe/server'
-import { calculateFees } from '@/utils/pricing'
+import { calculateFees, calculatePerkFees, applyDiscount } from '@/utils/pricing'
+import { isEventOver } from '@/utils/event-time'
+import { validateDiscountCode, discountToInput, type DiscountRow } from '@/utils/discounts'
 
 function getBaseUrl(headerStore: Awaited<ReturnType<typeof headers>>) {
   const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim()
@@ -23,17 +26,21 @@ export async function startStripeCheckout(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const tierId = (formData.get('tierId') as string | null)?.trim()
-  const eventId = (formData.get('eventId') as string | null)?.trim()
+  const tierId   = (formData.get('tierId') as string | null)?.trim()
+  const eventId  = (formData.get('eventId') as string | null)?.trim()
   const quantityRaw = Number(formData.get('quantity'))
   const quantity = Number.isInteger(quantityRaw) ? quantityRaw : 1
+  const perksCsv = (formData.get('perks') as string | null)?.trim() || ''
+  const perkIds  = perksCsv ? perksCsv.split(',').map(s => s.trim()).filter(Boolean) : []
+  const codeParam = (formData.get('code') as string | null)?.trim().toUpperCase() || null
+  const discountIdParam = (formData.get('discountId') as string | null)?.trim() || null
 
   if (!tierId || !eventId) throw new Error('Faltan datos del checkout')
   if (quantity < 1 || quantity > 10) throw new Error('Cantidad inválida')
 
   const { data: tier } = await supabase
     .from('ticket_tiers')
-    .select('id, name, price, available_tickets, event_id, events(title, status, event_date, organizer_id)')
+    .select('id, name, price, available_tickets, event_id, events(title, status, event_date, event_end_date, organizer_id)')
     .eq('id', tierId)
     .eq('event_id', eventId)
     .single()
@@ -42,13 +49,73 @@ export async function startStripeCheckout(formData: FormData) {
   if (tier.available_tickets < quantity) throw new Error('No hay boletos suficientes')
 
   const event = Array.isArray(tier.events)
-    ? (tier.events[0] as { title: string; status: string; event_date: string; organizer_id: string } | undefined)
-    : (tier.events as { title: string; status: string; event_date: string; organizer_id: string } | null)
+    ? (tier.events[0] as { title: string; status: string; event_date: string; event_end_date?: string | null; organizer_id: string } | undefined)
+    : (tier.events as { title: string; status: string; event_date: string; event_end_date?: string | null; organizer_id: string } | null)
   if (!event || event.status !== 'published') throw new Error('El evento no está disponible')
-  if (new Date(event.event_date) < new Date()) throw new Error('El evento ya pasó')
+  if (isEventOver(event.event_date, event.event_end_date)) throw new Error('El evento ya pasó')
 
-  // Obtener cuenta de Stripe del organizador para destination charges
-  const { data: organizer } = await supabase
+  const priceNumber = Number(tier.price)
+
+  // ── Resolve discount (server-side re-validation) ──────────────────────────
+  let activeDiscount: DiscountRow | null = null
+
+  if (codeParam) {
+    const result = await validateDiscountCode(supabase, eventId, tierId, codeParam)
+    if (result.ok) activeDiscount = result.discount
+  } else if (discountIdParam) {
+    // Auto-applied public discount — fetch by ID (admin bypasses RLS to read any is_active)
+    const supabaseAdmin = createAdminClient()
+    const { data: d } = await supabaseAdmin
+      .from('discounts')
+      .select('*')
+      .eq('id', discountIdParam)
+      .eq('event_id', eventId)
+      .eq('is_active', true)
+      .single()
+    if (d && (d.tier_id === null || d.tier_id === tierId)) {
+      activeDiscount = d as DiscountRow
+    }
+  }
+
+  const applied     = activeDiscount ? applyDiscount(priceNumber, quantity, discountToInput(activeDiscount)) : null
+  const effectPrice = applied?.effectivePrice ?? priceNumber
+
+  if (effectPrice === 0) {
+    // Free path (original free tier OR 100%-discounted paid tier)
+    for (let i = 0; i < quantity; i++) {
+      const { error } = await supabase.rpc('purchase_ticket', {
+        tier_id_input: tierId,
+      })
+      if (error) throw new Error(error.message)
+    }
+
+    // Redeem discount after all tickets created
+    if (activeDiscount) {
+      const supabaseAdmin = createAdminClient()
+      await supabaseAdmin.rpc('redeem_discount', {
+        p_discount_id: activeDiscount.id,
+        p_event_id:    eventId,
+      })
+    }
+
+    // Handle bundled free perks
+    if (perkIds.length > 0) {
+      const supabaseAdmin = createAdminClient()
+      const { error: perkError } = await supabaseAdmin.rpc('purchase_perks_free', {
+        p_user_id:  user.id,
+        p_event_id: eventId,
+        p_perk_ids: perkIds,
+      })
+      if (perkError) {
+        console.error('[checkout] purchase_perks_free error:', perkError.message)
+      }
+    }
+    redirect('/tickets')
+  }
+
+  // ── Paid path via Stripe Checkout Session (legacy fallback) ──────────────────
+  const supabaseAdmin = createAdminClient()
+  const { data: organizer } = await supabaseAdmin
     .from('profiles')
     .select('stripe_account_id, stripe_onboarding_complete')
     .eq('id', event.organizer_id)
@@ -58,23 +125,65 @@ export async function startStripeCheckout(formData: FormData) {
     throw new Error('El organizador aún no ha configurado su cuenta de pagos')
   }
 
-  const priceNumber = Number(tier.price)
+  const fees = calculateFees(effectPrice, quantity)
 
-  if (priceNumber === 0) {
-    for (let i = 0; i < quantity; i++) {
-      const { error } = await supabase.rpc('purchase_ticket', {
-        tier_id_input: tierId,
-      })
-      if (error) throw new Error(error.message)
-    }
-    redirect('/tickets')
+  if (fees.unitAmountCentavos < 1000) {
+    throw new Error('El precio del boleto es menor al mínimo permitido por Stripe para pagos en MXN')
   }
 
-  const fees = calculateFees(priceNumber, quantity)
+  type PerkFeeRow = { id: string; name: string; unitAmountCentavos: number; appFeeCentavos: number }
+  const perkFeeRows: PerkFeeRow[] = []
+  let totalPerkAppFeeCentavos = 0
+  let perkIdCsv = ''
 
-  const baseUrl = getBaseUrl(headerStore)
+  if (perkIds.length > 0) {
+    const uniqueIds = [...new Set(perkIds)]
+    const supabaseAdmin2 = createAdminClient()
+    const { data: perksData } = await supabaseAdmin2
+      .from('perks')
+      .select('id, name, price')
+      .in('id', uniqueIds)
+      .eq('event_id', eventId)
+
+    if (perksData) {
+      const priceMap = new Map(perksData.map(p => [p.id, { name: p.name, price: Number(p.price) }]))
+      for (const perkId of perkIds) {
+        const perk = priceMap.get(perkId)
+        if (!perk || perk.price === 0) continue
+        const pFees = calculatePerkFees(perk.price, 1)
+        perkFeeRows.push({ id: perkId, name: perk.name, unitAmountCentavos: pFees.unitAmountCentavos, appFeeCentavos: pFees.applicationFeeAmountCentavos })
+        totalPerkAppFeeCentavos += pFees.applicationFeeAmountCentavos
+      }
+      perkIdCsv = perkIds.join(',')
+    }
+  }
+
+  const baseUrl    = getBaseUrl(headerStore)
   const successUrl = `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
-  const cancelUrl = `${baseUrl}/checkout?eventId=${eventId}&tierId=${tierId}&quantity=${quantity}`
+  const cancelUrl  = `${baseUrl}/checkout?eventId=${eventId}&tierId=${tierId}&quantity=${quantity}`
+
+  const perkLineItems: { quantity: number; price_data: { currency: string; unit_amount: number; product_data: { name: string } } }[] = []
+  const perkQtyMap = new Map<string, { qty: number; unitCents: number; name: string }>()
+  for (const row of perkFeeRows) {
+    const existing = perkQtyMap.get(row.id)
+    if (existing) existing.qty++
+    else perkQtyMap.set(row.id, { qty: 1, unitCents: row.unitAmountCentavos, name: row.name })
+  }
+  for (const { qty, unitCents, name } of perkQtyMap.values()) {
+    perkLineItems.push({ quantity: qty, price_data: { currency: 'mxn', unit_amount: unitCents, product_data: { name } } })
+  }
+
+  const metadata: Record<string, string> = {
+    user_id:  user.id,
+    event_id: eventId,
+    tier_id:  tierId,
+    quantity: String(quantity),
+  }
+  if (perkIdCsv) metadata.perk_ids = perkIdCsv
+  if (activeDiscount) {
+    metadata.discount_id     = activeDiscount.id
+    metadata.discount_amount = (applied?.totalDiscount ?? 0).toFixed(2)
+  }
 
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
@@ -93,19 +202,15 @@ export async function startStripeCheckout(formData: FormData) {
           },
         },
       },
+      ...perkLineItems,
     ],
     payment_intent_data: {
+      application_fee_amount: fees.applicationFeeAmountCentavos + totalPerkAppFeeCentavos,
       transfer_data: {
         destination: organizer.stripe_account_id,
-        amount: fees.transferAmount,
       },
     },
-    metadata: {
-      user_id: user.id,
-      event_id: eventId,
-      tier_id: tierId,
-      quantity: String(quantity),
-    },
+    metadata,
   })
 
   if (!session.url) {

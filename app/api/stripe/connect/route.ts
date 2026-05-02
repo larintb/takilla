@@ -48,16 +48,17 @@ export async function POST() {
 
   if (!stripeAccountId) {
     const account = await stripe.accounts.create({
-      type: 'express',
       country: 'MX',
       email: user.email ?? undefined,
-      capabilities: {
-        transfers: { requested: true },
+      controller: {
+        losses: { payments: 'application' },
+        fees: { payer: 'application' },
+        stripe_dashboard: { type: 'express' },
+        requirement_collection: 'stripe',
       },
-      settings: {
-        payouts: {
-          schedule: { interval: 'manual' },
-        },
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
       },
     })
 

@@ -16,7 +16,6 @@ export default function EventMap({
   const mapRef         = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<mapboxgl.Map | null>(null)
   const animFrameRef   = useRef<number | null>(null)
-  const timeout2Ref    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const timeout3Ref    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [showPrompt, setShowPrompt] = useState(false)
 
@@ -35,69 +34,84 @@ export default function EventMap({
         container: mapRef.current!,
         style: 'mapbox://styles/mapbox/standard',
         center: [lng, lat],
-        zoom: 1,
+        zoom: 12,          // start close — avoids loading world tiles
         pitch: 0,
         bearing: 0,
         interactive: false,
+        antialias: false,  // disable MSAA — big GPU win on mobile
+        fadeDuration: 100,
+        maxTileCacheSize: 30,
       })
 
       mapInstanceRef.current = map
 
       map.on('load', () => {
-        // Dusk lighting on Standard style
         map.setConfigProperty('basemap', 'lightPreset', 'dusk')
 
-        // Marker
         new mapboxgl.Marker({ color: '#ff6e01' })
           .setLngLat([lng, lat])
           .addTo(map)
 
-        // ── Fase 1: desde el espacio ──────────────────────────────────
+        // ── Fase 1: acercamiento cinematográfico ──────────────────────
         map.flyTo({
           center: [lng, lat],
-          zoom: 14.5,
+          zoom: 16.6,
           pitch: 50,
           bearing: -20,
-          duration: 5000,
+          duration: 4000,
           easing: (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t,
         })
 
-        // ── Fase 2: zoom de dron ──────────────────────────────────────
-        timeout2Ref.current = setTimeout(() => {
-          if (!mapInstanceRef.current) return
-          map.easeTo({
-            zoom: 16.5,
-            pitch: 65,
-            bearing: 0,
-            duration: 2000,
-          })
-        }, 5200)
+        // // ── Fase 2: vista de dron ─────────────────────────────────────
+        // timeout2Ref.current = setTimeout(() => {
+        //   if (!mapInstanceRef.current) return
+        //   map.easeTo({
+        //     zoom: 17,
+        //     pitch: 55,   // reduced from 65 — fewer tiles in perspective
+        //     bearing: 0,
+        //     duration: 2000,
+        //   })
+        // }, 4200)
 
         // ── Fase 3: órbita 360 ────────────────────────────────────────
         timeout3Ref.current = setTimeout(() => {
           if (!mapInstanceRef.current) return
           let startTime: number | null = null
+          const startBearing = map.getBearing()
 
           function rotate(timestamp: number) {
             if (!mapInstanceRef.current) return
             if (!startTime) startTime = timestamp
             const elapsed = timestamp - startTime
-            const bearing = (elapsed / 12000) * 360 // vuelta completa cada 12s
+            const bearing = startBearing + (elapsed / 15000) * 360
             map.jumpTo({ bearing: bearing % 360 })
             animFrameRef.current = requestAnimationFrame(rotate)
           }
 
           animFrameRef.current = requestAnimationFrame(rotate)
-        }, 7500)
+        }, 4400)
       })
     }
 
-    initMap()
+    // Defer init until the map container is scrolled into view
+    const el = mapRef.current
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          initMap()
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.1 },
+    )
+    observer.observe(el)
 
     return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
-      if (timeout2Ref.current)  clearTimeout(timeout2Ref.current)
-      if (timeout3Ref.current)  clearTimeout(timeout3Ref.current)
+      const t3 = timeout3Ref.current
+      const frame = animFrameRef.current
+      observer.disconnect()
+      if (frame) cancelAnimationFrame(frame)
+      if (t3) clearTimeout(t3)
       mapInstanceRef.current?.remove()
       mapInstanceRef.current = null
     }

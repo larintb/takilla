@@ -33,9 +33,29 @@ export default function Scanner() {
     setState('loading')
     scannerRef.current?.pause()
 
-    const res = await validateTicket(hash)
+    let res: ValidationResult
+    try {
+      res = await validateTicket(hash)
+    } catch {
+      // Network or server error — show error result so staff can tap "Escanear otro" to retry
+      setResult({ success: false, message: 'Error de red. Intenta de nuevo.' })
+      setState('result')
+      return
+    }
     setResult(res)
     setState('result')
+
+    if (typeof window !== 'undefined') {
+      const { Capacitor } = await import('@capacitor/core')
+      if (Capacitor.isNativePlatform()) {
+        const { Haptics, ImpactStyle, NotificationType } = await import('@capacitor/haptics')
+        if (res.success) {
+          await Haptics.impact({ style: ImpactStyle.Medium })
+        } else {
+          await Haptics.notification({ type: NotificationType.Error })
+        }
+      }
+    }
   }, [setState])
 
   const reset = useCallback(() => {
@@ -44,13 +64,6 @@ export default function Scanner() {
     setState('scanning')
     scannerRef.current?.start()
   }, [setState])
-
-  // Auto-reset 5s después de un resultado exitoso
-  useEffect(() => {
-    if (state !== 'result' || !result?.success) return
-    const t = setTimeout(reset, 5000)
-    return () => clearTimeout(t)
-  }, [state, result, reset])
 
   // Inicializa y arranca la cámara — solo cuando el usuario pulsa el botón
   const startCamera = useCallback(async () => {
@@ -94,22 +107,23 @@ export default function Scanner() {
   }, [])
 
   return (
-    <div className="relative flex-1 flex flex-col items-center justify-center bg-zinc-950">
+    <div className="relative flex-1 flex flex-col items-center justify-center" style={{ background: 'var(--background)' }}>
 
       {/* Pantalla inicial — requiere gesto del usuario para iOS */}
       {state === 'idle' && !camError && (
         <div className="flex flex-col items-center gap-6 p-8 text-center">
-          <div className="w-24 h-24 rounded-full bg-zinc-800 flex items-center justify-center">
-            <Camera size={40} className="text-zinc-400" />
+          <div className="w-24 h-24 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.08)' }}>
+            <Camera size={40} style={{ color: 'rgba(255,255,255,0.3)' }} />
           </div>
           <div className="space-y-1">
-            <p className="text-white font-semibold text-lg">Escanear boleto</p>
-            <p className="text-zinc-500 text-sm">Se necesita acceso a la cámara</p>
+            <p className="text-white font-semibold text-lg">Escanear boleto o extra</p>
+            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>Se necesita acceso a la cámara</p>
           </div>
           <button
             type="button"
             onClick={startCamera}
-            className="px-8 py-3 bg-white text-zinc-900 rounded-xl font-semibold text-sm active:scale-95 transition-transform"
+            className="px-8 h-12 rounded-xl font-semibold text-sm text-white transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{ background: 'var(--accent-gradient)' }}
           >
             Activar cámara
           </button>
@@ -118,19 +132,20 @@ export default function Scanner() {
 
       {state === 'idle' && camError && (
         <div className="flex flex-col items-center gap-4 p-8 text-center">
-          <CameraOff size={36} className="text-zinc-500" />
-          <p className="text-sm text-zinc-400">{camError}</p>
+          <CameraOff size={36} style={{ color: 'rgba(255,255,255,0.3)' }} />
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>{camError}</p>
           <button
             type="button"
             onClick={startCamera}
-            className="px-6 py-2.5 bg-white text-zinc-900 rounded-xl font-semibold text-sm"
+            className="px-6 h-10 rounded-lg text-white text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{ background: 'var(--accent-gradient)' }}
           >
             Reintentar
           </button>
         </div>
       )}
 
-      <div className={`relative w-full max-w-sm aspect-[3/4] rounded-2xl overflow-hidden bg-zinc-900 ${state === 'idle' ? 'hidden' : ''}`}>
+      <div className={`relative w-full max-w-sm aspect-3/4 rounded-2xl overflow-hidden ${state === 'idle' ? 'hidden' : ''}`} style={{ background: 'rgba(255,255,255,0.05)' }}>
         <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
 
         {/* Visor de escaneo */}
@@ -167,30 +182,50 @@ export default function Scanner() {
             </p>
             <p className="text-white/80 text-sm">{result.message}</p>
 
-            {result.success && (
-              <div className="w-full bg-white/15 rounded-xl p-4 text-sm space-y-1.5 text-white">
+            {result.success && result.kind === 'ticket' && (
+              <div className="w-full bg-white/15 rounded-xl p-4 text-sm space-y-2 text-white">
                 <p><span className="text-white/60">Evento</span><br />{result.ticket.eventTitle}</p>
                 <p><span className="text-white/60">Tier</span><br />{result.ticket.tierName}</p>
                 <p><span className="text-white/60">Titular</span><br />{result.ticket.ownerName}</p>
+                {result.ticket.items.length > 0 && (
+                  <div className="pt-1 border-t border-white/20">
+                    <p className="text-white/60 mb-1">Incluye</p>
+                    <ul className="space-y-0.5">
+                      {result.ticket.items.map((item, i) => (
+                        <li key={i} className="flex items-center gap-1.5 font-medium">
+                          <span className="text-white/60">•</span>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {result.success && result.kind === 'perk' && (
+              <div className="w-full bg-white/15 rounded-xl p-4 text-sm space-y-2 text-white">
+                <p className="text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Extra canjeado</p>
+                <p className="text-xl font-bold">{result.perk.perkName}</p>
+                <p><span className="text-white/60">Evento</span><br />{result.perk.eventTitle}</p>
+                <p><span className="text-white/60">Titular</span><br />{result.perk.ownerName}</p>
               </div>
             )}
 
             <button
               onClick={reset}
-              className="mt-2 flex items-center gap-2 bg-white text-zinc-900 px-6 py-2.5 rounded-xl text-sm font-semibold"
+              className="mt-2 flex items-center gap-2 px-6 h-10 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: 'var(--accent-gradient)' }}
             >
               <RefreshCw size={15} />
               Escanear otro
             </button>
-            {result.success && (
-              <p className="text-white/40 text-xs">Reanuda automáticamente en 5s</p>
-            )}
           </div>
         )}
       </div>
 
-      <p className="mt-6 text-sm text-zinc-500 text-center px-4">
-        {state === 'scanning' && 'Apunta la cámara al QR del boleto'}
+      <p className="mt-6 text-xs text-center px-4" style={{ color: 'rgba(255,255,255,0.45)' }}>
+        {state === 'scanning' && 'Apunta la cámara al QR del boleto o extra'}
         {state === 'loading'  && 'Validando...'}
       </p>
     </div>

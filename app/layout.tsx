@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import PageTransition from "@/components/page-transition";
+import CapacitorInit from "@/components/capacitor-init";
+import BottomNavServer from "@/components/bottom-nav-server";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -17,6 +20,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -28,12 +32,22 @@ export default function RootLayout({
     <html
       lang="es"
       className={`${poppins.variable} h-full antialiased`}
-      style={{ background: '#140a2a' }}
+      style={{ background: 'var(--background)' }}
     >
-      <body className="min-h-full flex flex-col" style={{ background: '#140a2a', color: '#f4f1ff' }}>
+      <body className="min-h-full flex flex-col" style={{ background: 'var(--background)', color: '#f4f1ff' }}>
+        <CapacitorInit />
         <PageTransition>
-          {children}
+          <div className="pb-20 md:pb-0">
+            {children}
+          </div>
         </PageTransition>
+        <BottomNavServer />
+        <footer className="text-center py-4 text-xs text-zinc-500">
+          <a href="mailto:contacto@takilla.online" className="hover:text-zinc-300 transition-colors">
+            contacto@takilla.online
+          </a>
+        </footer>
+        <Analytics />
       </body>
     </html>
   );

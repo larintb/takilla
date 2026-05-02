@@ -5,10 +5,10 @@ import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 
-export async function createEvent(
+export async function createEventWithInfo(
   prevState: { error: string } | null,
   formData: FormData
-) {
+): Promise<{ error: string } | null> {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
@@ -17,24 +17,28 @@ export async function createEvent(
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, terms_accepted_at, stripe_onboarding_complete')
+    .select('role, terms_accepted_at')
     .eq('id', user.id)
     .single()
 
-  if (profile?.role !== 'organizer') return { error: 'Solo organizadores pueden crear eventos' }
-  if (!profile?.terms_accepted_at || !profile?.stripe_onboarding_complete) {
-    redirect('/dashboard/onboarding')
-  }
+  if (profile?.role !== 'organizer' && profile?.role !== 'admin')
+    return { error: 'Solo organizadores pueden crear eventos' }
+  if (!profile?.terms_accepted_at) redirect('/dashboard/onboarding')
 
-  const title       = formData.get('title') as string
-  const description = formData.get('description') as string
-  const event_date  = formData.get('event_date') as string
-  const venue_id    = formData.get('venue_id') as string
-  const image_path  = (formData.get('image_path') as string | null)?.trim() || null
-  const status      = formData.get('status') as string
+  const title         = formData.get('title') as string
+  const description   = formData.get('description') as string
+  const event_date    = formData.get('event_date') as string
+  const event_end_date = formData.get('event_end_date') as string
+  const image_path    = (formData.get('image_path') as string | null)?.trim() || null
+  const category      = formData.get('category') as string
+  const location_name = (formData.get('location_name') as string | null)?.trim() || null
+  const location_lat  = formData.get('location_lat') ? Number(formData.get('location_lat')) : null
+  const location_lng  = formData.get('location_lng') ? Number(formData.get('location_lng')) : null
 
-  if (!title?.trim()) return { error: 'El título es requerido' }
-  if (!event_date)    return { error: 'La fecha es requerida' }
+  if (!title?.trim())    return { error: 'El título es requerido' }
+  if (!event_date)       return { error: 'La fecha es requerida' }
+  if (!location_name)    return { error: 'La ubicación es obligatoria' }
+  if (!image_path)       return { error: 'La imagen del evento es obligatoria' }
 
   const { data: event, error } = await supabase
     .from('events')
@@ -43,9 +47,13 @@ export async function createEvent(
       title:        title.trim(),
       description:  description?.trim() || null,
       event_date,
-      venue_id:     venue_id || null,
+      event_end_date: event_end_date || null,
       image_url:    image_path,
-      status:       status || 'draft',
+      status:       'draft',
+      category:     category || 'otro',
+      location_name,
+      location_lat:  location_lat && !isNaN(location_lat) ? location_lat : null,
+      location_lng:  location_lng && !isNaN(location_lng) ? location_lng : null,
     })
     .select('id')
     .single()

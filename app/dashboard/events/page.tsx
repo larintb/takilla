@@ -11,13 +11,6 @@ const statusLabel: Record<string, string> = {
   finished:  'Finalizado',
 }
 
-const statusStyle: Record<string, string> = {
-  draft:     'bg-zinc-100 text-zinc-600',
-  published: 'bg-green-100 text-green-700',
-  cancelled: 'bg-red-100 text-red-600',
-  finished:  'bg-orange-100 text-orange-700',
-}
-
 type VenueInfo = {
   name?: string | null
   city?: string | null
@@ -55,29 +48,36 @@ export default async function EventsPage() {
   const { data: events } = await query
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 py-6 animate-fade-in-up">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Mis eventos</h1>
-          <p className="text-zinc-500 mt-1">{events?.length ?? 0} eventos en total</p>
+          <h1 className="text-2xl font-bold text-white">Mis eventos</h1>
+          <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            {events?.length ?? 0} eventos en total
+          </p>
         </div>
         <Link
           href="/dashboard/events/new"
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 via-pink-500 to-purple-700 text-white text-sm font-semibold hover:from-orange-600 hover:via-pink-600 hover:to-purple-800 transition-all"
+          className="flex items-center gap-2 px-4 h-10 rounded-lg text-white text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98] shrink-0"
+          style={{ background: 'var(--accent-gradient)' }}
         >
           <Plus size={16} />
-          Nuevo evento
+          Nuevo
         </Link>
       </div>
 
       {!events?.length ? (
-        <div className="bg-white rounded-2xl border border-zinc-200 p-16 text-center">
-          <CalendarDays size={40} className="mx-auto text-zinc-300 mb-3" />
-          <p className="font-semibold text-zinc-700">No tienes eventos aÃºn</p>
-          <p className="text-sm text-zinc-400 mt-1">Crea tu primer evento para empezar a vender boletos</p>
+        <div className="rounded-2xl border p-12 text-center"
+          style={{ background: 'var(--background)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <CalendarDays size={40} style={{ color: 'rgba(255,255,255,0.15)', margin: '0 auto 12px' }} />
+          <p className="font-semibold text-white">No tienes eventos aún</p>
+          <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            Crea tu primer evento para empezar a vender boletos
+          </p>
           <Link
             href="/dashboard/events/new"
-            className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 via-pink-500 to-purple-700 text-white text-sm font-semibold hover:from-orange-600 hover:via-pink-600 hover:to-purple-800 transition-all"
+            className="inline-flex items-center gap-2 mt-4 px-4 h-10 rounded-lg text-white text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{ background: 'var(--accent-gradient)' }}
           >
             <Plus size={15} />
             Crear evento
@@ -87,19 +87,27 @@ export default async function EventsPage() {
         <div className="space-y-3">
           {events.map(event => {
             const displayStatus = getDisplayStatus(event.status, event.event_date)
+            const statusColors: Record<string, { bg: string; color: string }> = {
+              draft:     { bg: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' },
+              published: { bg: 'rgba(34,197,94,0.15)',   color: '#4ade80' },
+              cancelled: { bg: 'rgba(239,68,68,0.15)',   color: '#f87171' },
+              finished:  { bg: 'rgba(249,115,22,0.15)',  color: '#fb923c' },
+            }
+            const badgeStyle = statusColors[displayStatus]
             return (
               <Link
                 key={event.id}
                 href={`/dashboard/events/${event.id}`}
-                className="flex items-center justify-between bg-white rounded-xl border border-zinc-200 px-5 py-4 hover:border-orange-300 transition-colors group"
+                className="flex items-center justify-between rounded-2xl border px-5 py-4 transition-all active:scale-[0.98]"
+                style={{ background: 'var(--background)', border: '1px solid rgba(255,255,255,0.08)' }}
               >
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-zinc-900 group-hover:text-orange-600 truncate transition-colors">{event.title}</p>
-                  <div className="flex items-center gap-3 mt-1 text-sm text-zinc-400">
+                  <p className="font-semibold text-white truncate">{event.title}</p>
+                  <div className="flex items-center gap-3 mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
                     <span className="flex items-center gap-1">
                       <CalendarDays size={13} />
                       {new Date(event.event_date).toLocaleDateString('es-MX', {
-                        day: 'numeric', month: 'short', year: 'numeric',
+                        day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
                       })}
                     </span>
                     {((event.venues as VenueInfo | null)?.name) && (
@@ -110,7 +118,9 @@ export default async function EventsPage() {
                     )}
                   </div>
                 </div>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ml-4 ${statusStyle[displayStatus]}`}>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full ml-4 shrink-0"
+                  style={{ background: badgeStyle.bg, color: badgeStyle.color }}
+                >
                   {statusLabel[displayStatus]}
                 </span>
               </Link>
