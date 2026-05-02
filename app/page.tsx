@@ -142,7 +142,7 @@ export default async function Home() {
                   className="flex-none w-56 snap-center group cursor-pointer"
                 >
                   {/* Card imagen */}
-                  <div className="relative aspect-3/4 rounded-3xl overflow-hidden shadow-xl">
+                  <div className="relative aspect-[7/5] rounded-3xl overflow-hidden shadow-xl">
                     {imageUrl ? (
                       <Image
                         src={imageUrl}
@@ -164,7 +164,7 @@ export default async function Home() {
                       <div className="absolute inset-0 p-3 flex flex-col justify-end">
                         <span
                           className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider w-fit text-white"
-                          style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)' }}
+                          style={{ background: 'var(--accent-gradient)' }}
                         >
                           {catLabel}
                         </span>

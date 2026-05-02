@@ -48,9 +48,26 @@ export default async function AdminPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10 pb-16" style={{ color: '#fff' }}>
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Panel de administración</h1>
-        <p className="text-sm mt-1" style={{ color: MUTED }}>Takilla · Actualizado {now}</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Panel de administración</h1>
+          <p className="text-sm mt-1" style={{ color: MUTED }}>Takilla · Actualizado {now}</p>
+        </div>
+        <a
+          href="/dashboard/admin/reminders"
+          style={{
+            background: 'linear-gradient(90deg,#ff6e01 0%,#fa1492 55%,#720d98 100%)',
+            color: '#fff',
+            fontSize: 13,
+            fontWeight: 600,
+            textDecoration: 'none',
+            padding: '9px 20px',
+            borderRadius: 50,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          ✉️ Enviar recordatorios
+        </a>
       </div>
 
       {/* Metrics */}

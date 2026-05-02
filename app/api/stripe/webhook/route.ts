@@ -149,6 +149,10 @@ export async function POST(request: Request) {
           await tryRefund(pi.id, pi.id)
           return NextResponse.json({ received: true })
         }
+        if (error.message.includes('orders_stripe_session_id_unique')) {
+          console.log('[webhook] PaymentIntent ya procesado (success page ganó la carrera):', pi.id)
+          return NextResponse.json({ received: true })
+        }
         console.error('[webhook] fulfill error (payment_intent.succeeded):', error.message)
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
@@ -211,6 +215,10 @@ export async function POST(request: Request) {
         if (error.message.includes('discount_exhausted')) {
           console.warn('[webhook] Descuento agotado al fulfillment, emitiendo reembolso. Sesión:', session.id)
           await tryRefund(paymentIntentId, session.id)
+          return NextResponse.json({ received: true })
+        }
+        if (error.message.includes('orders_stripe_session_id_unique')) {
+          console.log('[webhook] Sesión ya procesada (success page ganó la carrera):', session.id)
           return NextResponse.json({ received: true })
         }
         console.error('[webhook] fulfill_checkout_session error:', error.message)
