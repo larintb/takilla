@@ -20,7 +20,9 @@
       "mcp__plugin_vercel_vercel__web_fetch_vercel_url",
       "Bash(pnpm tsc *)",
       "WebFetch(domain:resend.com)",
-      "Bash(pnpm build *)"
+      "Bash(pnpm build *)",
+      "Bash(xargs cat *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\vlpiz\\\\Desktop\\\\production\\\\takillav\\\\app\\\\dashboard\" -Recurse | ForEach-Object { $_.FullName })"
     ]
   }
 }
